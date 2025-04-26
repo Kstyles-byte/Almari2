@@ -21,6 +21,7 @@ async function main() {
   await prisma.vendor.deleteMany({});
   await prisma.customer.deleteMany({});
   await prisma.category.deleteMany({});
+  await prisma.heroBanner.deleteMany({});
   await prisma.user.deleteMany({});
 
   // Create admin
@@ -608,6 +609,52 @@ async function main() {
   ]);
   
   console.log('Created sample notifications');
+
+  // Create more products for other vendors and categories...
+  
+  console.log('Created products for all vendors');
+
+  // Create hero banners
+  const heroBanners = await Promise.all([
+    prisma.heroBanner.create({
+      data: {
+        title: "Summer Collection",
+        subtitle: "Discover our new arrivals for the summer season with amazing discounts",
+        buttonText: "Shop Now",
+        buttonLink: "/products?category=fashion",
+        imageUrl: "https://images.unsplash.com/photo-1607082350899-7e105aa886ae?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
+        mobileImageUrl: "https://images.unsplash.com/photo-1607082350899-7e105aa886ae?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
+        isActive: true,
+        priority: 10
+      }
+    }),
+    prisma.heroBanner.create({
+      data: {
+        title: "Tech Gadgets Sale",
+        subtitle: "Latest electronics with free agent delivery for a limited time",
+        buttonText: "Explore Deals",
+        buttonLink: "/products?category=electronics",
+        imageUrl: "https://images.unsplash.com/photo-1498049794561-7780e7231661?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
+        mobileImageUrl: "https://images.unsplash.com/photo-1498049794561-7780e7231661?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
+        isActive: true,
+        priority: 5,
+        startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Start in 7 days
+      }
+    }),
+    prisma.heroBanner.create({
+      data: {
+        title: "Back to School",
+        subtitle: "Everything you need for the new semester right on campus",
+        buttonText: "Get Prepared",
+        buttonLink: "/products?category=books",
+        imageUrl: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2022&q=80",
+        isActive: true,
+        priority: 3
+      }
+    })
+  ]);
+
+  console.log('Created hero banners:', heroBanners.length);
 
   console.log('Database seeding completed successfully!');
 }

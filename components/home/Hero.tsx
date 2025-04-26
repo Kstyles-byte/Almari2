@@ -3,8 +3,29 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '../ui/button';
 import { ArrowRight } from 'lucide-react';
+import { getActiveHeroBanners, HeroBanner } from '../../actions/content';
 
-const Hero = () => {
+const Hero = async () => {
+  // Fetch the active hero banner
+  const heroBanners = await getActiveHeroBanners();
+  
+  // Use the first banner (highest priority) or fallback to default content
+  const banner: HeroBanner = heroBanners[0] || {
+    id: 'default',
+    title: 'Shop Your Favorite Products on Campus',
+    subtitle: 'Discover a wide range of products from trusted vendors with convenient pickup locations right on campus.',
+    buttonText: 'Shop Now',
+    buttonLink: '/products',
+    imageUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158',
+    mobileImageUrl: null,
+    isActive: true,
+    priority: 10,
+    startDate: null,
+    endDate: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
   return (
     <section className="relative bg-gradient-to-r from-zervia-900 to-zervia-800 py-16 md:py-24 text-white overflow-hidden">
       {/* Decorative background elements */}
@@ -22,17 +43,23 @@ const Hero = () => {
               Campus E-commerce, Simplified
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
-              Shop Your <span className="text-zervia-300">Favorite</span> Products on Campus
+              {banner.title.includes('Favorite') ? (
+                <>Shop Your <span className="text-zervia-300">Favorite</span> Products on Campus</>
+              ) : (
+                banner.title
+              )}
             </h1>
             <p className="text-lg text-zervia-100">
-              Discover a wide range of products from trusted vendors with convenient pickup locations right on campus.
+              {banner.subtitle}
             </p>
             <div className="flex flex-wrap gap-4">
-              <Button asChild size="lg" className="font-medium bg-zervia-500 hover:bg-zervia-600 text-white">
-                <Link href="/products">
-                  Shop Now <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
+              {banner.buttonText && banner.buttonLink && (
+                <Button asChild size="lg" className="font-medium bg-zervia-500 hover:bg-zervia-600 text-white">
+                  <Link href={banner.buttonLink}>
+                    {banner.buttonText} <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </Button>
+              )}
               <Button asChild variant="outline" size="lg" className="font-medium border-white text-white hover:bg-white/10">
                 <Link href="/vendors">
                   Browse Vendors
@@ -59,7 +86,7 @@ const Hero = () => {
           {/* Hero Image */}
           <div className="relative h-[400px] lg:h-[500px]">
             <Image
-              src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158"
+              src={banner.imageUrl}
               alt="Zervia Shopping Experience"
               fill
               className="object-cover rounded-2xl shadow-lg"
@@ -109,4 +136,4 @@ const Hero = () => {
   );
 };
 
-export default Hero; 
+export default Hero;

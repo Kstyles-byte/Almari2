@@ -313,22 +313,39 @@ model Return {
   customer      Customer     @relation(fields: [customerId], references: [id])
   vendor        Vendor       @relation(fields: [vendorId], references: [id])
   agent         Agent        @relation(fields: [agentId], references: [id])
-  notifications Notification[]
+  notifications Notification[]  @relation("ReturnNotifications")
 }
 
 // New Notification model
 model Notification {
-  id            String           @id @default(uuid())
-  userId        String
-  title         String
-  message       String
-  type          NotificationType
-  orderId       String?
-  returnId      String?
-  isRead        Boolean          @default(false)
-  createdAt     DateTime         @default(now())
+  id        String            @id @default(uuid())
+  userId    String
+  orderId   String?
+  returnId  String?           // Add this field for Return relation
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean           @default(false)
+  createdAt DateTime          @default(now())
   
-  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  order         Order?           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  return        Return?          @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order?            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  return    Return?           @relation("ReturnNotifications", fields: [returnId], references: [id], onDelete: Cascade)
+}
+
+// New model for Hero Banners
+model HeroBanner {
+  id            String    @id @default(uuid())
+  title         String
+  subtitle      String?
+  buttonText    String?
+  buttonLink    String?
+  imageUrl      String    // Cloudinary URL
+  mobileImageUrl String?  // Responsive image for mobile
+  isActive      Boolean   @default(true)
+  priority      Int       @default(0)  // For ordering multiple banners
+  startDate     DateTime?  // Optional scheduling
+  endDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
