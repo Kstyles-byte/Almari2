@@ -4,35 +4,35 @@ This document outlines the implementation of the dynamic hero section for the Ze
 
 ## Overview
 
-The hero section of the homepage has been made dynamic, allowing content to be managed through the database. This implementation uses Supabase to store and retrieve hero banner data, which can be later managed through an admin dashboard.
+The hero section of the homepage has been made dynamic, allowing content to be managed through the admin dashboard. This implementation uses Next.js server actions and Prisma with PostgreSQL to store and retrieve hero banner data.
 
 ## Technical Implementation
 
 ### Database Schema
 
-The `HeroBanner` table in Supabase has the following structure:
+The `HeroBanner` model in Prisma has the following structure:
 
-```sql
-CREATE TABLE IF NOT EXISTS "HeroBanner" (
-  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "title" TEXT NOT NULL,
-  "subtitle" TEXT,
-  "buttonText" TEXT,
-  "buttonLink" TEXT,
-  "imageUrl" TEXT NOT NULL,
-  "mobileImageUrl" TEXT,
-  "isActive" BOOLEAN DEFAULT true,
-  "priority" INTEGER DEFAULT 0,
-  "startDate" TIMESTAMP WITH TIME ZONE,
-  "endDate" TIMESTAMP WITH TIME ZONE,
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
+```prisma
+model HeroBanner {
+  id            String    @id @default(uuid())
+  title         String
+  subtitle      String?
+  buttonText    String?
+  buttonLink    String?
+  imageUrl      String    // Cloudinary URL
+  mobileImageUrl String?  // Responsive image for mobile
+  isActive      Boolean   @default(true)
+  priority      Int       @default(0)  // For ordering multiple banners
+  startDate     DateTime?  // Optional scheduling
+  endDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
 ```
 
 ### Server Actions
 
-The `content.ts` file in the `actions` directory contains the following functions:
+The `content.ts` file in the `actions` directory contains the following functions for hero banner management:
 
 - `getActiveHeroBanners()`: Retrieves active hero banners ordered by priority
 - `getHeroBannerById(id)`: Gets a specific banner by ID
@@ -52,46 +52,52 @@ The `Hero.tsx` component fetches banner data using the `getActiveHeroBanners()` 
 - **Mobile Optimization**: Separate image URLs for desktop and mobile views
 - **Active/Inactive Toggle**: Easily enable or disable banners without deleting them
 
-## Admin Management (Future Implementation)
+## Admin Management
 
-The admin dashboard will include functionality to:
+The admin dashboard includes functionality to:
 
-1. Create new hero banners through a user-friendly form
-2. Upload images directly to Cloudinary
-3. Schedule banner display periods
-4. Manage existing banners (edit, delete, deactivate)
-5. Reorder banners by priority
+1. View all hero banners at `/admin/content/hero-banners`
+2. Create new hero banners through a user-friendly form at `/admin/content/hero-banners/new`
+3. Edit existing banners
+4. Delete banners
+5. Toggle banner active status
 
-## Setup Instructions
+### HeroBannerForm Component
 
-1. Add Supabase credentials to your environment variables:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL="your-supabase-url"
-   NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
-   SUPABASE_SERVICE_ROLE_KEY="your-service-key"
-   ```
+The `HeroBannerForm.tsx` component handles:
 
-2. Create the `HeroBanner` table in Supabase SQL Editor using the schema above
+- Image uploads to Cloudinary
+- Form validation
+- Date selection with Calendar and Popover components
+- Active/inactive toggle with Switch component
+- Priority settings
+- Saving banner data through server actions
 
-3. Add initial banner data using SQL:
-   ```sql
-   INSERT INTO "HeroBanner" (
-     "title", "subtitle", "buttonText", "buttonLink", "imageUrl", "isActive", "priority"
-   ) VALUES 
-   (
-     'Summer Collection',
-     'Discover our new arrivals for the summer season with amazing discounts',
-     'Shop Now',
-     '/products?category=fashion',
-     'https://example.com/banner-image.jpg',
-     true,
-     10
-   );
-   ```
+## Admin Access
+
+The admin interface can be accessed at:
+
+```
+https://yourdomain.com/admin
+```
+
+For hero banner management specifically:
+
+```
+https://yourdomain.com/admin/content/hero-banners
+```
+
+## Implementation Notes
+
+1. The hero banner implementation uses Radix UI components for the admin interface
+2. Images are uploaded to Cloudinary for optimization and CDN delivery
+3. The system supports scheduling banners for specific date ranges
+4. Banners are prioritized based on a numeric priority value (lower numbers display first)
+5. The homepage automatically displays the highest priority active banner
 
 ## Next Steps
 
-1. Implement admin CRUD interface for hero banners
-2. Add image upload functionality with Cloudinary integration
-3. Integrate carousel functionality for multiple active banners
-4. Add analytics to track banner performance 
+1. Add carousel functionality for multiple active banners
+2. Implement A/B testing for different banner designs
+3. Add analytics tracking for banner engagement
+4. Support additional banner formats and layouts
