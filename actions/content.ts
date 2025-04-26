@@ -21,6 +21,18 @@ export interface HeroBanner {
   updatedAt: string;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+  parentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // Optional: Include subcategories if needed
+  children?: Category[];
+}
+
 /**
  * Get active hero banners for the homepage
  * Filters banners based on active status and date range (if specified)
@@ -215,6 +227,99 @@ export async function toggleHeroBannerActive(id: string): Promise<HeroBanner | n
     return updatedBanner;
   } catch (error) {
     console.error('Error toggling hero banner active status:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all categories
+ * Optionally include their child categories
+ */
+export async function getAllCategories(includeChildren: boolean = false): Promise<Category[]> {
+  try {
+    // First get all categories
+    const { data: categories, error } = await supabase
+      .from('Category')
+      .select('*')
+      .order('name');
+    
+    if (error) throw error;
+    
+    if (!includeChildren) {
+      return categories || [];
+    }
+    
+    // If children are requested, organize them into a hierarchical structure
+    const rootCategories = categories?.filter(category => !category.parentId) || [];
+    const childCategories = categories?.filter(category => category.parentId) || [];
+    
+    // Add children to their respective parent categories
+    return rootCategories.map(category => ({
+      ...category,
+      children: childCategories.filter(child => child.parentId === category.id)
+    }));
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return [];
+  }
+}
+
+/**
+ * Get categories with no parent (root/main categories)
+ */
+export async function getRootCategories(): Promise<Category[]> {
+  try {
+    const { data, error } = await supabase
+      .from('Category')
+      .select('*')
+      .is('parentId', null)
+      .order('name');
+    
+    if (error) throw error;
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching root categories:', error);
+    return [];
+  }
+}
+
+/**
+ * Get child categories for a specific parent category
+ */
+export async function getChildCategories(parentId: string): Promise<Category[]> {
+  try {
+    const { data, error } = await supabase
+      .from('Category')
+      .select('*')
+      .eq('parentId', parentId)
+      .order('name');
+    
+    if (error) throw error;
+    
+    return data || [];
+  } catch (error) {
+    console.error(`Error fetching child categories for parent ${parentId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Get a single category by slug
+ */
+export async function getCategoryBySlug(slug: string): Promise<Category | null> {
+  try {
+    const { data, error } = await supabase
+      .from('Category')
+      .select('*')
+      .eq('slug', slug)
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error(`Error fetching category with slug ${slug}:`, error);
     return null;
   }
 } 
