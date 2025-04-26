@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Header from '../components/layout/header';
 import Footer from '../components/layout/footer';
+import { Preloader } from '../components/ui/preloader';
 
 // Initialize the Inter font with Latin subset
 const inter = Inter({
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen bg-zervia-50 font-sans antialiased flex flex-col">
+        <Preloader />
         <Header />
         <main className="flex-grow">{children}</main>
         <Footer />

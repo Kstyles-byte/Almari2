@@ -1,57 +1,218 @@
 "use client"
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, ShoppingCart, User, Menu } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
 import { Button } from '../ui/button';
+import { Icons } from '../icons';
 
 const Header = () => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+  
+  // Handle scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 50) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <header 
+      className={`fixed top-0 left-0 w-full z-40 transition-all duration-300 ${
+        isScrolled 
+          ? "bg-white shadow-md py-3" 
+          : "bg-transparent py-5"
+      }`}
+    >
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
-            <span className="text-2xl font-bold text-zervia-600">Zervia</span>
+          <Link href="/" className="flex items-center relative z-50">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+              <span className="text-zervia-500">Z</span>
+              <span className={isScrolled ? "text-zervia-900" : "text-white"}>ervia</span>
+            </h1>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/products" className="text-zervia-900 hover:text-zervia-600 transition-colors">
+            <Link 
+              href="/products" 
+              className={`relative text-sm font-medium ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              } hover:text-zervia-500 transition-colors`}
+            >
               Products
             </Link>
-            <Link href="/category/women" className="text-zervia-900 hover:text-zervia-600 transition-colors">
+            <Link 
+              href="/category/women" 
+              className={`relative text-sm font-medium ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              } hover:text-zervia-500 transition-colors`}
+            >
               Women
             </Link>
-            <Link href="/category/men" className="text-zervia-900 hover:text-zervia-600 transition-colors">
+            <Link 
+              href="/category/men" 
+              className={`relative text-sm font-medium ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              } hover:text-zervia-500 transition-colors`}
+            >
               Men
             </Link>
-            <Link href="/category/accessories" className="text-zervia-900 hover:text-zervia-600 transition-colors">
+            <Link 
+              href="/category/kids" 
+              className={`relative text-sm font-medium ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              } hover:text-zervia-500 transition-colors`}
+            >
+              Kids
+            </Link>
+            <Link 
+              href="/category/accessories" 
+              className={`relative text-sm font-medium ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              } hover:text-zervia-500 transition-colors`}
+            >
               Accessories
             </Link>
-            <Link href="/vendors" className="text-zervia-900 hover:text-zervia-600 transition-colors">
-              Vendors
+            <Link 
+              href="/category/home" 
+              className={`relative text-sm font-medium ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              } hover:text-zervia-500 transition-colors`}
+            >
+              Home
             </Link>
           </nav>
 
           {/* Search and Actions */}
           <div className="flex items-center space-x-4">
-            <button className="p-2 text-zervia-900 hover:text-zervia-600 transition-colors">
+            <button 
+              className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              }`}
+            >
               <Search className="h-5 w-5" />
             </button>
-            <Link href="/cart" className="p-2 text-zervia-900 hover:text-zervia-600 transition-colors relative">
-              <ShoppingCart className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 bg-zervia-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+            <Link 
+              href="/account" 
+              className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              }`}
+            >
+              <User className="h-5 w-5" />
+            </Link>
+            <Link 
+              href="/cart" 
+              className="relative p-2"
+            >
+              <div className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              }`}>
+                <ShoppingCart className="h-5 w-5" />
+              </div>
+              <span className="absolute -top-1 -right-1 bg-zervia-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                 3
               </span>
             </Link>
-            <Link href="/account" className="p-2 text-zervia-900 hover:text-zervia-600 transition-colors">
-              <User className="h-5 w-5" />
-            </Link>
-            <Button className="hidden md:flex">Sign In</Button>
-            <button className="md:hidden p-2 text-zervia-900 hover:text-zervia-600 transition-colors">
-              <Menu className="h-5 w-5" />
+            <button 
+              onClick={toggleMobileMenu}
+              className={`md:hidden p-2 rounded-full hover:bg-zervia-50 transition-colors ${
+                isScrolled ? "text-zervia-900" : "text-white"
+              }`}
+              aria-label="Toggle mobile menu"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      <div className={`
+        fixed inset-0 bg-white z-40 transform transition-transform duration-300 ease-in-out md:hidden
+        ${mobileMenuOpen ? "translate-x-0" : "translate-x-full"}
+      `}>
+        <div className="container mx-auto px-4 py-20">
+          <div className="flex flex-col space-y-6">
+            <Link 
+              href="/products" 
+              className="text-xl font-medium text-zervia-900 py-2 border-b border-zervia-100"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Products
+            </Link>
+            <Link 
+              href="/category/women" 
+              className="text-xl font-medium text-zervia-900 py-2 border-b border-zervia-100"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Women
+            </Link>
+            <Link 
+              href="/category/men" 
+              className="text-xl font-medium text-zervia-900 py-2 border-b border-zervia-100"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Men
+            </Link>
+            <Link 
+              href="/category/kids" 
+              className="text-xl font-medium text-zervia-900 py-2 border-b border-zervia-100"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Kids
+            </Link>
+            <Link 
+              href="/category/accessories" 
+              className="text-xl font-medium text-zervia-900 py-2 border-b border-zervia-100"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Accessories
+            </Link>
+            <Link 
+              href="/category/home" 
+              className="text-xl font-medium text-zervia-900 py-2 border-b border-zervia-100"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Home
+            </Link>
+            <div className="pt-6 space-y-4">
+              <Link 
+                href="/account/orders"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center space-x-2 text-zervia-700"
+              >
+                <span>My Orders</span>
+              </Link>
+              <Link 
+                href="/account/wishlist"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center space-x-2 text-zervia-700"
+              >
+                <span>Wishlist</span>
+              </Link>
+              <Link 
+                href="/account"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center space-x-2 text-zervia-700"
+              >
+                <span>Account Settings</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

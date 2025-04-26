@@ -129,7 +129,7 @@ module.exports = {
         },
         'float': {
           '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-10px)' }
+          '50%': { transform: 'translateY(-20px)' },
         },
         'shimmer': {
           '0%': { backgroundPosition: '-1000px 0' },
@@ -137,7 +137,7 @@ module.exports = {
         },
         'bounce-gentle': {
           '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-5px)' }
+          '50%': { transform: 'translateY(-10px)' },
         },
         'preloader': {
           '0%': { transform: 'rotate(0deg) scale(1)' },
@@ -159,12 +159,13 @@ module.exports = {
         'scale-out': 'scale-out 0.3s ease-out',
         'slide-in': 'slide-in 0.4s ease-out',
         'slide-out': 'slide-out 0.4s ease-out',
-        'spin-slow': 'spin-slow 8s linear infinite',
-        'pulse-gentle': 'pulse-gentle 2s ease-in-out infinite',
-        'float': 'float 3s ease-in-out infinite',
+        'spin-slow': 'spin 3s linear infinite',
+        'pulse-gentle': 'pulse 2s ease-in-out infinite',
+        'float': 'float 6s ease-in-out infinite',
         'shimmer': 'shimmer 2s infinite linear',
-        'bounce-gentle': 'bounce-gentle 2s ease-in-out infinite',
-        'preloader': 'preloader 1.5s infinite ease-in-out, preloader-fade 2s forwards ease-out'
+        'bounce-gentle': 'bounce-gentle 3s ease-in-out infinite',
+        'preloader': 'preloader 1.5s infinite ease-in-out',
+        'preloader-fade': 'preloader-fade 2s forwards ease-out'
       }
     }
   },
