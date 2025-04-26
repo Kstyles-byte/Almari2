@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, ShoppingCart, Heart, Star } from 'lucide-react';
@@ -6,283 +6,25 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardFooter } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Badge } from '../ui/badge';
+import { getFeaturedProducts } from '../../actions/products';
 
-// Mock product data
-const products = {
-  featured: [
-    {
-      id: 1,
-      name: "Structured Cotton Blouse",
-      price: 59.99,
-      image: "/images/products/product-1.jpg",
-      rating: 4.8,
-      reviews: 124,
-      isNew: true,
-      vendor: "Emporium Elegance",
-      slug: "structured-cotton-blouse"
-    },
-    {
-      id: 2,
-      name: "Classic Leather Sneakers",
-      price: 89.99,
-      image: "/images/products/product-2.jpg",
-      rating: 4.5,
-      reviews: 86,
-      isNew: false,
-      vendor: "Urban Threads",
-      slug: "classic-leather-sneakers"
-    },
-    {
-      id: 3,
-      name: "Relaxed Fit Denim Jacket",
-      price: 79.99,
-      image: "/images/products/product-3.jpg",
-      rating: 4.6,
-      reviews: 62,
-      isNew: true,
-      vendor: "Urban Threads",
-      slug: "relaxed-fit-denim-jacket"
-    },
-    {
-      id: 4,
-      name: "Summer Floral Dress",
-      price: 65.99,
-      image: "/images/products/product-4.jpg",
-      rating: 4.9,
-      reviews: 42,
-      isNew: true,
-      vendor: "Velvet Vault",
-      slug: "summer-floral-dress"
-    },
-    {
-      id: 5,
-      name: "Minimalist Wrist Watch",
-      price: 129.99,
-      image: "/images/products/product-5.jpg",
-      rating: 5.0,
-      reviews: 18,
-      isNew: false,
-      vendor: "Emporium Elegance",
-      slug: "minimalist-wrist-watch"
-    },
-    {
-      id: 6,
-      name: "Organic Cotton T-shirt",
-      price: 34.99,
-      image: "/images/products/product-6.jpg",
-      rating: 4.4,
-      reviews: 76,
-      isNew: false,
-      vendor: "Urban Threads",
-      slug: "organic-cotton-tshirt"
-    },
-    {
-      id: 7,
-      name: "Designer Sunglasses",
-      price: 149.99,
-      image: "/images/products/product-7.jpg",
-      rating: 4.7,
-      reviews: 53,
-      isNew: true,
-      vendor: "Emporium Elegance",
-      slug: "designer-sunglasses"
-    },
-    {
-      id: 8,
-      name: "High-Waisted Jeans",
-      price: 79.99,
-      image: "/images/products/product-8.jpg",
-      rating: 4.6,
-      reviews: 94,
-      isNew: false,
-      vendor: "Velvet Vault",
-      slug: "high-waisted-jeans"
-    }
-  ],
-  bestsellers: [
-    {
-      id: 9,
-      name: "Wireless Earbuds",
-      price: 89.99,
-      image: "/images/products/product-9.jpg",
-      rating: 4.9,
-      reviews: 210,
-      isNew: false,
-      vendor: "TechElite",
-      slug: "wireless-earbuds"
-    },
-    {
-      id: 10,
-      name: "Leather Crossbody Bag",
-      price: 119.99,
-      image: "/images/products/product-10.jpg",
-      rating: 4.8,
-      reviews: 175,
-      isNew: false,
-      vendor: "Velvet Vault",
-      slug: "leather-crossbody-bag"
-    },
-    {
-      id: 11,
-      name: "Smartphone Stand",
-      price: 19.99,
-      image: "/images/products/product-11.jpg",
-      rating: 4.6,
-      reviews: 142,
-      isNew: false,
-      vendor: "TechElite",
-      slug: "smartphone-stand"
-    },
-    {
-      id: 12,
-      name: "Cotton Graphic Tee",
-      price: 29.99,
-      image: "/images/products/product-12.jpg",
-      rating: 4.7,
-      reviews: 163,
-      isNew: true,
-      vendor: "Urban Threads",
-      slug: "cotton-graphic-tee"
-    },
-    {
-      id: 13,
-      name: "Stainless Steel Water Bottle",
-      price: 24.99,
-      image: "/images/products/product-13.jpg",
-      rating: 4.9,
-      reviews: 189,
-      isNew: false,
-      vendor: "EcoWare",
-      slug: "stainless-steel-water-bottle"
-    },
-    {
-      id: 14,
-      name: "Knit Beanie",
-      price: 19.99,
-      image: "/images/products/product-14.jpg",
-      rating: 4.5,
-      reviews: 122,
-      isNew: false,
-      vendor: "Urban Threads",
-      slug: "knit-beanie"
-    },
-    {
-      id: 15,
-      name: "Portable Charger",
-      price: 39.99,
-      image: "/images/products/product-15.jpg",
-      rating: 4.7,
-      reviews: 151,
-      isNew: false,
-      vendor: "TechElite",
-      slug: "portable-charger"
-    },
-    {
-      id: 16,
-      name: "Campus Backpack",
-      price: 69.99,
-      image: "/images/products/product-16.jpg",
-      rating: 4.8,
-      reviews: 187,
-      isNew: true,
-      vendor: "Urban Threads",
-      slug: "campus-backpack"
-    }
-  ],
-  newArrivals: [
-    {
-      id: 17,
-      name: "Noise Cancelling Headphones",
-      price: 159.99,
-      image: "/images/products/product-17.jpg",
-      rating: 4.9,
-      reviews: 32,
-      isNew: true,
-      vendor: "TechElite",
-      slug: "noise-cancelling-headphones"
-    },
-    {
-      id: 18,
-      name: "Oversized Denim Shirt",
-      price: 59.99,
-      image: "/images/products/product-18.jpg",
-      rating: 4.7,
-      reviews: 28,
-      isNew: true,
-      vendor: "Urban Threads",
-      slug: "oversized-denim-shirt"
-    },
-    {
-      id: 19,
-      name: "Minimalist Gold Necklace",
-      price: 49.99,
-      image: "/images/products/product-19.jpg",
-      rating: 4.8,
-      reviews: 25,
-      isNew: true,
-      vendor: "Velvet Vault",
-      slug: "minimalist-gold-necklace"
-    },
-    {
-      id: 20,
-      name: "Vegan Leather Wallet",
-      price: 39.99,
-      image: "/images/products/product-20.jpg",
-      rating: 4.6,
-      reviews: 21,
-      isNew: true,
-      vendor: "EcoWare",
-      slug: "vegan-leather-wallet"
-    },
-    {
-      id: 21,
-      name: "Blue Light Glasses",
-      price: 29.99,
-      image: "/images/products/product-21.jpg",
-      rating: 4.5,
-      reviews: 18,
-      isNew: true,
-      vendor: "EyeComfort",
-      slug: "blue-light-glasses"
-    },
-    {
-      id: 22,
-      name: "Plant-Based Protein Powder",
-      price: 44.99,
-      image: "/images/products/product-22.jpg",
-      rating: 4.7,
-      reviews: 24,
-      isNew: true,
-      vendor: "VitalBoost",
-      slug: "plant-based-protein-powder"
-    },
-    {
-      id: 23,
-      name: "Recycled Canvas Tote",
-      price: 34.99,
-      image: "/images/products/product-23.jpg",
-      rating: 4.8,
-      reviews: 29,
-      isNew: true,
-      vendor: "EcoWare",
-      slug: "recycled-canvas-tote"
-    },
-    {
-      id: 24,
-      name: "Wireless Charging Pad",
-      price: 29.99,
-      image: "/images/products/product-24.jpg",
-      rating: 4.6,
-      reviews: 26,
-      isNew: true,
-      vendor: "TechElite",
-      slug: "wireless-charging-pad"
-    }
-  ],
-};
+// Define Product type based on what getFeaturedProducts returns
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  comparePrice: number | null;
+  image: string;
+  rating: number;
+  reviews: number;
+  isNew: boolean;
+  vendor: string;
+  slug: string;
+  category: string;
+}
 
 // Product Card Component
-const ProductCard = ({ product }: { product: typeof products.featured[0] }) => {
+const ProductCard = ({ product }: { product: Product }) => {
   return (
     <Card className="group h-full flex flex-col">
       <div className="relative overflow-hidden">
@@ -305,44 +47,58 @@ const ProductCard = ({ product }: { product: typeof products.featured[0] }) => {
           </Button>
         </div>
       </div>
-      <CardContent className="pt-4 flex-grow">
-        <Link href={`/product/${product.slug}`} className="group">
-          <h3 className="font-medium text-zervia-900 group-hover:text-zervia-600 transition-colors line-clamp-2">
+      
+      <CardContent className="flex-grow pt-4">
+        <div className="mb-1">
+          <p className="text-sm text-zervia-600">{product.vendor}</p>
+        </div>
+        <Link href={`/product/${product.slug}`} className="block">
+          <h3 className="font-medium text-zervia-900 line-clamp-2 h-12 hover:text-zervia-600 transition-colors">
             {product.name}
           </h3>
         </Link>
-        <p className="text-sm text-zervia-500 mt-1">{product.vendor}</p>
-        <div className="flex items-center mt-2">
-          <div className="flex">
-            {[...Array(5)].map((_, i) => (
+        <div className="flex items-center mt-1">
+          <div className="flex items-center">
+            {[1, 2, 3, 4, 5].map((star) => (
               <Star
-                key={i}
-                className={`h-3.5 w-3.5 ${
-                  i < Math.floor(product.rating)
-                    ? "text-yellow-400 fill-yellow-400"
-                    : "text-gray-300"
-                }`}
+                key={star}
+                size={14}
+                className={star <= Math.round(product.rating) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}
               />
             ))}
           </div>
-          <span className="text-xs text-zervia-500 ml-1">
-            ({product.reviews})
-          </span>
+          <span className="text-xs text-zervia-500 ml-1">({product.reviews})</span>
         </div>
       </CardContent>
-      <CardFooter className="pt-0 flex-shrink-0">
-        <div className="flex w-full items-center justify-between">
-          <div className="font-semibold text-zervia-900">${product.price.toFixed(2)}</div>
-          <Button size="sm" className="rounded-lg">
-            <ShoppingCart className="h-4 w-4 mr-1" /> Add
-          </Button>
+      
+      <CardFooter className="flex items-center justify-between pt-0">
+        <div>
+          <div className="flex items-center">
+            <p className="font-semibold text-lg text-zervia-900">${product.price.toFixed(2)}</p>
+            {product.comparePrice && (
+              <p className="text-sm text-gray-500 line-through ml-2">${product.comparePrice.toFixed(2)}</p>
+            )}
+          </div>
         </div>
+        <Button size="sm" variant="ghost" className="p-0 h-8 w-8 rounded-full hover:bg-zervia-100">
+          <ShoppingCart className="h-4 w-4 text-zervia-600" />
+        </Button>
       </CardFooter>
     </Card>
   );
 };
 
-const ProductShowcase = () => {
+const ProductShowcase = async () => {
+  // Fetch featured products from database
+  const featuredProducts = await getFeaturedProducts(8);
+  
+  // Get bestsellers and new arrivals by reusing the fetched products and filtering/sorting
+  const bestsellers = [...featuredProducts]
+    .sort((a, b) => b.reviews - a.reviews)
+    .slice(0, 8);
+    
+  const newArrivals = featuredProducts.filter(product => product.isNew).slice(0, 8);
+
   return (
     <section className="py-16 bg-zervia-50">
       <div className="container mx-auto px-4">
@@ -367,27 +123,45 @@ const ProductShowcase = () => {
           </TabsList>
           
           <TabsContent value="featured" className="mt-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {products.featured.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            {featuredProducts.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {featuredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-zervia-600">No featured products found. Check back soon!</p>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="bestsellers" className="mt-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {products.bestsellers.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            {bestsellers.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {bestsellers.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-zervia-600">No bestselling products found. Check back soon!</p>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="newArrivals" className="mt-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {products.newArrivals.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            {newArrivals.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {newArrivals.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-zervia-600">No new arrivals found. Check back soon!</p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

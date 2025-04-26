@@ -7,6 +7,73 @@ import slugify from "slugify";
 import { getVendorByUserId } from "../lib/services/vendor";
 
 /**
+ * Get featured products for homepage
+ */
+export async function getFeaturedProducts(limit = 8) {
+  try {
+    // Fetch products that are published and have inventory > 0
+    // Sort by comparePrice (for products on sale) and createdAt (for new products)
+    const products = await db.product.findMany({
+      where: {
+        isPublished: true,
+        inventory: {
+          gt: 0,
+        },
+      },
+      include: {
+        images: {
+          orderBy: {
+            order: 'asc'
+          },
+          take: 1,
+        },
+        category: true,
+        vendor: true,
+        reviews: {
+          select: {
+            rating: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          comparePrice: 'desc',
+        },
+        {
+          createdAt: 'desc',
+        },
+      ],
+      take: limit,
+    });
+
+    // Format the data
+    return products.map(product => {
+      // Calculate average rating
+      const avgRating = product.reviews.length > 0
+        ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length
+        : 0;
+
+      return {
+        id: product.id,
+        name: product.name,
+        price: Number(product.price),
+        comparePrice: product.comparePrice ? Number(product.comparePrice) : null,
+        slug: product.slug,
+        image: product.images[0]?.url || '/placeholder-product.jpg',
+        rating: parseFloat(avgRating.toFixed(1)),
+        reviews: product.reviews.length,
+        isNew: new Date(product.createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000, // 7 days
+        vendor: product.vendor?.storeName || 'Unknown',
+        category: product.category?.name
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching featured products:", error);
+    return [];
+  }
+}
+
+/**
  * Add a new product
  */
 export async function addProduct(formData: FormData) {
