@@ -1,156 +1,124 @@
+'use client';
+
 import React from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '../ui/button';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "../ui/pagination"; // Assuming shadcn/ui pagination
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 
 interface PaginationControlsProps {
   currentPage: number;
   totalPages: number;
-  onPageChange: (page: number) => void;
 }
 
-export function PaginationControls({ currentPage, totalPages, onPageChange }: PaginationControlsProps) {
-  // No pagination needed if only one page
+export function PaginationControls({ currentPage, totalPages }: PaginationControlsProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const createPageURL = (pageNumber: number | string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('page', pageNumber.toString());
+    return `${pathname}?${params.toString()}`;
+  };
+
   if (totalPages <= 1) {
-    return null;
+    return null; // Don't render pagination if there's only one page
   }
 
-  const handlePrevious = () => {
-    if (currentPage > 1) {
-      onPageChange(currentPage - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentPage < totalPages) {
-      onPageChange(currentPage + 1);
-    }
-  };
-
-  // Create page buttons logic
-  const renderPageButtons = () => {
-    const pageButtons = [];
+  // Basic pagination logic (can be enhanced)
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxPagesToShow = 5; // Adjust as needed
     
-    // Always show first page
-    pageButtons.push(
-      <Button
-        key="page-1"
-        variant={currentPage === 1 ? "default" : "outline"}
-        size="sm"
-        onClick={() => onPageChange(1)}
-        className={currentPage === 1 ? 'bg-zervia-600 hover:bg-zervia-700' : ''}
-      >
-        1
-      </Button>
-    );
-
-    // Logic for displaying page numbers with ellipsis
-    if (totalPages > 5) {
-      if (currentPage > 3) {
-        pageButtons.push(
-          <Button key="ellipsis-1" variant="ghost" size="sm" disabled>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        );
-      }
-
-      // Show current page and neighbors
-      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
-        if (i > 1 && i < totalPages) {
-          pageButtons.push(
-            <Button
-              key={`page-${i}`}
-              variant={currentPage === i ? "default" : "outline"}
-              size="sm"
-              onClick={() => onPageChange(i)}
-              className={currentPage === i ? 'bg-zervia-600 hover:bg-zervia-700' : ''}
-            >
-              {i}
-            </Button>
-          );
-        }
-      }
-
-      if (currentPage < totalPages - 2) {
-        pageButtons.push(
-          <Button key="ellipsis-2" variant="ghost" size="sm" disabled>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        );
+    if (totalPages <= maxPagesToShow) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
       }
     } else {
-      // Less than 6 pages, show all page numbers
-      for (let i = 2; i < totalPages; i++) {
-        pageButtons.push(
-          <Button
-            key={`page-${i}`}
-            variant={currentPage === i ? "default" : "outline"}
-            size="sm"
-            onClick={() => onPageChange(i)}
-            className={currentPage === i ? 'bg-zervia-600 hover:bg-zervia-700' : ''}
-          >
-            {i}
-          </Button>
-        );
+      // Show first page
+      pageNumbers.push(1);
+      
+      // Calculate start and end for middle range
+      let start = Math.max(2, currentPage - 1);
+      let end = Math.min(totalPages - 1, currentPage + 1);
+
+      if (currentPage <= 3) {
+        end = Math.min(totalPages - 1, 4); // Show 1, 2, 3, 4 ... last
       }
-    }
+      if (currentPage >= totalPages - 2) {
+        start = Math.max(2, totalPages - 3); // Show 1 ... last-3, last-2, last-1, last
+      }
 
-    // Always show last page
-    if (totalPages > 1) {
-      pageButtons.push(
-        <Button
-          key={`page-${totalPages}`}
-          variant={currentPage === totalPages ? "default" : "outline"}
-          size="sm"
-          onClick={() => onPageChange(totalPages)}
-          className={currentPage === totalPages ? 'bg-zervia-600 hover:bg-zervia-700' : ''}
-        >
-          {totalPages}
-        </Button>
-      );
-    }
+      // Ellipsis before middle range?
+      if (start > 2) {
+        pageNumbers.push('...');
+      }
 
-    return pageButtons;
+      // Middle range
+      for (let i = start; i <= end; i++) {
+        pageNumbers.push(i);
+      }
+
+      // Ellipsis after middle range?
+      if (end < totalPages - 1) {
+        pageNumbers.push('...');
+      }
+      
+      // Show last page
+      pageNumbers.push(totalPages);
+    }
+    return pageNumbers;
   };
 
+  const pageNumbers = getPageNumbers();
+
   return (
-    <div className="flex flex-col items-center mt-8 space-y-2 sm:space-y-0 sm:flex-row sm:justify-between">
-      <div className="text-sm text-zervia-600">
-        Showing page {currentPage} of {totalPages}
-      </div>
-      
-      <div className="flex items-center space-x-2">
-        {/* Previous button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handlePrevious}
-          disabled={currentPage === 1}
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Prev
-        </Button>
-
-        {/* Page numbers */}
-        <div className="hidden md:flex space-x-2">
-          {renderPageButtons()}
-        </div>
-
-        {/* Current page indicator for mobile */}
-        <div className="md:hidden flex items-center">
-          <span className="text-sm">{currentPage} / {totalPages}</span>
-        </div>
-
-        {/* Next button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleNext}
-          disabled={currentPage === totalPages}
-        >
-          Next
-          <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
-      </div>
+    <div className="mt-8 flex justify-center">
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious 
+              href={createPageURL(currentPage - 1)}
+              aria-disabled={currentPage <= 1}
+              tabIndex={currentPage <= 1 ? -1 : undefined}
+              className={currentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
+            />
+          </PaginationItem>
+          
+          {pageNumbers.map((page, index) => (
+            <PaginationItem key={index}>
+              {page === '...' ? (
+                <PaginationEllipsis />
+              ) : (
+                <PaginationLink 
+                  href={createPageURL(page as number)}
+                  isActive={currentPage === page}
+                >
+                  {page}
+                </PaginationLink>
+              )}
+            </PaginationItem>
+          ))}
+          
+          <PaginationItem>
+            <PaginationNext 
+              href={createPageURL(currentPage + 1)}
+              aria-disabled={currentPage >= totalPages}
+              tabIndex={currentPage >= totalPages ? -1 : undefined}
+              className={currentPage >= totalPages ? "pointer-events-none opacity-50" : undefined}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
     </div>
   );
 } 

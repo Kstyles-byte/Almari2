@@ -561,7 +561,13 @@ export async function deleteProduct(formData: FormData) {
 interface GetProductsParams {
   categorySlug?: string;
   query?: string;
-  filters?: Record<string, string[]>; // e.g., { color: ['red', 'blue'], size: ['M'] }
+  filters?: { // Define expected filter structure
+    brands?: string[];
+    colors?: string[]; // Add color/size if schema supports
+    sizes?: string[];
+    priceMin?: number;
+    priceMax?: number;
+  };
   sortBy?: string; // e.g., 'price-asc', 'newest', 'rating'
   page?: number;
   limit?: number;
@@ -586,12 +592,12 @@ export async function getProducts({
         *,
         ProductImage ( url ),
         Category!inner ( id, name, slug ),
-        Vendor!inner ( storeName ),
+        Vendor!inner ( storeName ), 
         Review ( rating )
-      `, { count: 'exact' }) // Request count for pagination
+      `, { count: 'exact' }) 
       .eq('isPublished', true)
-      .gt('inventory', 0)
-      .range(offset, offset + limit - 1);
+      .gt('inventory', 0);
+      // Note: Range is applied *after* filtering and sorting for correct pagination
 
     // Filter by Category Slug
     if (categorySlug) {
@@ -603,20 +609,19 @@ export async function getProducts({
       queryBuilder = queryBuilder.or(`name.ilike.%${query}%,description.ilike.%${query}%`);
     }
 
-    // TODO: Implement dynamic filtering based on `filters` object
-    // This will likely require more complex logic or potentially a database function (RPC)
-    // Example (Needs refinement for multiple filters and OR/AND logic):
-    // if (filters.color && filters.color.length > 0) {
-    //   queryBuilder = queryBuilder.in('color_column', filters.color); 
-    // }
-    // if (filters.brand && filters.brand.length > 0) {
-    //   // Assuming brand is stored directly on Product or via Vendor relation
-    //   queryBuilder = queryBuilder.in('Vendor.storeName', filters.brand); 
-    // }
-    // if (filters.price?.min && filters.price?.max) {
-    //   queryBuilder = queryBuilder.gte('price', filters.price.min);
-    //   queryBuilder = queryBuilder.lte('price', filters.price.max);
-    // }
+    // Apply Dynamic Filters
+    if (filters.brands && filters.brands.length > 0) {
+      // Filter by Vendor storeName using the joined Vendor table
+      queryBuilder = queryBuilder.in('Vendor.storeName', filters.brands);
+    }
+    if (filters.priceMin !== undefined) {
+      queryBuilder = queryBuilder.gte('price', filters.priceMin);
+    }
+    if (filters.priceMax !== undefined) {
+      queryBuilder = queryBuilder.lte('price', filters.priceMax);
+    }
+    // TODO: Implement color/size filtering here if schema is updated
+    // Example: if (filters.colors && filters.colors.length > 0) { ... }
 
     // Apply Sorting
     switch (sortBy) {
@@ -629,16 +634,22 @@ export async function getProducts({
       case 'newest':
         queryBuilder = queryBuilder.order('createdAt', { ascending: false });
         break;
-      // case 'rating': // Sorting by calculated average rating requires more complex query or post-processing
-      //   // For now, default to featured/newest if rating is selected
-      //   queryBuilder = queryBuilder.order('createdAt', { ascending: false });
-      //   break;
+      case 'rating': 
+        // TODO: Implement proper sorting by average rating.
+        // This likely requires a database function (RPC) or complex post-processing.
+        // Falling back to sorting by newest for now.
+        console.warn("Sorting by rating is not fully implemented, falling back to newest.");
+        queryBuilder = queryBuilder.order('createdAt', { ascending: false });
+        break;
       case 'featured':
       default:
-        // Default sort (e.g., by creation date or a specific featured flag if available)
+        // Default sort (newest)
         queryBuilder = queryBuilder.order('createdAt', { ascending: false });
         break;
     }
+
+    // Apply range *after* filtering and sorting
+    queryBuilder = queryBuilder.range(offset, offset + limit - 1);
 
     // Execute the query
     const { data: productsData, error, count } = await queryBuilder;
@@ -682,12 +693,9 @@ export async function getProducts({
          isNew: !isNaN(createdAtTime) && createdAtTime > sevenDaysAgo,
          vendor: product.Vendor?.storeName || 'Unknown',
          category: product.Category?.name || 'Uncategorized', // For display
-         // Add any other fields needed by the ProductCard component
        };
     });
     
-    // TODO: Implement sorting by rating after fetching if needed
-
     const totalPages = Math.ceil((count || 0) / limit);
 
     return { products: formattedProducts, count: count || 0, totalPages };
