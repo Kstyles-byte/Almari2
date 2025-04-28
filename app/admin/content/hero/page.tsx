@@ -1,3 +1,4 @@
+'use client';
 import { getActiveHeroBanner } from '@/lib/services/content';
 import { AdminHeroImageForm } from '@/components/admin/content/AdminHeroImageForm';
 import { createClient } from '@/lib/supabase/server';
@@ -18,7 +19,7 @@ async function checkAdminAuth() {
 }
 
 // Simple Submit Button for Delete Form - Needs 'use client'
-'use client'; 
+ 
 function DeleteSubmitButton() {
   const { pending } = useFormStatus();
   return (
