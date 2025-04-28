@@ -112,6 +112,7 @@ export interface Category {
   slug: string;
   description: string | null;
   imageUrl: string | null;
+  icon: string | null;
   parentId: string | null;
   children?: Category[]; // For hierarchical data
   createdAt: string;

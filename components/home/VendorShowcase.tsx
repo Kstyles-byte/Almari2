@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Star } from 'lucide-react';
 import { Button } from '../ui/button';
-import { getFeaturedVendors } from '@/app/actions/vendors';
+import { getFeaturedVendors } from '@/actions/vendors';
 
 // Component for loading state
 const VendorShowcaseSkeleton = () => {
@@ -95,7 +95,7 @@ const VendorShowcase = async () => {
                 <div className="p-5">
                   <p className="text-zervia-600 text-sm mb-3 line-clamp-2">{vendor.description}</p>
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {vendor.categories.map((category, index) => (
+                    {vendor.categories.map((category: string, index: number) => (
                       <span key={index} className="text-xs bg-zervia-50 text-zervia-600 px-2 py-1 rounded-full">
                         {category}
                       </span>
