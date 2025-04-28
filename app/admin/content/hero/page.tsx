@@ -47,8 +47,7 @@ function DeleteSubmitButton() {
   );
 }
 
-// Component for the Delete Button Form - Needs 'use client'
-'use client';
+
 function DeleteBannerForm({ bannerId }: { bannerId: string }) {
   const deleteActionWithId = deleteHeroBannerAction.bind(null, bannerId);
   // Define a type-safe wrapper function for return type
