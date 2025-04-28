@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../../lib/db";
 import { auth } from "../../../../auth";
 import { verifyPayment } from "../../../../lib/paystack";
+import { createClient } from '@supabase/supabase-js';
+import { getCustomerByUserId } from "../../../../lib/services/customer";
+import { getVendorByUserId } from "../../../../lib/services/vendor";
+import type { Order, OrderItem, Product, Vendor, Customer, UserProfile } from '../../../../types/supabase';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL/Key missing in orders/[id] API route.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+type OrderStatus = Order['status'];
+type OrderItemStatus = OrderItem['status'];
 
 export async function GET(
   request: NextRequest,
@@ -10,7 +24,6 @@ export async function GET(
   try {
     const session = await auth();
     
-    // Check if user is authenticated
     if (!session?.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -19,63 +32,38 @@ export async function GET(
     }
     
     const orderId = context.params.id;
+    if (!orderId) return NextResponse.json({ error: "Order ID required" }, { status: 400 });
     
-    // Get order with details
-    const order = await db.order.findUnique({
-      where: { id: orderId },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            phone: true,
-            address: true,
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                price: true,
-                images: {
-                  take: 1,
-                  orderBy: {
-                    order: "asc",
-                  },
-                },
-              },
-            },
-            vendor: {
-              select: {
-                id: true,
-                storeName: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const { data: orderData, error: orderError } = await supabase
+      .from('Order')
+      .select(`
+        *,
+        Customer:customerId ( id, phone, address, User:userId ( name, email ) ),
+        OrderItem ( 
+          *, 
+          Product:productId ( id, name, slug, price, ProductImage!ProductImage_productId_fkey ( url, alt, order ) ), 
+          Vendor:vendorId ( id, storeName )
+        )
+      `)
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (orderError && orderError.code !== 'PGRST116') {
+        console.error("API GET Order - Fetch error:", orderError.message);
+        throw orderError;
+    }
     
-    if (!order) {
+    if (!orderData) {
       return NextResponse.json(
         { error: "Order not found" },
         { status: 404 }
       );
     }
     
-    // Check authorization
+    let order = orderData as any;
+
     if (session.user.role === "CUSTOMER") {
-      const customer = await db.customer.findUnique({
-        where: { userId: session.user.id },
-      });
+      const customer = await getCustomerByUserId(session.user.id);
       
       if (!customer || customer.id !== order.customerId) {
         return NextResponse.json(
@@ -84,9 +72,7 @@ export async function GET(
         );
       }
     } else if (session.user.role === "VENDOR") {
-      const vendor = await db.vendor.findUnique({
-        where: { userId: session.user.id },
-      });
+      const vendor = await getVendorByUserId(session.user.id);
       
       if (!vendor) {
         return NextResponse.json(
@@ -95,25 +81,46 @@ export async function GET(
         );
       }
       
-      // Check if vendor has items in this order
-      const vendorItems = order.items.filter((item: { vendor: { id: string } }) => item.vendor.id === vendor.id);
+      const vendorItems = order.OrderItem?.filter((item: any) => item.Vendor?.id === vendor.id);
       
-      if (vendorItems.length === 0) {
+      if (!vendorItems || vendorItems.length === 0) {
         return NextResponse.json(
-          { error: "Unauthorized" },
+          { error: "Unauthorized: No items for this vendor in the order" },
           { status: 401 }
         );
       }
       
-      // Filter items to only show vendor's items
-      order.items = vendorItems;
+      order = { ...order, OrderItem: vendorItems };
     }
     
-    return NextResponse.json(order);
+    const formattedOrder = {
+        ...order,
+        customer: {
+            ...order.Customer,
+            user: order.Customer?.User,
+            User: undefined,
+        },
+        items: (order.OrderItem || []).map((item: any) => ({
+            ...item,
+            product: {
+                ...item.Product,
+                images: (item.Product?.ProductImage || []).sort((a: any, b: any) => a.order - b.order).slice(0,1),
+                ProductImage: undefined,
+            },
+            vendor: item.Vendor,
+            Product: undefined,
+            Vendor: undefined,
+        })),
+        Customer: undefined,
+        OrderItem: undefined,
+    };
+
+    return NextResponse.json(formattedOrder);
+
   } catch (error) {
     console.error("Error fetching order:", error);
     return NextResponse.json(
-      { error: "Failed to fetch order" },
+      { error: error instanceof Error ? error.message : "Failed to fetch order" },
       { status: 500 }
     );
   }
@@ -126,7 +133,6 @@ export async function PUT(
   try {
     const session = await auth();
     
-    // Check if user is authenticated
     if (!session?.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -135,15 +141,19 @@ export async function PUT(
     }
     
     const orderId = context.params.id;
+    if (!orderId) return NextResponse.json({ error: "Order ID required" }, { status: 400 });
     const body = await request.json();
     
-    // Get order
-    const order = await db.order.findUnique({
-      where: { id: orderId },
-      include: {
-        items: true,
-      },
-    });
+    const { data: order, error: fetchError } = await supabase
+        .from('Order')
+        .select('id, customerId, status, OrderItem(id, orderId, vendorId, status)')
+        .eq('id', orderId)
+        .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error("API PUT Order - Fetch error:", fetchError.message);
+        throw fetchError;
+    }
     
     if (!order) {
       return NextResponse.json(
@@ -152,180 +162,149 @@ export async function PUT(
       );
     }
     
-    // Check authorization based on role
+    let updatedOrderData: Order | null = null;
+    let updatePerformed = false;
+
     if (session.user.role === "CUSTOMER") {
-      const customer = await db.customer.findUnique({
-        where: { userId: session.user.id },
-      });
+      const customer = await getCustomerByUserId(session.user.id);
       
       if (!customer || customer.id !== order.customerId) {
-        return NextResponse.json(
-          { error: "Unauthorized" },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       
-      // Customers can only cancel orders
       if (body.status !== "CANCELLED") {
-        return NextResponse.json(
-          { error: "Customers can only cancel orders" },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: "Customers can only cancel orders" }, { status: 403 });
       }
-      
-      // Can only cancel pending orders
       if (order.status !== "PENDING") {
-        return NextResponse.json(
-          { error: "Can only cancel pending orders" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Can only cancel pending orders" }, { status: 400 });
       }
+
+      const { data: cancelledOrder, error: cancelError } = await supabase
+        .from('Order')
+        .update({ status: 'CANCELLED', updatedAt: new Date().toISOString() })
+        .eq('id', orderId)
+        .select()
+        .single();
+
+      if (cancelError) {
+        console.error("API PUT Order - Customer Cancel Error:", cancelError.message);
+        throw cancelError;
+      }
+      updatedOrderData = cancelledOrder;
+      updatePerformed = true;
+
     } else if (session.user.role === "VENDOR") {
-      const vendor = await db.vendor.findUnique({
-        where: { userId: session.user.id },
-      });
+      const vendor = await getVendorByUserId(session.user.id);
+      if (!vendor) return NextResponse.json({ error: "Vendor profile not found" }, { status: 404 });
       
-      if (!vendor) {
-        return NextResponse.json(
-          { error: "Vendor profile not found" },
-          { status: 404 }
-        );
-      }
-      
-      // Vendors can only update their own items
-      if (body.itemId) {
-        const orderItem = await db.orderItem.findFirst({
-          where: {
-            id: body.itemId,
-            orderId: orderId,
-            vendorId: vendor.id,
-          },
-        });
-        
-        if (!orderItem) {
-          return NextResponse.json(
-            { error: "Order item not found or not authorized" },
-            { status: 404 }
-          );
+      if (body.itemId && body.status) {
+        const itemToUpdate = order.OrderItem?.find((item: any) => item.id === body.itemId && item.vendorId === vendor.id);
+
+        if (!itemToUpdate) {
+          return NextResponse.json({ error: "Order item not found or not authorized for this vendor" }, { status: 404 });
         }
         
-        // Update order item status
-        await db.orderItem.update({
-          where: { id: body.itemId },
-          data: {
-            status: body.status,
-          },
-        });
-        
-        // Check if all items have the same status
-        const itemsWithStatus = await db.orderItem.groupBy({
-          by: ["status"],
-          where: { orderId },
-          _count: true,
-        });
-        
-        // If all items have the same status, update the order status
-        if (itemsWithStatus.length === 1) {
-          await db.order.update({
-            where: { id: orderId },
-            data: {
-              status: body.status,
-            },
-          });
+        const { error: itemUpdateError } = await supabase
+          .from('OrderItem')
+          .update({ status: body.status as OrderItemStatus, updatedAt: new Date().toISOString() })
+          .eq('id', body.itemId);
+
+        if (itemUpdateError) {
+            console.error("API PUT Order - Vendor Item Update Error:", itemUpdateError.message);
+            throw itemUpdateError;
         }
-        
-        const updatedOrder = await db.order.findUnique({
-          where: { id: orderId },
-          include: {
-            items: true,
-          },
-        });
-        
-        return NextResponse.json(updatedOrder);
+        updatePerformed = true;
+
+        const { data: allItems, error: allItemsError } = await supabase
+            .from('OrderItem')
+            .select('status')
+            .eq('orderId', orderId);
+
+        if (allItemsError) {
+            console.error("API PUT Order - Fetching all items error:", allItemsError.message);
+        } else if (allItems && allItems.length > 0) {
+            const allSameStatus = allItems.every(item => item.status === body.status);
+            const firstStatus = allItems[0].status;
+            const areAllSame = allItems.every(item => item.status === firstStatus);
+
+            if (areAllSame) {
+                 const { error: orderStatusUpdateError } = await supabase
+                    .from('Order')
+                    .update({ status: firstStatus as OrderStatus, updatedAt: new Date().toISOString() })
+                    .eq('id', orderId);
+                if (orderStatusUpdateError) {
+                     console.error("API PUT Order - Order Status Sync Error:", orderStatusUpdateError.message);
+                }
+            }
+        }
+      } else if (body.status && !body.itemId) {
+            return NextResponse.json({ error: "Vendor must specify itemId to update status" }, { status: 400 });
       } else {
-        return NextResponse.json(
-          { error: "Item ID is required for vendor updates" },
-          { status: 400 }
-        );
+            return NextResponse.json({ error: "Invalid request for vendor update" }, { status: 400 });
       }
-    } else if (session.user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+
+    } else if (session.user.role === "ADMIN") {
+      const adminUpdateData: Partial<Order> & { updatedAt?: string } = {};
+       if (body.status) adminUpdateData.status = body.status as OrderStatus;
+       if (body.agentId !== undefined) adminUpdateData.agentId = body.agentId;
+
+       if (Object.keys(adminUpdateData).length > 0) {
+           adminUpdateData.updatedAt = new Date().toISOString();
+           const { data: adminUpdatedOrder, error: adminUpdateError } = await supabase
+                .from('Order')
+                .update(adminUpdateData)
+                .eq('id', orderId)
+                .select()
+                .single();
+            
+             if (adminUpdateError) {
+                console.error("API PUT Order - Admin Update Error:", adminUpdateError.message);
+                throw adminUpdateError;
+             }
+             updatedOrderData = adminUpdatedOrder;
+             updatePerformed = true;
+       } else {
+            return NextResponse.json({ error: "No valid fields provided for admin update" }, { status: 400 });
+       }
+    } else {
+      return NextResponse.json({ error: "Unauthorized role" }, { status: 401 });
     }
-    
-    // Admin can update order status
-    if (body.status) {
-      await db.order.update({
-        where: { id: orderId },
-        data: {
-          status: body.status,
-        },
-      });
-      
-      // Update all order items to match the order status
-      await db.orderItem.updateMany({
-        where: { orderId },
-        data: {
-          status: body.status,
-        },
-      });
-    }
-    
-    // Admin can update payment status
-    if (body.paymentStatus) {
-      await db.order.update({
-        where: { id: orderId },
-        data: {
-          paymentStatus: body.paymentStatus,
-        },
-      });
-    }
-    
-    // Verify payment if reference is provided
-    if (body.paymentReference) {
-      try {
-        const paymentVerification = await verifyPayment(body.paymentReference);
-        
-        if (paymentVerification.data.status === "success") {
-          await db.order.update({
-            where: { id: orderId },
-            data: {
-              paymentStatus: "COMPLETED",
-              paymentReference: body.paymentReference,
-            },
-          });
-        } else {
-          await db.order.update({
-            where: { id: orderId },
-            data: {
-              paymentStatus: "FAILED",
-              paymentReference: body.paymentReference,
-            },
-          });
+
+    if (updatePerformed && !updatedOrderData) {
+         const { data: finalOrderState, error: finalFetchError } = await supabase
+            .from('Order')
+            .select('*, OrderItem(*, Product(*, ProductImage(*)), Vendor(*))')
+            .eq('id', orderId)
+            .single();
+        if (finalFetchError) {
+            console.error("API PUT Order - Final Fetch Error:", finalFetchError.message);
+            return NextResponse.json({ message: "Update successful, but failed to fetch final state" }, { status: 200 });
         }
-      } catch (error) {
-        console.error("Error verifying payment:", error);
-        return NextResponse.json(
-          { error: "Failed to verify payment" },
-          { status: 500 }
-        );
-      }
+        updatedOrderData = finalOrderState;
     }
-    
-    const updatedOrder = await db.order.findUnique({
-      where: { id: orderId },
-      include: {
-        items: true,
-      },
-    });
-    
-    return NextResponse.json(updatedOrder);
+
+    const finalFormattedOrder = updatedOrderData ? {
+         ...updatedOrderData,
+            items: (updatedOrderData as any).OrderItem?.map((item: any) => ({
+                ...item,
+                product: {
+                    ...item.Product,
+                    images: (item.Product?.ProductImage || []).sort((a: any, b: any) => a.order - b.order).slice(0,1),
+                    ProductImage: undefined,
+                },
+                vendor: item.Vendor,
+                Product: undefined,
+                Vendor: undefined,
+            })) || [],
+            OrderItem: undefined,
+     } : null;
+
+    return NextResponse.json(finalFormattedOrder);
+
   } catch (error) {
     console.error("Error updating order:", error);
     return NextResponse.json(
-      { error: "Failed to update order" },
+      { error: error instanceof Error ? error.message : "Failed to update order" },
       { status: 500 }
     );
   }

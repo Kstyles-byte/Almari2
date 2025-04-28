@@ -1,15 +1,29 @@
-import { db } from "../db";
-import { Prisma } from "@prisma/client";
+import { createClient } from '@supabase/supabase-js';
+import type { Notification, Order, Customer, Vendor, Agent } from '../../types/supabase';
 
-// Define NotificationType enum since it might not be defined in Prisma yet
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL or Service Role Key is missing in environment variables for notification service.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+// Define NotificationType enum (adjust values based on your actual needs/enums)
 type NotificationType = 
-  | "ORDER_STATUS_CHANGE" 
-  | "PICKUP_READY" 
-  | "ORDER_PICKED_UP" 
-  | "RETURN_REQUESTED" 
-  | "RETURN_APPROVED" 
-  | "RETURN_REJECTED" 
-  | "REFUND_PROCESSED";
+  | "ORDER_STATUS_CHANGE"
+  | "PICKUP_READY"
+  | "ORDER_PICKED_UP"
+  | "RETURN_REQUESTED"
+  | "RETURN_APPROVED"
+  | "RETURN_REJECTED"
+  | "REFUND_PROCESSED"
+  | "PRODUCT_APPROVED" // Added based on other actions
+  | "PRODUCT_REJECTED" // Added based on other actions
+  | "PRODUCT_STATUS_UPDATED" // Added based on other actions
+  | "PRODUCT_UPDATED" // Added based on other actions
+  | "PRODUCT_DELETED"; // Added based on other actions
 
 /**
  * Create a new notification
@@ -19,25 +33,37 @@ export async function createNotification(data: {
   title: string;
   message: string;
   type: NotificationType;
-  orderId?: string;
-  returnId?: string;
-}) {
+  orderId?: string | null; // Allow null
+  returnId?: string | null; // Allow null
+}): Promise<{ success: boolean; notification?: Notification | null; error?: string }> {
   try {
-    const notification = await db.notification.create({
-      data: {
-        userId: data.userId,
-        title: data.title,
-        message: data.message,
-        type: data.type as string,
-        orderId: data.orderId,
-        returnId: data.returnId,
-      },
-    });
-    
+    // Map NotificationType to string if needed by DB schema
+    const insertData = {
+      userId: data.userId,
+      title: data.title,
+      message: data.message,
+      type: data.type as string,
+      orderId: data.orderId || null, // Ensure null is passed if undefined
+      returnId: data.returnId || null,
+      isRead: false, // Default to unread
+      // createdAt/updatedAt handled by DB
+    };
+
+    const { data: notification, error } = await supabase
+      .from('Notification') // Ensure table name matches
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating notification:", error.message);
+      throw new Error(`Failed to create notification: ${error.message}`);
+    }
+
     return { success: true, notification };
   } catch (error) {
-    console.error("Error creating notification:", error);
-    return { error: "Failed to create notification" };
+    console.error("Error in createNotification service:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to create notification" };
   }
 }
 
@@ -53,39 +79,55 @@ export async function getUserNotifications(userId: string, options?: {
     const page = options?.page || 1;
     const limit = options?.limit || 10;
     const skip = (page - 1) * limit;
-    
+
     const where: any = { userId };
-    
+
     if (options?.unreadOnly) {
       where.isRead = false;
     }
-    
-    const notifications = await db.notification.findMany({
-      where,
-      include: {
-        order: true,
-        return: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      skip,
-      take: limit,
-    });
-    
-    const total = await db.notification.count({ where });
-    
+
+    // Fetch notifications with relations
+    const { data: notifications, error: fetchError } = await supabase
+      .from('Notification')
+      .select(`
+        *,
+        Order:orderId (*), 
+        Return:returnId (*)
+      `)
+      .eq('userId', userId)
+      .eq('isRead', options?.unreadOnly === true) // Use strict boolean check
+      .order('createdAt', { ascending: false })
+      .range(skip, skip + limit - 1);
+
+    if (fetchError) {
+        console.error("Error fetching user notifications:", fetchError.message);
+        throw fetchError;
+    }
+
+    // Get total count separately
+    const { count, error: countError } = await supabase
+      .from('Notification')
+      .select('*' , { count: 'exact', head: true })
+      .eq('userId', userId)
+      .eq('isRead', options?.unreadOnly === true);
+
+    if (countError) {
+        console.error("Error fetching notification count:", countError.message);
+        throw countError;
+    }
+
     return {
-      data: notifications,
+      data: notifications || [],
       meta: {
-        total,
+        total: count ?? 0,
         page,
         limit,
-        pageCount: Math.ceil(total / limit),
+        pageCount: Math.ceil((count ?? 0) / limit),
       },
     };
   } catch (error) {
-    console.error("Error fetching user notifications:", error);
+    console.error("Error in getUserNotifications service:", error);
+    // Return default structure on error
     return {
       data: [],
       meta: {
@@ -101,19 +143,23 @@ export async function getUserNotifications(userId: string, options?: {
 /**
  * Get unread notification count for a user
  */
-export async function getUnreadNotificationCount(userId: string) {
+export async function getUnreadNotificationCount(userId: string): Promise<{ success: boolean; count?: number | null; error?: string }> {
   try {
-    const count = await db.notification.count({
-      where: {
-        userId,
-        isRead: false,
-      },
-    });
-    
+    const { count, error } = await supabase
+      .from('Notification')
+      .select('*' , { count: 'exact', head: true })
+      .eq('userId', userId)
+      .eq('isRead', false);
+
+    if (error) {
+        console.error("Error getting unread notification count:", error.message);
+        throw error;
+    }
+
     return { success: true, count };
   } catch (error) {
-    console.error("Error getting unread notification count:", error);
-    return { error: "Failed to get unread notification count" };
+    console.error("Error in getUnreadNotificationCount service:", error);
+    return { success: false, error: "Failed to get unread notification count" };
   }
 }
 
@@ -122,13 +168,18 @@ export async function getUnreadNotificationCount(userId: string) {
  */
 export async function markNotificationAsRead(notificationId: string) {
   try {
-    const notification = await db.notification.update({
-      where: { id: notificationId },
-      data: {
-        isRead: true,
-      },
-    });
-    
+    const { data: notification, error } = await supabase
+      .from('Notification')
+      .update({ isRead: true })
+      .eq('id', notificationId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error marking notification as read:", error.message);
+      throw new Error(`Failed to mark notification as read: ${error.message}`);
+    }
+
     return { success: true, notification };
   } catch (error) {
     console.error("Error marking notification as read:", error);
@@ -141,15 +192,11 @@ export async function markNotificationAsRead(notificationId: string) {
  */
 export async function markAllNotificationsAsRead(userId: string) {
   try {
-    await db.notification.updateMany({
-      where: {
-        userId,
-        isRead: false,
-      },
-      data: {
-        isRead: true,
-      },
-    });
+    await supabase
+      .from('Notification')
+      .update({ isRead: true })
+      .eq('userId', userId)
+      .eq('isRead', false);
     
     return { success: true };
   } catch (error) {
@@ -163,9 +210,10 @@ export async function markAllNotificationsAsRead(userId: string) {
  */
 export async function deleteNotification(notificationId: string) {
   try {
-    await db.notification.delete({
-      where: { id: notificationId },
-    });
+    await supabase
+      .from('Notification')
+      .delete()
+      .eq('id', notificationId);
     
     return { success: true };
   } catch (error) {
@@ -175,251 +223,302 @@ export async function deleteNotification(notificationId: string) {
 }
 
 /**
- * Create order status change notification
+ * Create order status change notification(s) for relevant users
  */
-export async function createOrderStatusNotification(orderId: string, status: string) {
+export async function createOrderStatusNotification(orderId: string, status: string): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get order with customer and vendor
-    const order = await db.order.findUnique({
-      where: { id: orderId },
-      include: {
-        customer: {
-          include: {
-            user: true,
-          },
-        },
-        items: {
-          include: {
-            vendor: true,
-          },
-        },
-        agent: {
-          include: {
-            user: true,
-          },
-        },
-      },
-    });
-    
+    // Get order details including related user IDs using Supabase
+    const { data: order, error: orderError } = await supabase
+      .from('Order')
+      .select(`
+        id,
+        customerId, 
+        agentId,
+        Customer:customerId ( userId ),
+        Agent:agentId ( userId ),
+        OrderItem ( vendorId, Vendor:vendorId ( userId ) )
+      `)
+      .eq('id', orderId)
+      .single();
+
+    if (orderError) {
+        console.error("Error fetching order for notification:", orderError.message);
+        if (orderError.code === 'PGRST116') return { success: false, error: "Order not found" };
+        throw new Error(`Failed to fetch order details: ${orderError.message}`);
+    }
     if (!order) {
-      return { error: "Order not found" };
+      return { success: false, error: "Order not found (post-fetch check)" };
     }
-    
-    // Create notification for customer
-    await createNotification({
-      userId: order.customer.userId,
-      title: "Order Status Updated",
-      message: `Your order #${order.id} has been updated to ${status}`,
-      type: "ORDER_STATUS_CHANGE",
-      orderId,
+
+    // Cast to any for easier nested access, or use optional chaining
+    const orderData = order as any;
+
+    // Determine notification details based on status
+    let title = "Order Status Updated";
+    let message = `Your order #${orderData.id} has been updated to ${status}.`;
+    let type: NotificationType = "ORDER_STATUS_CHANGE";
+
+    if (status === 'PAYMENT_FAILED') {
+        title = "Payment Failed";
+        message = `Payment for your order #${orderData.id} failed. Please try again.`;
+    } else if (status === 'PROCESSING') {
+        title = "Order Processing";
+        message = `Your order #${orderData.id} is now being processed.`;
+    } // Add more cases 
+
+    // --- Create notifications --- 
+    const notificationPromises: Promise<any>[] = [];
+
+    // 1. Customer notification (Use optional chaining/safe access)
+    const customerUserId = orderData.Customer?.userId;
+    if (customerUserId) {
+        notificationPromises.push(createNotification({
+            userId: customerUserId,
+            title: title,
+            message: message,
+            type: type,
+            orderId: orderData.id,
+        }));
+    } else if (orderData.customerId) {
+        console.warn(`Could not find customer user ID for customer ${orderData.customerId} on order ${orderData.id}`);
+    }
+
+    // 2. Vendor notifications (Use optional chaining/safe access)
+    const vendorUserIds = new Set<string>();
+    orderData.OrderItem?.forEach((item: any) => { // Assert item as any or define inline type
+        if (item.Vendor?.userId) {
+            vendorUserIds.add(item.Vendor.userId);
+        }
     });
-    
-    // Create notifications for involved vendors
-    // Define the type for order items
-    interface OrderItem {
-      vendor: {
-        userId: string;
-      };
+
+    vendorUserIds.forEach(vendorUserId => {
+        notificationPromises.push(createNotification({
+            userId: vendorUserId,
+            title: title,
+            message: `Order #${orderData.id} involving your product(s) has been updated to ${status}.`, 
+            type: type,
+            orderId: orderData.id,
+        }));
+    });
+
+    // 3. Agent notification (Use optional chaining/safe access)
+    const agentUserId = orderData.Agent?.userId;
+    if (orderData.agentId && agentUserId) {
+         notificationPromises.push(createNotification({
+            userId: agentUserId,
+            title: title,
+            message: `Order #${orderData.id} assigned to you has been updated to ${status}.`, 
+            type: type,
+            orderId: orderData.id,
+        }));
+    } else if (orderData.agentId) {
+        console.warn(`Could not find agent user ID for agent ${orderData.agentId} on order ${orderData.id}`);
     }
+
+    // Wait for all notifications to be created
+    const results = await Promise.allSettled(notificationPromises);
     
-    // Use proper typing for the order.items structure
-    const vendorIds = new Set<string>(order.items.map((item: OrderItem) => item.vendor.userId));
-    
-    for (const vendorId of vendorIds) {
-      await createNotification({
-        userId: vendorId,
-        title: "Order Status Updated",
-        message: `Order #${order.id} has been updated to ${status}`,
-        type: "ORDER_STATUS_CHANGE",
-        orderId,
-      });
-    }
-    
-    // Create notification for agent if assigned
-    if (order.agent) {
-      await createNotification({
-        userId: order.agent.userId,
-        title: "Order Status Updated",
-        message: `Order #${order.id} has been updated to ${status}`,
-        type: "ORDER_STATUS_CHANGE",
-        orderId,
-      });
-    }
-    
+    results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+            console.error(`Failed to create notification ${index}:`, result.reason);
+        } else if (result.value && !result.value.success) {
+             console.error(`Failed to create notification ${index} (service error):`, result.value.error);
+        }
+    });
+
     return { success: true };
+
   } catch (error) {
     console.error("Error creating order status notification:", error);
-    return { error: "Failed to create order status notification" };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to create order status notification" };
   }
 }
 
 /**
  * Create pickup status change notification
  */
-export async function createPickupStatusNotification(orderId: string, status: string) {
+export async function createPickupStatusNotification(orderId: string, status: string): Promise<{ success: boolean; error?: string }> {
   try {
     // Get order with customer and agent
-    const order = await db.order.findUnique({
-      where: { id: orderId },
-      include: {
-        customer: {
-          include: {
-            user: true,
-          },
-        },
-        agent: {
-          include: {
-            user: true,
-          },
-        },
-      },
-    });
-    
-    if (!order) {
-      return { error: "Order not found" };
+    const { data: order, error: orderError } = await supabase
+      .from('Order')
+      .select(`
+        id, 
+        customerId, 
+        agentId, 
+        Customer:customerId ( userId ), 
+        Agent:agentId ( userId, name, location )
+      `)
+      .eq('id', orderId)
+      .single();
+
+    if (orderError || !order) {
+        console.error("Error fetching order for pickup notification:", orderError?.message);
+        return { success: false, error: "Order not found" };
     }
-    
-    if (!order.agent) {
-      return { error: "Order has no assigned agent" };
-    }
-    
+
+    // Use optional chaining for safe access
+    const orderData = order as any; // Cast for easier access or use explicit checks
+    const customerUserId = orderData.Customer?.userId;
+    const agentUserId = orderData.Agent?.userId;
+    const agentName = orderData.Agent?.name || 'the agent location';
+    const agentLocation = orderData.Agent?.location || 'specified location';
+
     if (status === "READY_FOR_PICKUP") {
       // Notify customer
-      await createNotification({
-        userId: order.customer.userId,
-        title: "Order Ready for Pickup",
-        message: `Your order #${order.id} is ready for pickup at ${order.agent.name} (${order.agent.location})`,
-        type: "PICKUP_READY",
-        orderId,
-      });
-    } else if (status === "PICKED_UP") {
+      if (customerUserId) {
+          await createNotification({
+            userId: customerUserId,
+            title: "Order Ready for Pickup",
+            message: `Your order #${orderData.id} is ready for pickup at ${agentName} (${agentLocation})`,
+            type: "PICKUP_READY",
+            orderId,
+          });
+      }
+    } else if (status === "COMPLETED") { // Assuming status matches enum/logic
       // Notify customer
-      await createNotification({
-        userId: order.customer.userId,
-        title: "Order Picked Up",
-        message: `Your order #${order.id} has been picked up`,
-        type: "ORDER_PICKED_UP",
-        orderId,
-      });
-      
+      if (customerUserId) {
+          await createNotification({
+            userId: customerUserId,
+            title: "Order Picked Up",
+            message: `Your order #${orderData.id} has been picked up`,
+            type: "ORDER_PICKED_UP",
+            orderId,
+          });
+      }
       // Notify agent
-      await createNotification({
-        userId: order.agent.userId,
-        title: "Order Picked Up",
-        message: `Order #${order.id} has been picked up by the customer`,
-        type: "ORDER_PICKED_UP",
-        orderId,
-      });
+      if (agentUserId) {
+          await createNotification({
+            userId: agentUserId,
+            title: "Order Picked Up",
+            message: `Order #${orderData.id} has been picked up by the customer`,
+            type: "ORDER_PICKED_UP",
+            orderId,
+          });
+      }
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error("Error creating pickup status notification:", error);
-    return { error: "Failed to create pickup status notification" };
+    return { success: false, error: "Failed to create pickup status notification" };
   }
 }
 
 /**
- * Create return status notification
+ * Create return status change notification
  */
-export async function createReturnStatusNotification(returnId: string, status: string) {
+export async function createReturnStatusNotification(returnId: string, status: string): Promise<{ success: boolean; error?: string }> {
   try {
     // Get return with related entities
-    const returnData = await db.return.findUnique({
-      where: { id: returnId },
-      include: {
-        customer: {
-          include: {
-            user: true,
-          },
-        },
-        vendor: {
-          include: {
-            user: true,
-          },
-        },
-        agent: {
-          include: {
-            user: true,
-          },
-        },
-        order: true,
-        product: true,
-      },
-    });
-    
-    if (!returnData) {
-      return { error: "Return not found" };
+    const { data: returnData, error: returnError } = await supabase
+      .from('Return') // Assuming table name is 'Return'
+      .select(`
+        id,
+        customerId,
+        vendorId,
+        agentId,
+        orderId,
+        productId,
+        Customer:customerId ( userId ),
+        Vendor:vendorId ( userId ),
+        Agent:agentId ( userId ),
+        Product:productId ( name )
+      `)
+      .eq('id', returnId)
+      .single();
+
+    if (returnError || !returnData) {
+        console.error("Error fetching return for notification:", returnError?.message);
+        return { success: false, error: "Return request not found" };
     }
-    
+
+    // Use optional chaining for safe access
+    const returnInfo = returnData as any; // Cast for easier access or use explicit checks
+    const customerUserId = returnInfo.Customer?.userId;
+    const vendorUserId = returnInfo.Vendor?.userId;
+    const agentUserId = returnInfo.Agent?.userId;
+    const productName = returnInfo.Product?.name || 'the product';
+
     if (status === "REQUESTED") {
       // Notify vendor
-      await createNotification({
-        userId: returnData.vendor.userId,
-        title: "Return Requested",
-        message: `A return has been requested for product ${returnData.product.name} from order #${returnData.orderId}`,
-        type: "RETURN_REQUESTED",
-        returnId,
-      });
-      
-      // Notify agent
-      await createNotification({
-        userId: returnData.agent.userId,
-        title: "Return Requested",
-        message: `A return has been requested for product ${returnData.product.name} from order #${returnData.orderId}`,
-        type: "RETURN_REQUESTED",
-        returnId,
-      });
+      if(vendorUserId) {
+          await createNotification({
+            userId: vendorUserId,
+            title: "Return Requested",
+            message: `A return has been requested for product ${productName} from order #${returnInfo.orderId}`,
+            type: "RETURN_REQUESTED",
+            returnId,
+          });
+      }
+      // Notify agent (if applicable to your return flow)
+      if(agentUserId) {
+          await createNotification({
+            userId: agentUserId,
+            title: "Return Requested",
+            message: `A return has been requested for product ${productName} from order #${returnInfo.orderId}`,
+            type: "RETURN_REQUESTED",
+            returnId,
+          });
+      }
     } else if (status === "APPROVED") {
       // Notify customer
-      await createNotification({
-        userId: returnData.customer.userId,
-        title: "Return Approved",
-        message: `Your return request for product ${returnData.product.name} has been approved`,
-        type: "RETURN_APPROVED",
-        returnId,
-      });
-      
-      // Notify agent
-      await createNotification({
-        userId: returnData.agent.userId,
-        title: "Return Approved",
-        message: `Return for product ${returnData.product.name} from order #${returnData.orderId} has been approved`,
-        type: "RETURN_APPROVED",
-        returnId,
-      });
+      if (customerUserId) {
+          await createNotification({
+            userId: customerUserId,
+            title: "Return Approved",
+            message: `Your return request for product ${productName} has been approved`,
+            type: "RETURN_APPROVED",
+            returnId,
+          });
+      }
+      // Notify agent (if applicable)
+      if (agentUserId) {
+          await createNotification({
+            userId: agentUserId,
+            title: "Return Approved",
+            message: `Return for product ${productName} from order #${returnInfo.orderId} has been approved`,
+            type: "RETURN_APPROVED",
+            returnId,
+          });
+      }
     } else if (status === "REJECTED") {
       // Notify customer
-      await createNotification({
-        userId: returnData.customer.userId,
-        title: "Return Rejected",
-        message: `Your return request for product ${returnData.product.name} has been rejected`,
-        type: "RETURN_REJECTED",
-        returnId,
-      });
-    } else if (status === "COMPLETED" || returnData.refundStatus === "PROCESSED") {
+      if (customerUserId) {
+          await createNotification({
+            userId: customerUserId,
+            title: "Return Rejected",
+            message: `Your return request for product ${productName} has been rejected`,
+            type: "RETURN_REJECTED",
+            returnId,
+          });
+      }
+    } else if (status === "REFUND_PROCESSED") {
       // Notify customer
-      await createNotification({
-        userId: returnData.customer.userId,
-        title: "Refund Processed",
-        message: `Your refund for product ${returnData.product.name} has been processed`,
-        type: "REFUND_PROCESSED",
-        returnId,
-      });
-      
+      if (customerUserId) {
+          await createNotification({
+            userId: customerUserId,
+            title: "Refund Processed",
+            message: `Your refund for product ${productName} has been processed`,
+            type: "REFUND_PROCESSED",
+            returnId,
+          });
+      }
       // Notify vendor
-      await createNotification({
-        userId: returnData.vendor.userId,
-        title: "Refund Processed",
-        message: `Refund for product ${returnData.product.name} from order #${returnData.orderId} has been processed`,
-        type: "REFUND_PROCESSED",
-        returnId,
-      });
-    }
-    
+      if (vendorUserId) {
+          await createNotification({
+            userId: vendorUserId,
+            title: "Refund Processed",
+            message: `Refund for product ${productName} from order #${returnInfo.orderId} has been processed`,
+            type: "REFUND_PROCESSED",
+            returnId,
+          });
+      }
+    } // Add more statuses as needed
+
     return { success: true };
   } catch (error) {
     console.error("Error creating return status notification:", error);
-    return { error: "Failed to create return status notification" };
+    return { success: false, error: "Failed to create return status notification" };
   }
 } 

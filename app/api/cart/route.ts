@@ -1,23 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../lib/db";
 import { auth } from "../../../auth";
+import { createClient } from '@supabase/supabase-js';
+import { getCustomerByUserId, getCustomerCart } from "../../../lib/services/customer";
+import type { Cart } from '../../../types/supabase';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL/Key missing in cart API route.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET() {
   try {
     const session = await auth();
     
-    // Check if user is authenticated
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
     
-    // Get customer ID from user ID
-    const customer = await db.customer.findUnique({
-      where: { userId: session.user.id },
-    });
+    const customer = await getCustomerByUserId(session.user.id);
     
     if (!customer) {
       return NextResponse.json(
@@ -26,79 +32,27 @@ export async function GET() {
       );
     }
     
-    // Get cart for customer or create one if it doesn't exist
-    let cart = await db.cart.findUnique({
-      where: { customerId: customer.id },
-      include: {
-        items: {
-          include: {
-            product: {
-              include: {
-                images: {
-                  orderBy: {
-                    order: "asc",
-                  },
-                  take: 1,
-                },
-                vendor: {
-                  select: {
-                    id: true,
-                    storeName: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-    
-    if (!cart) {
-      cart = await db.cart.create({
-        data: {
-          customerId: customer.id,
-        },
-        include: {
-          items: {
-            include: {
-              product: {
-                include: {
-                  images: {
-                    orderBy: {
-                      order: "asc",
-                    },
-                    take: 1,
-                  },
-                  vendor: {
-                    select: {
-                      id: true,
-                      storeName: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
+    const cartResult = await getCustomerCart(customer.id);
+
+    if (!cartResult) {
+        console.error(`Failed to get or create cart for customer ${customer.id}`);
+        return NextResponse.json(
+            { error: "Failed to retrieve or create cart." },
+            { status: 500 }
+        );
     }
     
-    // Calculate totals
-    const cartTotal = cart.items.reduce(
-      (sum: number, item: { quantity: number; product: { price: number } }) => {
-        return sum + (item.quantity * Number(item.product.price));
-      },
-      0
-    );
-    
     return NextResponse.json({
-      ...cart,
-      cartTotal,
+      ...(cartResult.cart),
+      items: cartResult.items, 
+      cartTotal: cartResult.cartTotal, 
     });
+
   } catch (error) {
-    console.error("Error fetching cart:", error);
+    console.error("Error fetching cart API:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to fetch cart";
     return NextResponse.json(
-      { error: "Failed to fetch cart" },
+      { error: errorMessage },
       { status: 500 }
     );
   }

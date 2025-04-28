@@ -1,7 +1,6 @@
 "use server";
 
 import { auth } from "../auth";
-import { db } from "../lib/db";
 import { revalidatePath } from "next/cache";
 import { getCustomerByUserId } from "../lib/services/customer";
 import { getVendorByUserId } from "../lib/services/vendor";
@@ -15,9 +14,11 @@ import {
   approveReturnRequest,
   rejectReturnRequest,
   completeReturnProcess,
-  processRefund
+  processRefund,
+  getAllReturns
 } from "../lib/services/return";
 import { createReturnStatusNotification } from "../lib/services/notification";
+import { type Return } from "../types/supabase";
 
 /**
  * Create a new return request
@@ -65,7 +66,7 @@ export async function createReturnRequestAction(formData: FormData) {
     
     // Create notification for return request
     if (result.returnRequest) {
-      await createReturnStatusNotification(result.returnRequest.id, "REQUESTED");
+      await createReturnStatusNotification(result.returnRequest.id, 'REQUESTED');
     }
     
     revalidatePath(`/customer/orders/${orderId}`);
@@ -318,7 +319,7 @@ export async function rejectReturnRequestAction(formData: FormData) {
     }
     
     // Create notification for rejected return
-    await createReturnStatusNotification(returnId, "REJECTED");
+    await createReturnStatusNotification(returnId, 'REJECTED');
     
     revalidatePath(`/vendor/returns/${returnId}`);
     revalidatePath("/vendor/returns");
@@ -357,7 +358,7 @@ export async function completeReturnProcessAction(formData: FormData) {
     }
     
     // Create notification for completed return and processed refund
-    await createReturnStatusNotification(returnId, "COMPLETED");
+    await createReturnStatusNotification(returnId, 'COMPLETED');
     
     revalidatePath(`/agent/returns/${returnId}`);
     revalidatePath("/agent/returns");
@@ -394,57 +395,31 @@ export async function getAllReturnsAction(options?: {
     const limit = options?.limit || 10;
     const skip = (page - 1) * limit;
     
-    const where: any = {};
-    
+    // Define the valid statuses based on the Return type
+    type ReturnStatus = Return['status'];
+    const validStatuses: ReturnStatus[] = ['REQUESTED', 'APPROVED', 'REJECTED', 'COMPLETED'];
+
+    // Validate status if provided
+    let validatedStatus: ReturnStatus | undefined = undefined;
     if (options?.status) {
-      where.status = options.status;
+        if (validStatuses.includes(options.status as ReturnStatus)) {
+            validatedStatus = options.status as ReturnStatus;
+        } else {
+            return { error: `Invalid status provided. Valid statuses are: ${validStatuses.join(', ')}` };
+        }
     }
-    
-    const returns = await db.return.findMany({
-      where,
-      include: {
-        order: true,
-        product: true,
-        customer: {
-          include: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-        vendor: {
-          include: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-        agent: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      skip,
-      take: limit,
-    });
-    
-    const total = await db.return.count({ where });
+
+    // Prepare options for the service function with validated status
+    const serviceOptions = {
+        ...options,
+        status: validatedStatus,
+    };
+
+    const result = await getAllReturns(serviceOptions);
     
     return {
       success: true,
-      data: returns,
-      meta: {
-        total,
-        page,
-        limit,
-        pageCount: Math.ceil(total / limit),
-      },
+      ...result
     };
   } catch (error) {
     console.error("Error fetching all returns:", error);

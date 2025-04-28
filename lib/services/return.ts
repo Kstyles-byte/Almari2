@@ -1,5 +1,21 @@
 import { db } from "../db";
 import { processAutomatedRefund } from "./refund";
+import { createClient } from '@supabase/supabase-js';
+import type { Return, Order, Product, Customer, Vendor, Agent, UserProfile as User } from '../../types/supabase'; // Import Supabase types
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL or Service Role Key is missing in environment variables for return service.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+// Define ReturnStatus and RefundStatus enums based on schema.sql
+type ReturnStatus = Return['status'];
+type RefundStatus = Return['refundStatus'];
+type PickupStatus = Order['pickupStatus'];
 
 /**
  * Create a new return request
@@ -15,15 +31,21 @@ export async function createReturnRequest(data: {
 }) {
   try {
     // Verify that the order was picked up within the last 24 hours
-    const order = await db.order.findUnique({
-      where: { id: data.orderId },
-    });
+    const { data: order, error: orderError } = await supabase
+      .from('Order')
+      .select('pickupStatus, pickupDate')
+      .eq('id', data.orderId)
+      .maybeSingle();
     
+    if (orderError) {
+      console.error("Error fetching order for return check:", orderError.message);
+      return { error: "Failed to fetch order details" };
+    }
     if (!order) {
       return { error: "Order not found" };
     }
     
-    if (order.pickupStatus !== "PICKED_UP") {
+    if (order.pickupStatus !== 'PICKED_UP') {
       return { error: "Order has not been picked up yet" };
     }
     
@@ -40,8 +62,9 @@ export async function createReturnRequest(data: {
     }
     
     // Create return request
-    const returnRequest = await db.return.create({
-      data: {
+    const { data: returnRequest, error: insertError } = await supabase
+      .from('Return')
+      .insert({
         orderId: data.orderId,
         productId: data.productId,
         customerId: data.customerId,
@@ -49,12 +72,18 @@ export async function createReturnRequest(data: {
         agentId: data.agentId,
         reason: data.reason,
         refundAmount: data.refundAmount,
-        status: "REQUESTED",
-        refundStatus: "PENDING",
-      },
-    });
+        status: 'REQUESTED',
+        refundStatus: 'PENDING',
+      })
+      .select()
+      .single();
     
-    return { success: true, returnRequest };
+    if (insertError) {
+      console.error("Error creating return request in DB:", insertError.message);
+      return { error: `Failed to create return request: ${insertError.message}` };
+    }
+
+    return { success: true, returnRequest: returnRequest as Return };
   } catch (error) {
     console.error("Error creating return request:", error);
     return { error: "Failed to create return request" };
@@ -434,5 +463,72 @@ export async function processRefund(returnId: string) {
   } catch (error) {
     console.error("Error processing refund:", error);
     return { error: "Failed to process refund" };
+  }
+}
+
+/**
+ * Get all returns (Admin function)
+ */
+export async function getAllReturns(options?: {
+  page?: number;
+  limit?: number;
+  status?: ReturnStatus;
+}) {
+  try {
+    const page = options?.page || 1;
+    const limit = options?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    let queryBuilder = supabase
+      .from('Return')
+      .select(`
+        *,
+        order:Order (*),
+        product:Product (*),
+        customer:Customer (*, user:User (name, email)),
+        vendor:Vendor (*, user:User (name, email)),
+        agent:Agent (*)
+      `, { count: 'exact' });
+
+    // Apply status filter
+    if (options?.status) {
+      queryBuilder = queryBuilder.eq('status', options.status);
+    }
+
+    // Apply ordering and pagination
+    queryBuilder = queryBuilder
+      .order('createdAt', { ascending: false })
+      .range(skip, skip + limit - 1);
+
+    // Execute query
+    const { data: returns, error, count } = await queryBuilder;
+
+    if (error) {
+      console.error("Error fetching all returns:", error.message);
+      throw error;
+    }
+
+    return {
+      data: returns || [],
+      meta: {
+        total: count ?? 0,
+        page,
+        limit,
+        pageCount: Math.ceil((count ?? 0) / limit),
+      },
+    };
+
+  } catch (error) {
+    console.error("Error in getAllReturns service:", error);
+    // Return default structure on error
+    return {
+      data: [],
+      meta: {
+        total: 0,
+        page: options?.page || 1,
+        limit: options?.limit || 10,
+        pageCount: 0,
+      },
+    };
   }
 } 

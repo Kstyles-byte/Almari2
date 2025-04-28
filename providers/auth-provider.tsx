@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useRouter, usePathname } from "next/navigation"
+import { createClient, SupabaseClient } from "@supabase/supabase-js"
 import { useToast } from "../components/ui/use-toast"
 
 interface User {
@@ -23,9 +24,17 @@ interface AuthContextType extends AuthState {
   signUp: (email: string, password: string, name: string, role: User["role"]) => Promise<boolean>
   signOut: () => Promise<void>
   forgotPassword: (email: string) => Promise<boolean>
-  resetPassword: (token: string, password: string) => Promise<boolean>
   updateProfile: (data: Partial<User>) => Promise<boolean>
 }
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing in environment variables.");
+}
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined)
 
@@ -40,15 +49,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
   })
   
-  // Check for existing session on mount
   React.useEffect(() => {
     const checkSession = async () => {
       try {
-        // In production, you would fetch user session data from your API
-        // const response = await fetch("/api/auth/session")
-        // const data = await response.json()
-        
-        // For now, check localStorage for a mock session
         const storedUser = localStorage.getItem("user")
         
         if (storedUser) {
@@ -78,12 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkSession()
   }, [])
   
-  // Monitor route changes to redirect unauthenticated users
   React.useEffect(() => {
-    // Skip during initial loading
     if (state.isLoading) return
     
-    // Check if current path requires authentication
     const protectedPaths = [
       '/customer',
       '/vendor',
@@ -111,18 +111,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setState(prev => ({ ...prev, isLoading: true }))
       
-      // In production, you'd make a real API call
-      // const response = await fetch("/api/auth/signin", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email, password }),
-      // })
-      // const data = await response.json()
-      
-      // For demo purposes, simulate API call with mock data
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // Simple validation for demo
       if (email.includes("@") && password.length >= 6) {
         const user: User = {
           id: "user_" + Math.random().toString(36).substring(2),
@@ -131,7 +121,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: "customer",
         }
         
-        // Store in localStorage for demo purposes
         localStorage.setItem("user", JSON.stringify(user))
         
         setState({
@@ -178,21 +167,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setState(prev => ({ ...prev, isLoading: true }))
       
-      // In production, you'd make a real API call
-      // const response = await fetch("/api/auth/signup", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email, password, name, role }),
-      // })
-      // const data = await response.json()
-      
-      // For demo purposes, simulate API call with mock data
       await new Promise(resolve => setTimeout(resolve, 1500))
       
       if (email.includes("@") && password.length >= 6 && name.length >= 2) {
-        // In production, you would typically redirect to verify email
-        // For demo, just create the account
-        
         const user: User = {
           id: "user_" + Math.random().toString(36).substring(2),
           name,
@@ -200,7 +177,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role,
         }
         
-        // Store in localStorage for demo purposes
         localStorage.setItem("user", JSON.stringify(user))
         
         setState({
@@ -242,13 +218,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setState(prev => ({ ...prev, isLoading: true }))
       
-      // In production, you'd make a real API call
-      // await fetch("/api/auth/signout", { method: "POST" })
-      
-      // For demo purposes, simulate API call
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      // Remove from localStorage
       localStorage.removeItem("user")
       
       setState({
@@ -276,52 +247,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
   
   const forgotPassword = async (email: string): Promise<boolean> => {
+    setState(prev => ({ ...prev, isLoading: true }))
     try {
-      setState(prev => ({ ...prev, isLoading: true }))
-      
-      // In production, you'd make a real API call
-      // const response = await fetch("/api/auth/forgot-password", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email }),
-      // })
-      // const data = await response.json()
-      
-      // For demo purposes, simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+
       setState(prev => ({ ...prev, isLoading: false }))
-      
-      return true
-    } catch (error) {
-      console.error("Forgot password error:", error)
+
+      if (error) {
+        console.error("Forgot password error:", error.message);
+        toast({
+          title: "Error Sending Reset Email",
+          description: error.message || "Could not send password reset link.",
+          variant: "destructive",
+        })
+        return false;
+      }
+
+      toast({
+        title: "Password Reset Email Sent",
+        description: "Check your email for a link to reset your password.",
+      })
+      return true;
+
+    } catch (error: any) {
+      console.error("Forgot password unexpected error:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      })
       setState(prev => ({ ...prev, isLoading: false }))
-      return false
-    }
-  }
-  
-  const resetPassword = async (token: string, password: string): Promise<boolean> => {
-    try {
-      setState(prev => ({ ...prev, isLoading: true }))
-      
-      // In production, you'd make a real API call
-      // const response = await fetch("/api/auth/reset-password", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ token, password }),
-      // })
-      // const data = await response.json()
-      
-      // For demo purposes, simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      setState(prev => ({ ...prev, isLoading: false }))
-      
-      return true
-    } catch (error) {
-      console.error("Reset password error:", error)
-      setState(prev => ({ ...prev, isLoading: false }))
-      return false
+      return false;
     }
   }
   
@@ -331,15 +289,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setState(prev => ({ ...prev, isLoading: true }))
       
-      // In production, you'd make a real API call
-      // const response = await fetch("/api/auth/profile", {
-      //   method: "PUT",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(data),
-      // })
-      // const responseData = await response.json()
-      
-      // For demo purposes, simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000))
       
       const updatedUser = {
@@ -347,7 +296,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...data,
       }
       
-      // Update localStorage
       localStorage.setItem("user", JSON.stringify(updatedUser))
       
       setState({
@@ -375,17 +323,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
   
-  const value = {
-    ...state,
-    signIn,
-    signUp,
-    signOut,
-    forgotPassword,
-    resetPassword,
-    updateProfile,
-  }
-  
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ ...state, signIn, signUp, signOut, forgotPassword, updateProfile }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

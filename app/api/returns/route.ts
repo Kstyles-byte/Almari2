@@ -3,6 +3,19 @@ import { db } from "../../../lib/db";
 import { auth } from "../../../auth";
 import { getCustomerByUserId } from "../../../lib/services/customer";
 import { createReturnRequest } from "../../../lib/services/return";
+import { createClient } from '@supabase/supabase-js';
+import { getVendorByUserId } from "../../../lib/services/vendor";
+import { getAgentByUserId } from "../../../lib/services/agent";
+import type { Return, Order, Product, Customer, Vendor, Agent, UserProfile } from '../../../types/supabase';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL or Service Role Key is missing in API route /api/returns.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,50 +36,26 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
     
     let returns;
-    let total = 0;
-    const where: any = {};
+    let count: number | null = 0;
     
+    // Base query
+    let query = supabase.from('Return').select(`
+        *,
+        order:Order (*),
+        product:Product (*),
+        customer:Customer (*, user:User (name, email)),
+        vendor:Vendor (*, user:User (name, email)),
+        agent:Agent (*)
+    `, { count: 'exact' });
+    
+    // Apply status filter
     if (status) {
-      where.status = status;
+        // TODO: Validate status against ReturnStatus enum?
+        query = query.eq('status', status);
     }
     
     if (session.user.role === "ADMIN") {
-      // Admin can see all returns
-      returns = await db.return.findMany({
-        where,
-        take: limit,
-        skip: skip,
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          order: true,
-          product: true,
-          customer: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          vendor: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          agent: true,
-        },
-      });
-      
-      total = await db.return.count({ where });
+      // Admin can see all returns (no extra filters needed beyond status)
     } else if (session.user.role === "CUSTOMER") {
       // Customers can only see their own returns
       const customer = await getCustomerByUserId(session.user.id);
@@ -78,40 +67,11 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      where.customerId = customer.id;
-      
-      returns = await db.return.findMany({
-        where,
-        take: limit,
-        skip: skip,
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          order: true,
-          product: true,
-          vendor: {
-            select: {
-              id: true,
-              storeName: true,
-            },
-          },
-          agent: {
-            select: {
-              id: true,
-              name: true,
-              location: true,
-            },
-          },
-        },
-      });
-      
-      total = await db.return.count({ where });
+      // Apply customer filter
+      query = query.eq('customerId', customer.id);
     } else if (session.user.role === "VENDOR") {
       // Vendors can only see returns for their products
-      const vendor = await db.vendor.findUnique({
-        where: { userId: session.user.id },
-      });
+      const vendor = await getVendorByUserId(session.user.id);
       
       if (!vendor) {
         return NextResponse.json(
@@ -120,44 +80,11 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      where.vendorId = vendor.id;
-      
-      returns = await db.return.findMany({
-        where,
-        take: limit,
-        skip: skip,
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          order: true,
-          product: true,
-          customer: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          agent: {
-            select: {
-              id: true,
-              name: true,
-              location: true,
-            },
-          },
-        },
-      });
-      
-      total = await db.return.count({ where });
+      // Apply vendor filter
+      query = query.eq('vendorId', vendor.id);
     } else if (session.user.role === "AGENT") {
       // Agents can only see returns they're handling
-      const agent = await db.agent.findUnique({
-        where: { userId: session.user.id },
-      });
+      const agent = await getAgentByUserId(session.user.id);
       
       if (!agent) {
         return NextResponse.json(
@@ -166,38 +93,8 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      where.agentId = agent.id;
-      
-      returns = await db.return.findMany({
-        where,
-        take: limit,
-        skip: skip,
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          order: true,
-          product: true,
-          customer: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          vendor: {
-            select: {
-              id: true,
-              storeName: true,
-            },
-          },
-        },
-      });
-      
-      total = await db.return.count({ where });
+      // Apply agent filter
+      query = query.eq('agentId', agent.id);
     } else {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -205,13 +102,29 @@ export async function GET(request: NextRequest) {
       );
     }
     
+    // Apply final ordering and pagination
+    query = query
+        .order('createdAt', { ascending: false })
+        .range(skip, skip + limit - 1);
+    
+    // Execute query
+    const { data: returnsData, error, count: fetchedCount } = await query;
+    
+    if (error) {
+        console.error("Supabase error fetching returns:", error.message);
+        throw error;
+    }
+    
+    returns = returnsData;
+    count = fetchedCount;
+    
     return NextResponse.json({
       data: returns,
       meta: {
-        total,
+        total: count ?? 0,
         page,
         limit,
-        pageCount: Math.ceil(total / limit),
+        pageCount: Math.ceil((count ?? 0) / limit),
       },
     });
   } catch (error) {

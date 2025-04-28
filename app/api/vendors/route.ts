@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../lib/db";
 import { auth } from "../../../auth";
 import { getVendorByUserId, createVendorProfile } from "../../../lib/services/vendor";
+import { createClient } from '@supabase/supabase-js';
+import type { Vendor, UserProfile } from '../../../types/supabase';
+
+// Initialize Supabase client (use service role key for admin GET/POST)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL or Service Role Key is missing in API route /api/vendors.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,40 +67,44 @@ export async function GET(req: NextRequest) {
       ];
     }
     
-    // Get vendors
-    const vendors = await db.vendor.findMany({
-      where,
-      take: limit,
-      skip: skip,
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        _count: {
-          select: {
-            products: true,
-          },
-        },
-      },
-    });
-    
-    // Get total count
-    const total = await db.vendor.count({ where });
-    
+    let query = supabase
+        .from('Vendor')
+        .select(`
+            *,
+            user:User ( id, name, email )
+        `, { count: 'exact' });
+
+    // Apply isApproved filter
+    if (isApproved !== null) {
+        query = query.eq('isApproved', isApproved === "true");
+    }
+
+    // Apply search filter (simplified: only on storeName for now)
+    // Searching related user fields efficiently might require specific indexing or RPC
+    if (search) {
+        query = query.ilike('storeName', `%${search}%`);
+    }
+
+    // Apply ordering and pagination
+    query = query
+        .order('createdAt', { ascending: false })
+        .range(skip, skip + limit - 1);
+
+    // Execute query
+    const { data: vendors, error, count } = await query;
+
+    if (error) {
+        console.error("Supabase error fetching vendors:", error.message);
+        throw error;
+    }
+
     return NextResponse.json({
       data: vendors,
       meta: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit),
+        total: count ?? 0,
+        pages: Math.ceil((count ?? 0) / limit),
       },
     });
   } catch (error) {
@@ -144,13 +158,29 @@ export async function POST(req: NextRequest) {
       bankName,
       accountNumber,
     });
-    
+
+    if (!vendor) {
+      // createVendorProfile service function likely threw an error caught below
+      // but adding check here for clarity.
+       return NextResponse.json(
+        { error: "Failed to create vendor profile via service" },
+        { status: 500 }
+      );
+    }
+
     // Update user role to VENDOR
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { role: "VENDOR" },
-    });
-    
+    const { error: roleUpdateError } = await supabase
+        .from('User')
+        .update({ role: 'VENDOR', updatedAt: new Date().toISOString() })
+        .eq('id', session.user.id);
+
+    if (roleUpdateError) {
+        // Log the error, but vendor profile was created.
+        // Consider implications: user role didn't update.
+        console.error("Failed to update user role to VENDOR:", roleUpdateError.message);
+        // Potentially return a specific error or warning, but for now proceed.
+    }
+
     return NextResponse.json(vendor, { status: 201 });
   } catch (error) {
     console.error("Error creating vendor profile:", error);

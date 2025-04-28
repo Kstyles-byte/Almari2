@@ -1,7 +1,6 @@
 "use server";
 
 import { auth } from "../auth";
-import { db } from "../lib/db";
 import { revalidatePath } from "next/cache";
 import { 
   createAgent,
@@ -16,6 +15,18 @@ import {
   generatePickupCode
 } from "../lib/services/agent";
 import { createPickupStatusNotification } from "../lib/services/notification";
+import { createClient } from '@supabase/supabase-js';
+import type { Order, Agent } from "../types/supabase"; // Import necessary types
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL/Key missing in agent actions.");
+  // Handle appropriately
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 /**
  * Create a new agent
@@ -62,10 +73,17 @@ export async function createAgentAction(formData: FormData) {
     }
     
     // Update user role to AGENT
-    await db.user.update({
-      where: { id: userId },
-      data: { role: "AGENT" },
-    });
+    const { error: userUpdateError } = await supabase
+      .from('User') // Ensure this matches your custom User table name
+      .update({ role: 'AGENT', updatedAt: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (userUpdateError) {
+      // Log the error but maybe don't fail the whole action if agent creation succeeded?
+      // Or rollback agent creation? Requires transaction logic.
+      console.error("Error updating user role after agent creation:", userUpdateError.message);
+      // Decide on error handling: return { error: "Failed to update user role." };
+    }
     
     revalidatePath("/admin/agents");
     
@@ -242,48 +260,57 @@ export async function markOrderReadyForPickup(formData: FormData) {
       return { error: "Agent profile not found" };
     }
     
-    // Get the order
-    const order = await db.order.findUnique({
-      where: { id: orderId },
-    });
-    
-    if (!order) {
-      return { error: "Order not found" };
+    // Use the service function to update the status
+    // The service function should ideally handle checking if the order exists
+    // and potentially if it's assigned to the correct agent if needed (though agent actions imply agent context)
+
+    // Before marking ready, generate the pickup code if it doesn't exist.
+    // Fetch order just to get code status.
+    const { data: orderData, error: fetchOrderError } = await supabase
+      .from('Order')
+      .select('pickupCode, agentId')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (fetchOrderError || !orderData) {
+      return { error: fetchOrderError?.message || "Order not found" };
     }
-    
-    // Check if the agent is assigned to this order
-    if (order.agentId !== agent.id) {
-      return { error: "This order is not assigned to you" };
+
+    // Verify order belongs to this agent
+    if (orderData.agentId !== agent.id) {
+      return { error: "Not authorized to update this order" };
     }
-    
-    // Check if order is in correct status
-    if (order.status !== "PROCESSING" && order.status !== "SHIPPED") {
-      return { error: "Order must be processing or shipped to mark as ready for pickup" };
+
+    // Generate pickup code only if it's null/empty
+    let pickupCode = orderData.pickupCode;
+    if (!pickupCode) {
+        pickupCode = generatePickupCode();
+        // Update the order with the pickup code first
+        const { error: codeUpdateError } = await supabase
+            .from('Order')
+            .update({ pickupCode: pickupCode, updatedAt: new Date().toISOString() })
+            .eq('id', orderId);
+
+        if (codeUpdateError) {
+            console.error("Error setting pickup code:", codeUpdateError.message);
+            return { error: "Failed to set pickup code for the order." };
+        }
     }
-    
-    // Generate pickup code
-    const pickupCode = generatePickupCode();
-    
-    // Update order status
-    await db.order.update({
-      where: { id: orderId },
-      data: {
-        pickupStatus: "READY_FOR_PICKUP",
-        pickupCode,
-      },
-    });
-    
-    // Create notification for pickup status change
-    await createPickupStatusNotification(orderId, "READY_FOR_PICKUP");
-    
-    revalidatePath(`/agent/orders/${orderId}`);
+
+    // Now update the status using the service function
+    const result = await updateOrderPickupStatus(orderId, 'READY_FOR_PICKUP');
+
+    if (result.error) {
+      return { error: result.error };
+    }
+
     revalidatePath("/agent/orders");
-    revalidatePath("/agent/pickups");
+    revalidatePath(`/agent/orders/${orderId}`);
     
-    return { success: true, pickupCode };
+    return { success: true, order: result.order };
   } catch (error) {
     console.error("Error marking order ready for pickup:", error);
-    return { error: "Failed to mark order as ready for pickup" };
+    return { error: "Failed to mark order ready for pickup" };
   }
 }
 
@@ -312,54 +339,32 @@ export async function verifyCustomerPickup(formData: FormData) {
       return { error: "Agent profile not found" };
     }
     
-    // Get the order
-    const order = await db.order.findUnique({
-      where: { id: orderId },
-    });
-    
-    if (!order) {
-      return { error: "Order not found" };
+    // Use the service function to verify the code
+    const verifyResult = await verifyPickupCode(orderId, pickupCode);
+
+    if (!verifyResult.success || !verifyResult.order) {
+      return { error: verifyResult.error || "Verification failed" };
     }
-    
-    // Check if the agent is assigned to this order
-    if (order.agentId !== agent.id) {
-      return { error: "This order is not assigned to you" };
+
+    // Check if the order is assigned to this agent (optional check, service might handle it)
+    if (verifyResult.order.agentId !== agent.id) {
+      return { error: "Not authorized to manage this order" };
     }
-    
-    // Verify pickup code
-    const verificationResult = await verifyPickupCode(orderId, pickupCode);
-    
-    if (!verificationResult.success) {
-      return { error: verificationResult.error };
+
+    // If code is valid and order is ready, update status using the service function
+    const updateResult = await updateOrderPickupStatus(orderId, 'PICKED_UP', new Date());
+
+    if (updateResult.error) {
+      return { error: updateResult.error };
     }
-    
-    // Update order status to DELIVERED when picked up
-    await db.order.update({
-      where: { id: orderId },
-      data: {
-        status: "DELIVERED",
-      },
-    });
-    
-    // Update all order items to DELIVERED
-    await db.orderItem.updateMany({
-      where: { orderId },
-      data: {
-        status: "DELIVERED",
-      },
-    });
-    
-    // Create notification for pickup status change
-    await createPickupStatusNotification(orderId, "PICKED_UP");
-    
-    revalidatePath(`/agent/orders/${orderId}`);
+
     revalidatePath("/agent/orders");
-    revalidatePath("/agent/pickups");
+    revalidatePath(`/agent/orders/${orderId}`);
     
-    return { success: true };
+    return { success: true, order: updateResult.order };
   } catch (error) {
     console.error("Error verifying customer pickup:", error);
-    return { error: "Failed to verify pickup" };
+    return { error: "Failed to verify customer pickup" };
   }
 }
 
@@ -371,43 +376,51 @@ export async function getAllAgentsAction(options?: {
   limit?: number;
   isActive?: boolean;
 }) {
+  // NOTE: This is an ADMIN action based on revalidatePath("/admin/agents")
   try {
     const session = await auth();
-    
-    if (!session?.user) {
-      return { error: "Unauthorized" };
-    }
-    
-    // Only admins can list all agents
-    if (session.user.role !== "ADMIN") {
+    if (!session?.user || session.user.role !== "ADMIN") {
       return { error: "Unauthorized" };
     }
     
     const page = options?.page || 1;
     const limit = options?.limit || 10;
-    const isActive = options?.isActive;
+    const skip = (page - 1) * limit;
     
-    const where = isActive !== undefined ? { isActive } : {};
-    
-    const agents = await db.agent.findMany({
-      where,
-      take: limit,
-      skip: (page - 1) * limit,
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-    
-    const total = await db.agent.count({ where });
-    
+    let queryBuilder = supabase
+      .from('Agent')
+      .select('*' , { count: 'exact' });
+
+    // Apply filters
+    if (options?.isActive !== undefined) {
+      queryBuilder = queryBuilder.eq('isActive', options.isActive);
+    }
+
+    // Fetch data with count
+    queryBuilder = queryBuilder
+      .order('createdAt', { ascending: false })
+      .range(skip, skip + limit - 1);
+    // Destructure the response from Supabase query to get:
+    // - data: The agents array
+    // - error: Any error that occurred
+    // - count: Total number of records
+    const { data: agents, error, count } = await queryBuilder;
+
+
+
+    if (error) {
+      console.error("Error fetching agents:", error.message);
+      throw error;
+    }
+
     return {
       success: true,
       data: agents,
       meta: {
-        total,
+        total: count ?? 0,
         page,
         limit,
-        pageCount: Math.ceil(total / limit),
+        pageCount: Math.ceil((count ?? 0) / limit),
       },
     };
   } catch (error) {
@@ -478,31 +491,38 @@ export async function deleteAgentAction(formData: FormData) {
       return { error: "Agent ID is required" };
     }
     
-    // Get agent to get the user ID
-    const agent = await getAgentById(agentId);
-    
-    if (!agent) {
-      return { error: "Agent not found" };
+    // Store the agent's userId before potentially deleting the agent record
+    const agentToDelete = await getAgentById(agentId);
+    if (!agentToDelete) {
+        return { error: "Agent not found." };
     }
-    
-    // Delete agent
+    const userIdToUpdate = agentToDelete.userId;
+
+    // Delete agent using service function
     const result = await deleteAgent(agentId);
-    
+
     if (result.error) {
       return { error: result.error };
     }
-    
-    // Reset user role from AGENT to CUSTOMER
-    await db.user.update({
-      where: { id: agent.userId },
-      data: { role: "CUSTOMER" },
-    });
-    
+
+    // Update user role back to customer (or handle appropriately)
+    const { error: userUpdateError } = await supabase
+      .from('User')
+      .update({ role: 'CUSTOMER', updatedAt: new Date().toISOString() }) // Assuming role becomes CUSTOMER
+      .eq('id', userIdToUpdate);
+
+    if (userUpdateError) {
+      console.error("Error updating user role after agent deletion:", userUpdateError.message);
+      // Decide on handling - deletion succeeded, but role update failed.
+      // Maybe log it and return success? Or return a specific error/warning?
+      // For now, let's return success but log the error.
+    }
+
     revalidatePath("/admin/agents");
     
     return { success: true };
   } catch (error) {
     console.error("Error deleting agent:", error);
-    return { error: "Failed to delete agent" };
+    return { error: error instanceof Error ? error.message : "Failed to delete agent" };
   }
 } 

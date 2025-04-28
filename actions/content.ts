@@ -1,37 +1,23 @@
-import { createClient } from '@supabase/supabase-js';
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import { createClient } from '../lib/supabase/server';
+import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
+import { HeroBanner, Category } from '../types/supabase';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-export interface HeroBanner {
-  id: string;
-  title: string;
-  subtitle: string | null;
-  buttonText: string | null;
-  buttonLink: string | null;
-  imageUrl: string;
-  mobileImageUrl: string | null;
-  isActive: boolean;
-  priority: number;
-  startDate: string | null;
-  endDate: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string | null;
-  parentId: string | null;
-  createdAt: string;
-  updatedAt: string;
-  // Optional: Include subcategories if needed
-  children?: Category[];
-}
+// Configure Cloudinary (ensure environment variables are set)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+});
 
 /**
  * Get active hero banners for the homepage
@@ -236,6 +222,7 @@ export async function toggleHeroBannerActive(id: string): Promise<HeroBanner | n
  * Optionally include their child categories
  */
 export async function getAllCategories(includeChildren: boolean = false): Promise<Category[]> {
+  const supabase = createClient(); // Create client inside function if not global
   try {
     // First get all categories
     const { data: categories, error } = await supabase
@@ -245,18 +232,20 @@ export async function getAllCategories(includeChildren: boolean = false): Promis
     
     if (error) throw error;
     
+    const allCategories = categories || [];
+
     if (!includeChildren) {
-      return categories || [];
+      return allCategories;
     }
     
     // If children are requested, organize them into a hierarchical structure
-    const rootCategories = categories?.filter(category => !category.parentId) || [];
-    const childCategories = categories?.filter(category => category.parentId) || [];
+    const rootCategories = allCategories.filter((category: Category) => !category.parentId);
+    const childCategories = allCategories.filter((category: Category) => category.parentId);
     
     // Add children to their respective parent categories
-    return rootCategories.map(category => ({
+    return rootCategories.map((category: Category) => ({
       ...category,
-      children: childCategories.filter(child => child.parentId === category.id)
+      children: childCategories.filter((child: Category) => child.parentId === category.id)
     }));
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -322,4 +311,242 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
     console.error(`Error fetching category with slug ${slug}:`, error);
     return null;
   }
-} 
+}
+
+// Define Zod schema for input validation
+const HeroImageUpdateSchema = z.object({
+  bannerId: z.string().uuid('Invalid Banner ID format.'),
+  imageFile: z.instanceof(File).refine((file) => file.size > 0, 'Image file is required.').refine((file) => file.size <= 5 * 1024 * 1024, 'Image must be 5MB or less.').refine((file) => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type), 'Invalid image format (JPEG, PNG, WEBP, GIF allowed).'),
+  currentPublicId: z.string().optional().nullable(), // Public ID of the image being replaced
+});
+
+/**
+ * Server Action to update the Hero Banner image.
+ * Uploads to Cloudinary and updates Supabase.
+ * Requires admin privileges.
+ */
+export async function updateHeroImage(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; error?: any }> {
+  const supabase = createClient();
+  
+  // --- Authorization Check ---
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    console.error('Auth Error:', authError);
+    return { success: false, message: 'Authentication failed.' };
+  }
+
+  // Fetch user details including role (assuming role is stored in user_metadata or a separate table)
+  // This might require a separate query depending on your setup
+  // Example: Fetching from a hypothetical 'User' table based on user.id
+  const { data: userProfile, error: profileError } = await supabase
+    .from('User') // Assuming your user table is named 'User'
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError || !userProfile) {
+     console.error('Profile Fetch Error:', profileError);
+     return { success: false, message: 'Could not verify user role.' };
+  }
+
+  // Check if the user role is ADMIN (using the enum value from your schema)
+  if (userProfile.role !== 'ADMIN') {
+    console.warn(`Unauthorized attempt to update hero image by user: ${user.id}`);
+    return { success: false, message: 'Unauthorized: Admin access required.' };
+  }
+  // --- End Authorization Check ---
+
+  console.log(`Admin user ${user.id} authorized. Proceeding with image update...`);
+
+  const validatedFields = HeroImageUpdateSchema.safeParse({
+    bannerId: formData.get('bannerId'),
+    imageFile: formData.get('imageFile'),
+    currentPublicId: formData.get('currentPublicId') || null, // Ensure null if empty/undefined
+  });
+
+  if (!validatedFields.success) {
+    console.error('Validation Error:', validatedFields.error.flatten().fieldErrors);
+    return {
+      success: false,
+      message: 'Invalid input.',
+      error: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { bannerId, imageFile, currentPublicId } = validatedFields.data;
+
+  try {
+    // Convert File to buffer for Cloudinary upload
+    const bytes = await imageFile.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Upload new image to Cloudinary using your preset
+    console.log(`Uploading new image for banner ${bannerId} using preset 'zerviaupload'...`);
+    const uploadResult = await new Promise<UploadApiResponse | undefined>((resolve, reject) => { // Use imported type
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          upload_preset: 'zerviaupload', // Your specified upload preset
+          folder: 'hero_banners', // Optional: organize uploads
+          public_id: `hero_${bannerId}_${Date.now()}`, // Create a somewhat unique public_id
+        },
+        (error, result) => {
+          if (error) {
+            console.error('Cloudinary Upload Error:', error);
+            reject(new Error('Failed to upload image to Cloudinary.'));
+          } else {
+            console.log('Cloudinary Upload Success:', result?.public_id);
+            resolve(result);
+          }
+        }
+      );
+      uploadStream.end(buffer);
+    });
+
+    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
+      throw new Error('Cloudinary upload failed or did not return expected result.');
+    }
+
+    // Update Supabase with new image URL and public ID
+    console.log(`Updating Supabase for banner ${bannerId} with new image publicId: ${uploadResult.public_id}`);
+    const { error: updateError } = await supabase
+      .from('HeroBanner')
+      .update({
+        imageUrl: uploadResult.secure_url,
+        imagePublicId: uploadResult.public_id,
+        // updatedAt will be handled by trigger or manually if needed
+      })
+      .eq('id', bannerId);
+
+    if (updateError) {
+      console.error('Supabase Update Error:', updateError);
+      // Attempt to delete the newly uploaded image if DB update fails
+      try {
+        console.log(`Attempting to delete orphan Cloudinary image: ${uploadResult.public_id}`);
+        await cloudinary.uploader.destroy(uploadResult.public_id);
+      } catch (cleanupError) {
+        console.error(`Failed to cleanup Cloudinary image ${uploadResult.public_id} after DB error:`, cleanupError);
+      }
+      throw new Error('Failed to update banner in database.');
+    }
+
+    // Delete old image from Cloudinary if it exists
+    if (currentPublicId) {
+      console.log(`Deleting old Cloudinary image: ${currentPublicId}`);
+      try {
+        await cloudinary.uploader.destroy(currentPublicId);
+      } catch (deleteError) {
+        // Log deletion error but don't fail the whole operation
+        console.warn(`Failed to delete old image (${currentPublicId}) from Cloudinary:`, deleteError);
+      }
+    }
+
+    // Revalidate paths
+    revalidatePath('/'); // Revalidate homepage
+    revalidatePath('/admin/content/hero'); // Revalidate admin page
+
+    console.log(`Successfully updated hero image for banner ${bannerId}`);
+    return { success: true, message: 'Hero image updated successfully.' };
+
+  } catch (error: any) {
+    console.error('Error in updateHeroImage action:', error);
+    return {
+      success: false,
+      message: error.message || 'An unexpected error occurred while updating the hero image.',
+      error: error?.message // Return error message string
+    };
+  }
+}
+
+// --- Zod Schema for Text Content Update ---
+const HeroContentUpdateSchema = z.object({
+  bannerId: z.string().uuid('Invalid Banner ID format.'),
+  title: z.string().min(3, 'Title must be at least 3 characters.').max(100, 'Title must be 100 characters or less.'),
+  subtitle: z.string().max(255, 'Subtitle must be 255 characters or less.').optional().nullable(),
+  buttonText: z.string().max(50, 'Button text must be 50 characters or less.').optional().nullable(),
+  buttonLink: z.string().max(255).refine(val => !val || val.startsWith('/') || val.startsWith('http'), {
+    message: 'Button link must be a relative path (start with /) or a full URL (start with http).',
+  }).optional().nullable(),
+  // Add fields for isActive, priority, startDate, endDate later if needed
+});
+
+/**
+ * Server Action to update Hero Banner text content.
+ * Requires admin privileges.
+ */
+export async function updateHeroContent(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; error?: any }> {
+  const supabase = createClient();
+
+  // --- Authorization Check (Reusing the pattern from updateHeroImage) ---
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { success: false, message: 'Authentication failed.' };
+  }
+  const { data: userProfile, error: profileError } = await supabase
+    .from('User').select('role').eq('id', user.id).single();
+  if (profileError || !userProfile) {
+     return { success: false, message: 'Could not verify user role.' };
+  }
+  if (userProfile.role !== 'ADMIN') {
+    return { success: false, message: 'Unauthorized: Admin access required.' };
+  }
+  // --- End Authorization Check ---
+
+  console.log(`Admin user ${user.id} authorized for content update...`);
+
+  const validatedFields = HeroContentUpdateSchema.safeParse({
+    bannerId: formData.get('bannerId'),
+    title: formData.get('title'),
+    subtitle: formData.get('subtitle') || null,
+    buttonText: formData.get('buttonText') || null,
+    buttonLink: formData.get('buttonLink') || null,
+  });
+
+  if (!validatedFields.success) {
+    console.error('Content Validation Error:', validatedFields.error.flatten().fieldErrors);
+    return {
+      success: false,
+      message: 'Invalid input for content fields.',
+      error: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { bannerId, ...contentData } = validatedFields.data;
+
+  try {
+    console.log(`Updating Supabase content for banner ${bannerId}`);
+    const { error: updateError } = await supabase
+      .from('HeroBanner')
+      .update({
+        ...contentData,
+        // Ensure nulls are passed correctly if fields are empty
+        subtitle: contentData.subtitle || null,
+        buttonText: contentData.buttonText || null,
+        buttonLink: contentData.buttonLink || null,
+        // updatedAt handled by trigger
+      })
+      .eq('id', bannerId);
+
+    if (updateError) {
+      console.error('Supabase Content Update Error:', updateError);
+      throw new Error('Failed to update banner content in database.');
+    }
+
+    // Revalidate paths
+    revalidatePath('/'); // Revalidate homepage
+    revalidatePath('/admin/content/hero'); // Revalidate admin page
+
+    console.log(`Successfully updated hero content for banner ${bannerId}`);
+    return { success: true, message: 'Hero content updated successfully.' };
+
+  } catch (error: any) {
+    console.error('Error in updateHeroContent action:', error);
+    return {
+      success: false,
+      message: error.message || 'An unexpected error occurred while updating the hero content.',
+      error: error?.message
+    };
+  }
+}
+
+// Add updateHeroContent action here later... 

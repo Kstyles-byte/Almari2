@@ -1,25 +1,38 @@
-import { db } from "../db";
+import { createClient } from '@supabase/supabase-js';
+import type { Customer, Order, Review, Cart, CartItem, Product, Vendor, ProductImage } from '../../types/supabase'; // Assuming these types exist
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+// Ensure keys are available
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL or Service Role Key is missing in environment variables for customer service.");
+  // Handle missing keys appropriately
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 /**
  * Get a customer by user ID
- * @param userId - The ID of the user
+ * @param userId - The ID of the user (should match Supabase Auth user ID)
  * @returns The customer profile or null if not found
  */
-export async function getCustomerByUserId(userId: string) {
+export async function getCustomerByUserId(userId: string): Promise<Customer | null> {
   try {
-    return await db.customer.findUnique({
-      where: { userId },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
+    const { data, error } = await supabase
+      .from('Customer')
+      .select(`*, User:userId (id, name, email)`)
+      .eq('userId', userId)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error("Error fetching customer by user ID:", error.message);
+      throw error;
+    }
+    return data as Customer | null;
   } catch (error) {
-    console.error("Error fetching customer by user ID:", error);
+    console.error("Unexpected error in getCustomerByUserId:", error);
     throw error;
   }
 }
@@ -29,21 +42,21 @@ export async function getCustomerByUserId(userId: string) {
  * @param id - The ID of the customer
  * @returns The customer profile or null if not found
  */
-export async function getCustomerById(id: string) {
+export async function getCustomerById(id: string): Promise<Customer | null> {
   try {
-    return await db.customer.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
+     const { data, error } = await supabase
+      .from('Customer')
+      .select(`*, User:userId (id, name, email)`)
+      .eq('id', id)
+      .maybeSingle();
+
+     if (error && error.code !== 'PGRST116') {
+        console.error("Error fetching customer by ID:", error.message);
+        throw error;
+     }
+    return data as Customer | null;
   } catch (error) {
-    console.error("Error fetching customer by ID:", error);
+    console.error("Unexpected error fetching customer by ID:", error);
     throw error;
   }
 }
@@ -57,45 +70,57 @@ export async function getCustomerById(id: string) {
 export async function createCustomerProfile(
   userId: string,
   data: {
-    phone?: string;
-    address?: string;
-    hostel?: string;
-    room?: string;
-    college?: string;
+    phone?: string | null;
+    address?: string | null;
+    hostel?: string | null;
+    room?: string | null;
+    college?: string | null;
   }
-) {
+): Promise<Customer | null> {
   try {
-    // Check if customer profile already exists
-    const existingCustomer = await db.customer.findUnique({
-      where: { userId },
-    });
+    // Check if customer profile already exists for this userId
+    const { data: existingCustomer, error: checkError } = await supabase
+        .from('Customer')
+        .select('id', { head: true })
+        .eq('userId', userId)
+        .maybeSingle();
 
+    if (checkError && checkError.code !== 'PGRST116') {
+         console.error("Error checking existing customer profile:", checkError.message);
+         throw checkError;
+    }
     if (existingCustomer) {
       throw new Error("Customer profile already exists for this user");
     }
 
-    // Check if user exists
-    const user = await db.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    // Check if user exists in the custom 'User' table (or rely on FK constraint)
+    // const { data: userData, error: userCheckError } = await supabase.from('User').select('id').eq('id', userId).maybeSingle();
+    // if (userCheckError || !userData) throw new Error("User not found");
 
     // Create customer profile
-    return await db.customer.create({
-      data: {
+    const insertData = {
         userId,
         phone: data.phone,
         address: data.address,
         hostel: data.hostel,
         room: data.room,
         college: data.college,
-      },
-    });
+    };
+    const { data: newCustomer, error: insertError } = await supabase
+        .from('Customer')
+        .insert(insertData)
+        .select()
+        .single();
+
+    if (insertError) {
+        console.error("Error creating customer profile:", insertError.message);
+        throw insertError;
+    }
+
+    return newCustomer as Customer | null;
+
   } catch (error) {
-    console.error("Error creating customer profile:", error);
+    console.error("Error in createCustomerProfile service:", error);
     throw error;
   }
 }
@@ -107,22 +132,34 @@ export async function createCustomerProfile(
  * @returns The updated customer profile
  */
 export async function updateCustomerProfile(
-  id: string,
+  id: string, // Customer ID
   data: {
-    phone?: string;
-    address?: string;
-    hostel?: string;
-    room?: string;
-    college?: string;
+    phone?: string | null;
+    address?: string | null;
+    hostel?: string | null;
+    room?: string | null;
+    college?: string | null;
   }
-) {
+): Promise<Customer | null> {
   try {
-    return await db.customer.update({
-      where: { id },
-      data,
-    });
+    const updateData = { ...data, updatedAt: new Date().toISOString() };
+    const { data: updatedCustomer, error } = await supabase
+        .from('Customer')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error updating customer profile:", error.message);
+        if (error.code === 'PGRST116') throw new Error("Customer not found");
+        throw error;
+    }
+
+    return updatedCustomer as Customer | null;
+
   } catch (error) {
-    console.error("Error updating customer profile:", error);
+    console.error("Error in updateCustomerProfile service:", error);
     throw error;
   }
 }
@@ -142,147 +179,167 @@ export async function getCustomerOrders(
   } = {}
 ) {
   try {
-    const { page = 1, limit = 10, status } = params;
+    const page = params.page || 1;
+    const limit = params.limit || 10;
+    const statusFilter = params.status;
     const skip = (page - 1) * limit;
-    
-    // Build where clause
-    const where: { customerId: string; status?: string } = { customerId };
-    
-    if (status) {
-      where.status = status;
+
+    // Start building Supabase query
+    let query = supabase
+      .from('Order')
+      .select(`
+        *,
+        Agent:agentId ( name, location ),
+        OrderItem ( *, Product:productId ( *, ProductImage!ProductImage_productId_fkey(url, order) ), Vendor:vendorId(id, storeName) )
+      `, { count: 'exact' })
+      .eq('customerId', customerId);
+
+    // Apply status filter if provided
+    if (statusFilter) {
+      type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'PAYMENT_FAILED' | 'PARTIALLY_FULFILLED';
+      query = query.eq('status', statusFilter as OrderStatus);
     }
-    
-    // Get orders
-    const orders = await db.order.findMany({
-      where,
-      take: limit,
-      skip: skip,
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                images: {
-                  take: 1,
-                  orderBy: {
-                    order: "asc",
-                  },
+
+    // Apply sorting and pagination
+    query = query.order('createdAt', { ascending: false })
+                 .range(skip, skip + limit - 1);
+
+    // Execute the query
+    const { data: ordersData, error, count } = await query;
+
+    if (error) {
+        console.error("Error fetching customer orders:", error.message);
+        throw error;
+    }
+
+    // Format the data slightly
+    const orders = ordersData?.map((order: any) => {
+        const items = order.OrderItem?.map((item: any) => {
+            const productImages = (item.Product?.ProductImage || []).sort((a:any, b:any) => a.order - b.order);
+            return {
+                ...item,
+                product: {
+                    ...item.Product,
+                    images: productImages,
+                    ProductImage: undefined // Remove original ProductImage array if desired
                 },
-              },
-            },
-            vendor: {
-              select: {
-                id: true,
-                storeName: true,
-              },
-            },
-          },
-        },
-      },
-    });
-    
-    // Get total count
-    const total = await db.order.count({ where });
-    
+                 vendor: item.Vendor // Include vendor info
+            };
+        });
+
+        return {
+            ...order,
+            items: items || [],
+            OrderItem: undefined // Remove original OrderItem array
+        };
+    }) || [];
+
+
     return {
       data: orders,
       meta: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit),
+        total: count ?? 0,
+        pages: Math.ceil((count ?? 0) / limit),
       },
     };
   } catch (error) {
-    console.error("Error fetching customer orders:", error);
-    throw error;
+    console.error("Error in getCustomerOrders service:", error);
+    return {
+        data: [],
+        meta: { page: 1, limit: 10, total: 0, pages: 0 },
+    };
   }
 }
 
 /**
- * Get customer's cart
+ * Get customer's cart or create one if it doesn't exist
  * @param customerId - The ID of the customer
  * @returns The customer's cart with items
  */
-export async function getCustomerCart(customerId: string) {
+export async function getCustomerCart(customerId: string): Promise<{ cart: Cart; items: any[]; cartTotal: number } | null> {
   try {
-    // Find existing cart or create a new one
-    let cart = await db.cart.findUnique({
-      where: { customerId },
-      include: {
-        items: {
-          include: {
-            product: {
-              include: {
-                images: {
-                  take: 1,
-                  orderBy: {
-                    order: "asc",
-                  },
-                },
-                vendor: {
-                  select: {
-                    id: true,
-                    storeName: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-    
-    if (!cart) {
-      cart = await db.cart.create({
-        data: {
-          customerId,
-        },
-        include: {
-          items: {
-            include: {
-              product: {
-                include: {
-                  images: {
-                    take: 1,
-                    orderBy: {
-                      order: "asc",
-                    },
-                  },
-                  vendor: {
-                    select: {
-                      id: true,
-                      storeName: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
+    // Try fetching existing cart with items and products
+    let { data: cart, error: fetchCartError } = await supabase
+      .from('Cart')
+      .select(`
+        *,
+        CartItem ( *, Product:productId ( *, ProductImage!ProductImage_productId_fkey(url, order), Vendor:vendorId(id, storeName) ) )
+      `)
+      .eq('customerId', customerId)
+      .maybeSingle();
+
+    if (fetchCartError && fetchCartError.code !== 'PGRST116') {
+        console.error("Error fetching cart:", fetchCartError.message);
+        throw fetchCartError;
     }
-    
-    // Calculate cart total
-    const cartTotal = cart.items.reduce(
-      (sum: number, item: { quantity: number; product: { price: number | string } }) => 
-        sum + (Number(item.product.price) * item.quantity),
+
+    // If cart doesn't exist, create it
+    if (!cart) {
+        const { data: newCart, error: createCartError } = await supabase
+            .from('Cart')
+            .insert({ customerId: customerId })
+            .select()
+            .single();
+        
+        if (createCartError || !newCart) {
+             console.error("Error creating cart:", createCartError?.message);
+             throw new Error("Could not create cart for customer.");
+        }
+        cart = { ...newCart, CartItem: [] }; // Initialize with empty items array
+    }
+
+    // Define a more specific type for cart items after processing
+    type ProcessedCartItem = CartItem & {
+        product: Product & { images: ProductImage[], vendor: Vendor | null };
+        vendor: Vendor | null; // Add vendor property directly to item
+    };
+
+    // Format items and calculate total
+    const items: ProcessedCartItem[] = ((cart as any).CartItem || [])
+        .map((item: any): ProcessedCartItem | null => { // Add return type to map callback
+            const product = item.Product;
+            if (!product) return null; // Skip item if product data is missing
+
+            const productImages = (product.ProductImage || []).sort((a: any, b: any) => a.order - b.order);
+            const vendorInfo = product.Vendor;
+            
+            // Remove nested relations before spreading
+            delete product.ProductImage;
+            delete product.Vendor;
+
+            return {
+                ...item,
+                product: {
+                    ...product,
+                    images: productImages.slice(0, 1), // Keep only the first image
+                    vendor: vendorInfo // Assign vendor here
+                },
+                vendor: vendorInfo // Assign vendor here as well if needed top-level
+            };
+        })
+        .filter((item: ProcessedCartItem | null): item is ProcessedCartItem => item !== null); // Filter out null items
+
+    // Calculate total with explicit types for reducer
+    const cartTotal = items.reduce(
+      (sum: number, item: ProcessedCartItem) => sum + (item.product?.price || 0) * item.quantity,
       0
     );
-    
+
+    // Remove the nested CartItem property before returning
+    const cartResult = { ...(cart as any) };
+    delete cartResult.CartItem;
+
     return {
-      ...cart,
-      cartTotal,
+      cart: cartResult as Cart,
+      items: items, // Return the processed items
+      cartTotal: parseFloat(cartTotal.toFixed(2)),
     };
+
   } catch (error) {
-    console.error("Error fetching customer cart:", error);
-    throw error;
+    console.error("Error in getCustomerCart service:", error);
+    throw error; // Rethrow for action layer to handle
   }
 }
 
@@ -300,48 +357,53 @@ export async function getCustomerReviews(
   } = {}
 ) {
   try {
-    const { page = 1, limit = 10 } = params;
+    const page = params.page || 1;
+    const limit = params.limit || 10;
     const skip = (page - 1) * limit;
-    
-    // Get reviews
-    const reviews = await db.review.findMany({
-      where: { customerId },
-      take: limit,
-      skip: skip,
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            images: {
-              take: 1,
-              orderBy: {
-                order: "asc",
-              },
-            },
-          },
-        },
-      },
-    });
-    
-    // Get total count
-    const total = await db.review.count({ where: { customerId } });
-    
+
+    // Get reviews using Supabase
+    const { data: reviewsData, error, count } = await supabase
+      .from('Review')
+      .select(`
+        *,
+        Product:productId ( id, name, slug, ProductImage!ProductImage_productId_fkey(url, order) )
+      `, { count: 'exact' })
+      .eq('customerId', customerId)
+      .order('createdAt', { ascending: false })
+      .range(skip, skip + limit - 1);
+
+     if (error) {
+        console.error("Error fetching customer reviews:", error.message);
+        throw error;
+    }
+
+    // Format data
+    const reviews = reviewsData?.map((review: any) => {
+        const productImages = (review.Product?.ProductImage || []).sort((a: any, b: any) => a.order - b.order);
+        return {
+            ...review,
+            product: {
+                ...review.Product,
+                images: productImages.slice(0, 1), // Take first image
+                ProductImage: undefined
+            }
+        };
+    }) || [];
+
     return {
       data: reviews,
       meta: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit),
+        total: count ?? 0,
+        pages: Math.ceil((count ?? 0) / limit),
       },
     };
   } catch (error) {
     console.error("Error fetching customer reviews:", error);
-    throw error;
+     return {
+        data: [],
+        meta: { page: 1, limit: 10, total: 0, pages: 0 },
+    };
   }
 } 

@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../lib/db";
 import { auth } from "../../../auth";
+import { createClient } from '@supabase/supabase-js';
+import { createAgent } from "../../../lib/services/agent";
+import type { Agent } from '../../../types/supabase';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL or Service Role Key is missing in API route /api/agents.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,24 +46,32 @@ export async function GET(request: NextRequest) {
       where.isActive = isActiveParam === "true";
     }
     
-    const agents = await db.agent.findMany({
-      where,
-      take: limit,
-      skip: skip,
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-    
-    const total = await db.agent.count({ where });
+    let query = supabase
+        .from('Agent')
+        .select('*' , { count: 'exact' });
+
+    if (isActiveParam !== null) {
+        query = query.eq('isActive', isActiveParam === "true");
+    }
+
+    query = query
+        .order('createdAt', { ascending: false })
+        .range(skip, skip + limit - 1);
+
+    const { data: agents, error, count } = await query;
+
+    if (error) {
+        console.error("Supabase error fetching agents:", error.message);
+        throw error;
+    }
     
     return NextResponse.json({
       data: agents,
       meta: {
-        total,
+        total: count ?? 0,
         page,
         limit,
-        pageCount: Math.ceil(total / limit),
+        pageCount: Math.ceil((count ?? 0) / limit),
       },
     });
   } catch (error) {
@@ -94,54 +113,62 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Check if user exists
-    const user = await db.user.findUnique({
-      where: { id: body.userId },
-    });
-    
-    if (!user) {
+    // Check if user exists (using Supabase)
+    const { data: userExists, error: userCheckError } = await supabase
+        .from('User') // Check your custom User table
+        .select('id')
+        .eq('id', body.userId)
+        .maybeSingle();
+
+    if (userCheckError) {
+        console.error("Error checking user existence:", userCheckError.message);
+        return NextResponse.json({ error: "Database error checking user" }, { status: 500 });
+    }
+
+    if (!userExists) {
       return NextResponse.json(
         { error: "User not found" },
         { status: 404 }
       );
     }
     
-    // Check if agent with this email already exists
-    const existingAgent = await db.agent.findUnique({
-      where: { email: body.email },
+    // Create agent using the service function
+    const agentResult = await createAgent({
+      userId: body.userId,
+      name: body.name,
+      email: body.email, // Service should handle potential email uniqueness check if needed
+      phone: body.phone,
+      location: body.location,
+      operatingHours: body.operatingHours,
+      capacity: body.capacity,
     });
-    
-    if (existingAgent) {
+
+    if (!agentResult.success || !agentResult.agent) {
       return NextResponse.json(
-        { error: "Agent with this email already exists" },
-        { status: 400 }
+        // Use error from service if available
+        { error: agentResult.error || "Failed to create agent via service" },
+        // Use status 400 for predictable errors like duplicate user
+        { status: agentResult.error?.includes("already exists") ? 400 : 500 }
       );
     }
-    
-    // Create agent
-    const agent = await db.agent.create({
-      data: {
-        userId: body.userId,
-        name: body.name,
-        email: body.email,
-        phone: body.phone,
-        location: body.location,
-        operatingHours: body.operatingHours,
-        capacity: body.capacity || 0,
-      },
-    });
-    
+
     // Update user role to AGENT
-    await db.user.update({
-      where: { id: body.userId },
-      data: { role: "AGENT" },
-    });
-    
-    return NextResponse.json(agent, { status: 201 });
+    const { error: roleUpdateError } = await supabase
+        .from('User')
+        .update({ role: 'AGENT', updatedAt: new Date().toISOString() })
+        .eq('id', body.userId);
+
+    if (roleUpdateError) {
+        // Log error, but agent was created.
+        console.error("Failed to update user role to AGENT:", roleUpdateError.message);
+        // Maybe return a warning in the response?
+    }
+
+    return NextResponse.json(agentResult.agent, { status: 201 });
   } catch (error) {
     console.error("Error creating agent:", error);
     return NextResponse.json(
-      { error: "Failed to create agent" },
+      { error: error instanceof Error ? error.message : "Failed to create agent" },
       { status: 500 }
     );
   }

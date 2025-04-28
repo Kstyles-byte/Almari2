@@ -9,7 +9,7 @@ import {
   Settings,
   LogOut,
 } from 'lucide-react';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -21,9 +21,23 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { signOut } from 'next-auth/react';
 
+const getInitials = (name?: string | null): string => {
+  if (!name) return '';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .filter((_, i, arr) => i === 0 || i === arr.length - 1)
+    .join('')
+    .toUpperCase();
+};
+
 export function DashboardHeader() {
   const { data: session } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const userName = session?.user?.name;
+  const userImage = session?.user?.image;
+  const userEmail = session?.user?.email;
+  const userInitials = getInitials(userName);
 
   return (
     <header className="sticky top-0 z-10 border-b border-gray-200 bg-white">
@@ -55,23 +69,21 @@ export function DashboardHeader() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center rounded-full p-0.5">
-                <Avatar 
-                  className="h-8 w-8 rounded-full"
-                  src={session?.user?.image || ''}
-                  alt={session?.user?.name || 'Admin'} 
-                />
+                <Avatar className="h-8 w-8 rounded-full">
+                  <AvatarImage src={userImage || ''} alt={userName || 'Admin'} />
+                  <AvatarFallback>{userInitials}</AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="flex items-center gap-3 p-3">
-                <Avatar 
-                  className="h-10 w-10 rounded-full"
-                  src={session?.user?.image || ''}
-                  alt={session?.user?.name || 'Admin'} 
-                />
+                <Avatar className="h-10 w-10 rounded-full">
+                  <AvatarImage src={userImage || ''} alt={userName || 'Admin'} />
+                  <AvatarFallback>{userInitials}</AvatarFallback>
+                </Avatar>
                 <div>
-                  <p className="text-sm font-medium">{session?.user?.name || 'Admin'}</p>
-                  <p className="text-xs text-gray-500">{session?.user?.email || ''}</p>
+                  <p className="text-sm font-medium">{userName || 'Admin'}</p>
+                  <p className="text-xs text-gray-500">{userEmail || ''}</p>
                 </div>
               </div>
               <DropdownMenuSeparator />

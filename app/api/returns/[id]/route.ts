@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../../lib/db";
 import { auth } from "../../../../auth";
 import { getCustomerByUserId } from "../../../../lib/services/customer";
 import { getVendorByUserId } from "../../../../lib/services/vendor";
 import { getAgentByUserId } from "../../../../lib/services/agent";
 import { getReturnById } from "../../../../lib/services/return";
+import { createClient } from '@supabase/supabase-js';
+import type { Return, Product } from '../../../../types/supabase';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL/Key missing in returns/[id] API route.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+type ReturnStatus = Return['status'];
+type RefundStatus = Return['refundStatus'];
+type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +26,6 @@ export async function GET(
   try {
     const session = await auth();
     
-    // Check if user is authenticated
     if (!session?.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -23,7 +35,6 @@ export async function GET(
     
     const returnId = context.params.id;
     
-    // Get return
     const returnData = await getReturnById(returnId);
     
     if (!returnData) {
@@ -33,7 +44,6 @@ export async function GET(
       );
     }
     
-    // Check authorization based on role
     if (session.user.role === "CUSTOMER") {
       const customer = await getCustomerByUserId(session.user.id);
       if (!customer || customer.id !== returnData.customerId) {
@@ -82,7 +92,6 @@ export async function PUT(
   try {
     const session = await auth();
     
-    // Check if user is authenticated
     if (!session?.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -91,11 +100,20 @@ export async function PUT(
     }
     
     const returnId = context.params.id;
+    if (!returnId) return NextResponse.json({ error: "Return ID required" }, { status: 400 });
     const body = await request.json();
     
-    // Get return
-    const returnData = await getReturnById(returnId);
-    
+    const { data: returnData, error: fetchError } = await supabase
+      .from('Return')
+      .select('id, customerId, vendorId, agentId, productId, orderId, status, refundStatus') 
+      .eq('id', returnId)
+      .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error("API PUT Return - Fetch error:", fetchError.message);
+      throw fetchError;
+    }
+
     if (!returnData) {
       return NextResponse.json(
         { error: "Return not found" },
@@ -103,141 +121,115 @@ export async function PUT(
       );
     }
     
-    // Check authorization and allowed actions based on role
+    let updateData: Partial<Return> & { updatedAt: string } = {
+      updatedAt: new Date().toISOString(),
+    };
+    let updateOrderPaymentStatus: PaymentStatus | null = null;
+    let incrementInventory = false;
+
     if (session.user.role === "VENDOR") {
       const vendor = await getVendorByUserId(session.user.id);
       if (!vendor || vendor.id !== returnData.vendorId) {
-        return NextResponse.json(
-          { error: "Unauthorized" },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       
-      // Vendors can only approve or reject returns
       if (body.action === "approve") {
-        await db.return.update({
-          where: { id: returnId },
-          data: {
-            status: "APPROVED",
-            processDate: new Date(),
-          },
-        });
+          if (returnData.status !== 'REQUESTED') {
+              return NextResponse.json({ error: "Return request already processed." }, { status: 400 });
+          }
+          updateData.status = "APPROVED";
+          updateData.processDate = new Date().toISOString();
+          updateData.refundStatus = "PENDING";
       } else if (body.action === "reject") {
-        if (!body.reason) {
-          return NextResponse.json(
-            { error: "Rejection reason is required" },
-            { status: 400 }
-          );
-        }
-        
-        await db.return.update({
-          where: { id: returnId },
-          data: {
-            status: "REJECTED",
-            refundStatus: "REJECTED",
-            reason: `REJECTED: ${body.reason}`,
-            processDate: new Date(),
-          },
-        });
+          if (returnData.status !== 'REQUESTED') {
+              return NextResponse.json({ error: "Return request already processed." }, { status: 400 });
+          }
+          if (!body.reason) {
+            return NextResponse.json({ error: "Rejection reason is required" }, { status: 400 });
+          }
+          updateData.status = "REJECTED";
+          updateData.refundStatus = "REJECTED";
+          updateData.reason = `REJECTED: ${body.reason}`;
+          updateData.processDate = new Date().toISOString();
       } else {
-        return NextResponse.json(
-          { error: "Invalid action for vendor" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Invalid action for vendor" }, { status: 400 });
       }
     } else if (session.user.role === "AGENT") {
       const agent = await getAgentByUserId(session.user.id);
       if (!agent || agent.id !== returnData.agentId) {
-        return NextResponse.json(
-          { error: "Unauthorized" },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       
-      // Agents can only complete returns that are approved
       if (body.action === "complete") {
         if (returnData.status !== "APPROVED") {
-          return NextResponse.json(
-            { error: "Return must be approved before completing" },
-            { status: 400 }
-          );
+          return NextResponse.json({ error: "Return must be approved before completing" }, { status: 400 });
         }
         
-        // Update product inventory (increase by 1)
-        await db.product.update({
-          where: { id: returnData.productId },
-          data: {
-            inventory: { increment: 1 },
-          },
-        });
+        updateData.status = "COMPLETED";
+        updateData.refundStatus = "PROCESSED";
+        updateData.processDate = new Date().toISOString();
         
-        // Update return status
-        await db.return.update({
-          where: { id: returnId },
-          data: {
-            status: "COMPLETED",
-            refundStatus: "PROCESSED",
-          },
-        });
+        incrementInventory = true;
         
-        // Update order payment status for refund
-        await db.order.update({
-          where: { id: returnData.orderId },
-          data: {
-            paymentStatus: "REFUNDED",
-          },
-        });
+        updateOrderPaymentStatus = "REFUNDED";
+
       } else {
-        return NextResponse.json(
-          { error: "Invalid action for agent" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Invalid action for agent" }, { status: 400 });
       }
-    } else if (session.user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    } else if (session.user.role === "ADMIN") {
+       if (body.status) updateData.status = body.status as ReturnStatus;
+       if (body.refundStatus) updateData.refundStatus = body.refundStatus as RefundStatus;
+       if (body.reason) updateData.reason = body.reason;
+       if (body.status && body.status !== 'REQUESTED') {
+           updateData.processDate = new Date().toISOString();
+       }
+       if (body.refundStatus === "PROCESSED" || (body.status === "COMPLETED" && returnData.status === "APPROVED")) {
+          updateOrderPaymentStatus = "REFUNDED";
+       }
+       if (!updateData.status && !updateData.refundStatus && !updateData.reason) {
+            return NextResponse.json({ error: "No valid fields provided for admin update" }, { status: 400 });
+       }
     } else {
-      // Admin can perform any action
-      if (body.status) {
-        await db.return.update({
-          where: { id: returnId },
-          data: {
-            status: body.status,
-            processDate: body.status === "REQUESTED" ? null : new Date(),
-          },
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: updatedReturnData, error: updateError } = await supabase
+        .from('Return')
+        .update(updateData)
+        .eq('id', returnId)
+        .select()
+        .single();
+
+    if (updateError) {
+        console.error("API PUT Return - Update error:", updateError.message);
+        throw updateError;
+    }
+
+    if (incrementInventory) {
+         const { error: inventoryError } = await supabase.rpc('increment_product_inventory', {
+            product_id_param: returnData.productId,
+            quantity_param: 1
         });
-      }
-      
-      if (body.refundStatus) {
-        await db.return.update({
-          where: { id: returnId },
-          data: {
-            refundStatus: body.refundStatus,
-          },
-        });
-        
-        if (body.refundStatus === "PROCESSED") {
-          // Update order payment status for refund
-          await db.order.update({
-            where: { id: returnData.orderId },
-            data: {
-              paymentStatus: "REFUNDED",
-            },
-          });
+        if (inventoryError) {
+            console.error("API PUT Return - Inventory update error:", inventoryError.message);
         }
-      }
+    }
+
+    if (updateOrderPaymentStatus) {
+        const { error: orderUpdateError } = await supabase
+            .from('Order')
+            .update({ paymentStatus: updateOrderPaymentStatus, updatedAt: new Date().toISOString() })
+            .eq('id', returnData.orderId);
+        if (orderUpdateError) {
+            console.error("API PUT Return - Order payment status update error:", orderUpdateError.message);
+        }
     }
     
-    // Get updated return
-    const updatedReturn = await getReturnById(returnId);
-    
-    return NextResponse.json(updatedReturn);
+    return NextResponse.json(updatedReturnData);
   } catch (error) {
     console.error("Error updating return:", error);
     return NextResponse.json(
-      { error: "Failed to update return" },
+      { error: error instanceof Error ? error.message : "Failed to update return" },
       { status: 500 }
     );
   }

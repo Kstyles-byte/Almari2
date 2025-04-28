@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../../lib/db";
 import { auth } from "../../../../auth";
 import slugify from "slugify";
+import { createClient } from '@supabase/supabase-js';
+import type { Category } from '../../../../types/supabase';
+
+// Initialize Supabase client (use admin/service role for all operations)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL/Key missing in categories/[id] API route.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(
   request: NextRequest,
@@ -9,19 +19,24 @@ export async function GET(
 ) {
   try {
     const categoryId = context.params.id;
+    if (!categoryId) return NextResponse.json({ error: "Category ID required" }, { status: 400 });
     
-    const category = await db.category.findUnique({
-      where: { id: categoryId },
-      include: {
-        children: true,
-        parent: true,
-        _count: {
-          select: {
-            products: true,
-          }
-        }
-      },
-    });
+    // Fetch category with parent, children, and product count using Supabase
+    const { data: category, error } = await supabase
+      .from('Category')
+      .select(`
+        *,
+        parent:parentId (*),
+        children:Category!parentId (*),
+        products:Product (count)
+      `)
+      .eq('id', categoryId)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+        console.error("API GET Category - Fetch error:", error.message);
+        throw error;
+    }
     
     if (!category) {
       return NextResponse.json(
@@ -30,11 +45,21 @@ export async function GET(
       );
     }
     
-    return NextResponse.json(category);
+    // Format response to match Prisma structure if needed (especially counts)
+    const formattedCategory = {
+        ...category,
+        _count: {
+            products: (category.products as any)?.[0]?.count ?? 0,
+        }
+    };
+    delete (formattedCategory as any).products; // Remove the raw count array
+
+    return NextResponse.json(formattedCategory);
+
   } catch (error) {
     console.error("Error fetching category:", error);
     return NextResponse.json(
-      { error: "Failed to fetch category" },
+      { error: error instanceof Error ? error.message : "Failed to fetch category" },
       { status: 500 }
     );
   }
@@ -56,13 +81,22 @@ export async function PUT(
     }
     
     const categoryId = context.params.id;
+    if (!categoryId) return NextResponse.json({ error: "Category ID required" }, { status: 400 });
+
     const body = await request.json();
     const { name, icon, parentId } = body;
     
-    // Check if category exists
-    const existingCategory = await db.category.findUnique({
-      where: { id: categoryId },
-    });
+    // Check if category exists using Supabase
+    const { data: existingCategory, error: fetchError } = await supabase
+        .from('Category')
+        .select('id') // Select minimal data
+        .eq('id', categoryId)
+        .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error("API PUT Category - Fetch error:", fetchError.message);
+        throw fetchError;
+    }
     
     if (!existingCategory) {
       return NextResponse.json(
@@ -72,52 +106,59 @@ export async function PUT(
     }
     
     // Prepare update data
-    const updateData: {
-      icon?: string;
-      parentId?: string | null;
-      name?: string;
-      slug?: string;
-    } = {};
+    const updateData: Partial<Category> & { updatedAt: string } = {
+        updatedAt: new Date().toISOString(),
+    };
     
-    if (icon !== undefined) updateData.icon = icon;
+    if (icon !== undefined) updateData.icon = icon; // Allow setting to null
     
     // Handle parent category updates
     if (parentId !== undefined) {
-      // Check for circular reference if parentId is provided
-      if (parentId) {
-        if (parentId === categoryId) {
-          return NextResponse.json(
-            { error: "Category cannot be its own parent" },
-            { status: 400 }
-          );
+        updateData.parentId = parentId; // Allow setting to null
+        // Check for circular reference if parentId is provided and not null
+        if (parentId && parentId === categoryId) {
+            return NextResponse.json(
+                { error: "Category cannot be its own parent" },
+                { status: 400 }
+            );
         }
-        
-        const parentCategory = await db.category.findUnique({
-          where: { id: parentId },
-        });
-        
-        if (!parentCategory) {
-          return NextResponse.json(
-            { error: "Parent category not found" },
-            { status: 400 }
-          );
+        // Check if parent category exists if parentId is provided and not null
+        if (parentId) {
+            const { data: parentCategory, error: parentCheckError } = await supabase
+                .from('Category')
+                .select('id', { head: true })
+                .eq('id', parentId)
+                .maybeSingle();
+
+            if (parentCheckError && parentCheckError.code !== 'PGRST116') {
+                console.error("API PUT Category - Parent check error:", parentCheckError.message);
+                throw parentCheckError;
+            }
+            if (!parentCategory) {
+                return NextResponse.json(
+                    { error: "Parent category not found" },
+                    { status: 400 }
+                );
+            }
         }
-      }
-      
-      updateData.parentId = parentId;
     }
     
     // Update slug if name is changing
     if (name) {
       const slug = slugify(name, { lower: true });
       
-      // Check for slug conflicts
-      const slugConflict = await db.category.findFirst({
-        where: {
-          slug: slug,
-          id: { not: categoryId },
-        },
-      });
+      // Check for slug conflicts using Supabase
+      const { data: slugConflict, error: slugCheckError } = await supabase
+        .from('Category')
+        .select('id', { head: true })
+        .eq('slug', slug)
+        .neq('id', categoryId) // Exclude the current category
+        .maybeSingle();
+
+      if (slugCheckError) {
+          console.error("API PUT Category - Slug check error:", slugCheckError.message);
+          throw slugCheckError;
+      }
       
       if (slugConflict) {
         return NextResponse.json(
@@ -130,17 +171,24 @@ export async function PUT(
       updateData.slug = slug;
     }
     
-    // Update category
-    const category = await db.category.update({
-      where: { id: categoryId },
-      data: updateData,
-    });
+    // Update category using Supabase
+    const { data: category, error: updateError } = await supabase
+      .from('Category')
+      .update(updateData)
+      .eq('id', categoryId)
+      .select() // Select the updated category data
+      .single();
+
+     if (updateError) {
+          console.error("API PUT Category - Update error:", updateError.message);
+          throw updateError;
+     }
     
     return NextResponse.json(category);
   } catch (error) {
     console.error("Error updating category:", error);
     return NextResponse.json(
-      { error: "Failed to update category" },
+      { error: error instanceof Error ? error.message : "Failed to update category" },
       { status: 500 }
     );
   }
@@ -162,42 +210,65 @@ export async function DELETE(
     }
     
     const categoryId = context.params.id;
+     if (!categoryId) return NextResponse.json({ error: "Category ID required" }, { status: 400 });
+
+    // Check for subcategories using Supabase
+    const { count: subcategoryCount, error: subCheckError } = await supabase
+      .from('Category')
+      .select('*', { count: 'exact', head: true })
+      .eq('parentId', categoryId);
+      
+     if (subCheckError) {
+          console.error("API DELETE Category - Subcategory check error:", subCheckError.message);
+          throw subCheckError;
+     }
     
-    // Check for subcategories
-    const subcategories = await db.category.findMany({
-      where: { parentId: categoryId },
-    });
-    
-    if (subcategories.length > 0) {
+    if (subcategoryCount && subcategoryCount > 0) {
       return NextResponse.json(
         { error: "Cannot delete category with subcategories" },
         { status: 400 }
       );
     }
     
-    // Check for products in this category
-    const products = await db.product.findFirst({
-      where: { categoryId: categoryId },
-    });
+    // Check for products in this category using Supabase
+    const { count: productCount, error: prodCheckError } = await supabase
+      .from('Product')
+      .select('*', { count: 'exact', head: true })
+      .eq('categoryId', categoryId);
+
+     if (prodCheckError) {
+          console.error("API DELETE Category - Product check error:", prodCheckError.message);
+          throw prodCheckError;
+     }
     
-    if (products) {
+    if (productCount && productCount > 0) {
       return NextResponse.json(
         { error: "Cannot delete category with products" },
         { status: 400 }
       );
     }
     
-    // Delete category
-    await db.category.delete({
-      where: { id: categoryId },
-    });
+    // Delete category using Supabase
+    const { error: deleteError } = await supabase
+      .from('Category')
+      .delete()
+      .eq('id', categoryId);
+
+     if (deleteError) {
+          console.error("API DELETE Category - Delete error:", deleteError.message);
+           // Handle potential FK constraint errors if needed (e.g., error code 23503)
+          if (deleteError.code === '23503') {
+               return NextResponse.json({ error: "Cannot delete category due to related data." }, { status: 400 });
+          }
+          throw deleteError;
+     }
     
-    return NextResponse.json({ message: "Category deleted successfully" });
+    return NextResponse.json({ message: "Category deleted successfully" }, { status: 200 }); // Use 200 for successful DELETE with message
   } catch (error) {
     console.error("Error deleting category:", error);
     return NextResponse.json(
-      { error: "Failed to delete category" },
+      { error: error instanceof Error ? error.message : "Failed to delete category" },
       { status: 500 }
     );
   }
-} 
+}

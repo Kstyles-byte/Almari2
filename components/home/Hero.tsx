@@ -3,28 +3,31 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '../ui/button';
 import { ArrowRight } from 'lucide-react';
-import { getActiveHeroBanners, HeroBanner } from '../../actions/content';
+import { getActiveHeroBanner } from '@/lib/services/content';
+import { HeroBanner } from '@/types/content';
+
+// Default content if no banner is found in the DB
+const defaultBanner: HeroBanner = {
+  id: 'default',
+  title: 'Shop Your Favorite Products on Campus',
+  subtitle: 'Discover a wide range of products from trusted vendors with convenient pickup locations right on campus.',
+  buttonText: 'Shop Now',
+  buttonLink: '/products',
+  imageUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158', // Placeholder image
+  imagePublicId: null,
+  mobileImageUrl: null,
+  mobileImagePublicId: null,
+  isActive: true,
+  priority: 0,
+  startDate: null,
+  endDate: null,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
 
 const Hero = async () => {
-  // Fetch the active hero banner
-  const heroBanners = await getActiveHeroBanners();
-  
-  // Use the first banner (highest priority) or fallback to default content
-  const banner: HeroBanner = heroBanners[0] || {
-    id: 'default',
-    title: 'Shop Your Favorite Products on Campus',
-    subtitle: 'Discover a wide range of products from trusted vendors with convenient pickup locations right on campus.',
-    buttonText: 'Shop Now',
-    buttonLink: '/products',
-    imageUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158',
-    mobileImageUrl: null,
-    isActive: true,
-    priority: 10,
-    startDate: null,
-    endDate: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
+  // Fetch the active hero banner using the new service
+  const banner = await getActiveHeroBanner() || defaultBanner;
 
   return (
     <section className="relative bg-gradient-to-r from-zervia-900 to-zervia-800 py-16 md:py-24 text-white overflow-hidden">
@@ -43,11 +46,8 @@ const Hero = async () => {
               Campus E-commerce, Simplified
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
-              {banner.title.includes('Favorite') ? (
-                <>Shop Your <span className="text-zervia-300">Favorite</span> Products on Campus</>
-              ) : (
-                banner.title
-              )}
+              {/* Dynamically display title - Example of conditional styling removed for simplicity */}
+              {banner.title}
             </h1>
             <p className="text-lg text-zervia-100">
               {banner.subtitle}
@@ -67,6 +67,7 @@ const Hero = async () => {
               </Button>
             </div>
 
+            {/* Static content below - could also be made dynamic if needed */}
             <div className="flex items-center space-x-6 pt-4">
               <div className="flex flex-col">
                 <span className="font-bold text-2xl text-white">25+</span>
@@ -83,16 +84,18 @@ const Hero = async () => {
             </div>
           </div>
 
-          {/* Hero Image */}
+          {/* Hero Image - Use dynamic URL */}
           <div className="relative h-[400px] lg:h-[500px]">
             <Image
-              src={banner.imageUrl}
-              alt="Zervia Shopping Experience"
+              src={banner.imageUrl} // Use the dynamic image URL
+              alt={banner.title || 'Zervia Hero Image'} // Use title as alt text
               fill
               className="object-cover rounded-2xl shadow-lg"
               priority
+              // Consider adding mobileImageUrl logic here if used
+              // sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
-            {/* First floating card with animation */}
+            {/* Floating elements remain static for now */}
             <div className="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-lg p-4 w-56 hidden md:block animate-float">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-zervia-100 rounded-full flex items-center justify-center text-zervia-600">
@@ -107,8 +110,6 @@ const Hero = async () => {
                 </div>
               </div>
             </div>
-            
-            {/* Second floating element with different animation */}
             <div className="absolute -right-6 top-16 bg-zervia-50 rounded-lg p-3 shadow-md hidden md:block animate-bounce-gentle">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-zervia-100 rounded-full flex items-center justify-center text-zervia-600">
@@ -137,3 +138,23 @@ const Hero = async () => {
 };
 
 export default Hero;
+
+// Keep existing animations if they are in the global CSS or Tailwind config
+// Example placeholders for animations used:
+/*
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+  50% { transform: translateY(0); animation-timing-function: cubic-bezier(0,0,0.2,1); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+.animate-bounce-gentle {
+  animation: bounce-gentle 2s infinite;
+}
+*/

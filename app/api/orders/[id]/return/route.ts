@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../../../lib/db";
 import { auth } from "../../../../../auth";
 import { getCustomerByUserId } from "../../../../../lib/services/customer";
 import { createReturnRequest } from "../../../../../lib/services/return";
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL/Key missing in orders/[id]/return API route.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function POST(
   request: NextRequest,
@@ -28,6 +37,7 @@ export async function POST(
     }
     
     const orderId = context.params.id;
+    if (!orderId) return NextResponse.json({ error: "Order ID required" }, { status: 400 });
     const body = await request.json();
     
     // Get customer profile
@@ -40,10 +50,17 @@ export async function POST(
       );
     }
     
-    // Get order
-    const order = await db.order.findUnique({
-      where: { id: orderId },
-    });
+    // Get order using Supabase to verify ownership and get agentId
+    const { data: order, error: orderError } = await supabase
+      .from('Order')
+      .select('id, customerId, agentId') // Select only necessary fields
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (orderError && orderError.code !== 'PGRST116') {
+        console.error("API POST Order Return - Fetch error:", orderError.message);
+        throw orderError;
+    }
     
     if (!order) {
       return NextResponse.json(
@@ -60,29 +77,37 @@ export async function POST(
       );
     }
     
-    // Validate required fields
-    if (!body.productId || !body.vendorId || !body.reason || !body.refundAmount) {
+    // Validate required fields from body
+    if (!body.productId || !body.vendorId || !body.reason || body.refundAmount === undefined) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields (productId, vendorId, reason, refundAmount)" },
         { status: 400 }
       );
     }
+
+    if (!order.agentId) {
+         return NextResponse.json(
+            { error: "Cannot request return for order without an assigned agent." },
+            { status: 400 }
+        );
+    }
     
-    // Create return request
+    // Create return request using migrated service
     const result = await createReturnRequest({
       orderId,
       productId: body.productId,
       customerId: customer.id,
       vendorId: body.vendorId,
-      agentId: order.agentId as string,
+      agentId: order.agentId, // Use agentId fetched from the order
       reason: body.reason,
-      refundAmount: body.refundAmount,
+      refundAmount: Number(body.refundAmount), // Ensure it's a number
     });
     
+    // Service function handles validation like 24hr window check
     if (result.error) {
       return NextResponse.json(
         { error: result.error },
-        { status: 400 }
+        { status: 400 } // Assume service errors are client-side issues
       );
     }
     
@@ -90,7 +115,7 @@ export async function POST(
   } catch (error) {
     console.error("Error creating return request:", error);
     return NextResponse.json(
-      { error: "Failed to create return request" },
+      { error: error instanceof Error ? error.message : "Failed to create return request" },
       { status: 500 }
     );
   }

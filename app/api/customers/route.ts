@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../lib/db";
 import { auth } from "../../../auth";
 import { getCustomerByUserId, createCustomerProfile } from "../../../lib/services/customer";
+import { createClient } from '@supabase/supabase-js';
+import type { Customer, UserProfile } from '../../../types/supabase';
+
+// Initialize Supabase client (use service role key for admin GET/POST)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL or Service Role Key is missing in API route /api/customers.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(req: NextRequest) {
   try {
@@ -60,40 +70,42 @@ export async function GET(req: NextRequest) {
       ];
     }
     
-    // Get customers
-    const customers = await db.customer.findMany({
-      where,
-      take: limit,
-      skip: skip,
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        _count: {
-          select: {
-            orders: true,
-          },
-        },
-      },
-    });
-    
-    // Get total count
-    const total = await db.customer.count({ where });
-    
+    let query = supabase
+        .from('Customer')
+        .select(`
+            *,
+            user:User ( id, name, email )
+        `, { count: 'exact' });
+
+    // Apply search filter
+    if (search) {
+        // Use .or() to search across multiple fields
+        // Searching related user fields like this might require adjustments based on RLS
+        query = query.or(`phone.ilike.%${search}%,user.name.ilike.%${search}%,user.email.ilike.%${search}%`);
+    }
+
+    // Apply ordering and pagination
+    query = query
+        .order('createdAt', { ascending: false })
+        .range(skip, skip + limit - 1);
+
+    // Execute query
+    const { data: customers, error, count } = await query;
+
+    if (error) {
+        console.error("Supabase error fetching customers:", error.message);
+        throw error;
+    }
+
+    // Note: Prisma _count on relations (orders) is omitted.
+
     return NextResponse.json({
       data: customers,
       meta: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit),
+        total: count ?? 0,
+        pages: Math.ceil((count ?? 0) / limit),
       },
     });
   } catch (error) {
@@ -139,12 +151,24 @@ export async function POST(req: NextRequest) {
       college,
     });
     
+    if (!customer) {
+       return NextResponse.json(
+        { error: "Failed to create customer profile via service" },
+        { status: 500 }
+      );
+    }
+
     // Update user role to CUSTOMER if not already
     if (session.user.role !== "CUSTOMER") {
-      await db.user.update({
-        where: { id: session.user.id },
-        data: { role: "CUSTOMER" },
-      });
+      const { error: roleUpdateError } = await supabase
+        .from('User')
+        .update({ role: 'CUSTOMER', updatedAt: new Date().toISOString() })
+        .eq('id', session.user.id);
+
+        if (roleUpdateError) {
+            // Log error but proceed, as customer profile was created.
+            console.error("Failed to update user role to CUSTOMER:", roleUpdateError.message);
+        }
     }
     
     return NextResponse.json(customer, { status: 201 });

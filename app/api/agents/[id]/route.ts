@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../../lib/db";
 import { auth } from "../../../../auth";
+import { createClient } from '@supabase/supabase-js';
+import type { Agent } from '../../../../types/supabase';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Supabase URL/Key missing in agents/[id] API route.");
+}
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(
   request: NextRequest,
@@ -9,7 +18,6 @@ export async function GET(
   try {
     const session = await auth();
     
-    // Check if user is authenticated
     if (!session?.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -19,10 +27,16 @@ export async function GET(
     
     const agentId = context.params.id;
     
-    // Get the agent
-    const agent = await db.agent.findUnique({
-      where: { id: agentId },
-    });
+    const { data: agent, error: fetchError } = await supabase
+      .from('Agent')
+      .select('*')
+      .eq('id', agentId)
+      .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error("API GET Agent - Fetch error:", fetchError.message);
+      throw fetchError;
+    }
     
     if (!agent) {
       return NextResponse.json(
@@ -31,9 +45,7 @@ export async function GET(
       );
     }
     
-    // Check authorization based on role
     if (session.user.role === "AGENT") {
-      // Agents can only view their own profile
       if (agent.userId !== session.user.id) {
         return NextResponse.json(
           { error: "Unauthorized" },
@@ -41,7 +53,6 @@ export async function GET(
         );
       }
     } else if (session.user.role !== "ADMIN") {
-      // Only agents and admins can view agent profiles
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -52,7 +63,7 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching agent:", error);
     return NextResponse.json(
-      { error: "Failed to fetch agent" },
+      { error: error instanceof Error ? error.message : "Failed to fetch agent" },
       { status: 500 }
     );
   }
@@ -65,7 +76,6 @@ export async function PUT(
   try {
     const session = await auth();
     
-    // Check if user is authenticated
     if (!session?.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -76,10 +86,16 @@ export async function PUT(
     const agentId = context.params.id;
     const body = await request.json();
     
-    // Get the agent
-    const agent = await db.agent.findUnique({
-      where: { id: agentId },
-    });
+    const { data: agent, error: fetchError } = await supabase
+      .from('Agent')
+      .select('id, userId')
+      .eq('id', agentId)
+      .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error("API PUT Agent - Fetch error:", fetchError.message);
+      throw fetchError;
+    }
     
     if (!agent) {
       return NextResponse.json(
@@ -88,47 +104,51 @@ export async function PUT(
       );
     }
     
-    // Check authorization based on role
+    const updateData: Partial<Agent> & { updatedAt: string } = {
+        updatedAt: new Date().toISOString(),
+    };
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.email !== undefined) updateData.email = body.email;
+    if (body.phone !== undefined) updateData.phone = body.phone;
+    if (body.location !== undefined) updateData.location = body.location;
+    if (body.operatingHours !== undefined) updateData.operatingHours = body.operatingHours;
+    if (body.capacity !== undefined) updateData.capacity = Number(body.capacity);
+
     if (session.user.role === "AGENT") {
-      // Agents can only update their own profile
       if (agent.userId !== session.user.id) {
         return NextResponse.json(
           { error: "Unauthorized" },
           { status: 401 }
         );
       }
-      
-      // Agents cannot update isActive status
       if (body.isActive !== undefined) {
-        delete body.isActive;
       }
-    } else if (session.user.role !== "ADMIN") {
-      // Only agents and admins can update agent profiles
+    } else if (session.user.role === "ADMIN") {
+      if (body.isActive !== undefined) updateData.isActive = Boolean(body.isActive);
+    } else {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
     
-    // Update agent
-    const updatedAgent = await db.agent.update({
-      where: { id: agentId },
-      data: {
-        name: body.name,
-        email: body.email,
-        phone: body.phone,
-        location: body.location,
-        operatingHours: body.operatingHours,
-        capacity: body.capacity,
-        isActive: body.isActive,
-      },
-    });
+    const { data: updatedAgent, error: updateError } = await supabase
+      .from('Agent')
+      .update(updateData)
+      .eq('id', agentId)
+      .select()
+      .single();
+
+    if (updateError) {
+        console.error("API PUT Agent - Update error:", updateError.message);
+        throw updateError;
+    }
     
     return NextResponse.json(updatedAgent);
   } catch (error) {
     console.error("Error updating agent:", error);
     return NextResponse.json(
-      { error: "Failed to update agent" },
+      { error: error instanceof Error ? error.message : "Failed to update agent" },
       { status: 500 }
     );
   }
@@ -141,7 +161,6 @@ export async function DELETE(
   try {
     const session = await auth();
     
-    // Check if user is authenticated
     if (!session?.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -149,7 +168,6 @@ export async function DELETE(
       );
     }
     
-    // Only admin can delete agents
     if (session.user.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -159,35 +177,56 @@ export async function DELETE(
     
     const agentId = context.params.id;
     
-    // Get the agent to retrieve user ID
-    const agent = await db.agent.findUnique({
-      where: { id: agentId },
-    });
-    
-    if (!agent) {
-      return NextResponse.json(
-        { error: "Agent not found" },
-        { status: 404 }
-      );
+    const { data: agent, error: fetchError } = await supabase
+      .from('Agent')
+      .select('id, userId')
+      .eq('id', agentId)
+      .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error("API DELETE Agent - Fetch error:", fetchError.message);
+      throw fetchError;
     }
     
-    // Delete agent
-    await db.agent.delete({
-      where: { id: agentId },
-    });
+    if (!agent) {
+      return NextResponse.json({ message: "Agent already deleted or not found" }, { status: 200 });
+    }
     
-    // Reset user role
-    await db.user.update({
-      where: { id: agent.userId },
-      data: { role: "CUSTOMER" },
-    });
+    const agentUserId = agent.userId;
+
+    const { error: authDeleteError } = await supabase.auth.admin.deleteUser(agentUserId);
+    if (authDeleteError) {
+        console.error("Supabase Auth delete error during Agent deletion:", authDeleteError.message);
+        if (authDeleteError.message !== 'User not found') {
+             return NextResponse.json({ error: `Auth deletion failed: ${authDeleteError.message}` }, { status: 500 });
+        }
+    }
+
+    const { error: dbDeleteError } = await supabase
+      .from('Agent')
+      .delete()
+      .eq('id', agentId);
+
+     if (dbDeleteError) {
+        console.error("API DELETE Agent - DB delete error:", dbDeleteError.message);
+        throw dbDeleteError;
+    }
     
-    return NextResponse.json({ success: true });
+    const { error: roleUpdateError } = await supabase
+      .from('User')
+      .update({ role: "CUSTOMER", updatedAt: new Date().toISOString() })
+      .eq('id', agentUserId);
+
+    if (roleUpdateError) {
+        console.error("API DELETE Agent - Role update error:", roleUpdateError.message);
+    }
+    
+    return NextResponse.json({ success: true, message: "Agent deleted successfully" });
   } catch (error) {
     console.error("Error deleting agent:", error);
     return NextResponse.json(
-      { error: "Failed to delete agent" },
+      { error: error instanceof Error ? error.message : "Failed to delete agent" },
       { status: 500 }
     );
   }
-} 
+}
