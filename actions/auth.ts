@@ -135,35 +135,45 @@ export async function logout() {
 
 // Modified function for Supabase sign-in, accepting validated data
 export async function signInWithSupabase(values: z.infer<typeof SignInSchema>) {
+  console.log('[Action] signInWithSupabase called with:', values);
   // Validation is already done by react-hook-form on the client,
   // but it's good practice to re-validate on the server.
+  console.log('[Action] Validating fields server-side...');
   const validatedFields = SignInSchema.safeParse(values);
 
   if (!validatedFields.success) {
     // This case might not be reached if client-side validation is robust,
     // but it's here as a safeguard. Redirect or return an error.
-    console.error("Server-side validation failed:", validatedFields.error);
+    console.error("[Action] Server-side validation failed:", validatedFields.error.flatten());
+    console.log('[Action] Redirecting to /login due to validation failure...');
     return redirect('/login?message=Invalid form data submitted');
   }
+  console.log('[Action] Server-side validation successful.');
 
   const { email, password } = validatedFields.data;
+  console.log(`[Action] Attempting Supabase sign-in for email: ${email}`);
 
   // createClient reads env variables, no args needed
-  const supabase = createClient()
+  const supabase = createClient();
+  console.log('[Action] Supabase client created.');
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
-  })
+  });
 
   if (error) {
-    console.error("Supabase Sign In Error:", error);
+    console.error("[Action] Supabase Sign In Error:", error);
+    const errorMessage = error.message || 'Unknown error';
+    console.log(`[Action] Redirecting to /login due to Supabase error: ${errorMessage}`);
     // Redirecting back to login with an error query param
     // You might want a more user-friendly error message handling strategy
-    return redirect(`/login?message=Could not authenticate user: ${error.message}`)
+    return redirect(`/login?message=Could not authenticate user: ${errorMessage}`)
   }
 
+  console.log('[Action] Supabase sign-in successful.');
   // Redirect to a protected page, e.g., dashboard
+  console.log('[Action] Redirecting to /dashboard...');
   return redirect('/dashboard') // Adjust the target route as needed
 }
 
