@@ -1,6 +1,5 @@
 'use client';
 
-
 import { getActiveHeroBanner } from '@/lib/services/content';
 import { AdminHeroImageForm } from '@/components/admin/content/AdminHeroImageForm';
 import { createClient } from '@/lib/supabase/server';
@@ -21,7 +20,7 @@ async function checkAdminAuth() {
 }
 
 // Simple Submit Button for Delete Form - Needs 'use client'
- 
+
 function DeleteSubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -47,7 +46,8 @@ function DeleteSubmitButton() {
   );
 }
 
-
+// Component for the Delete Button Form - Needs 'use client'
+'use client';
 function DeleteBannerForm({ bannerId }: { bannerId: string }) {
   const deleteActionWithId = deleteHeroBannerAction.bind(null, bannerId);
   // Define a type-safe wrapper function for return type
@@ -193,10 +193,4 @@ export default async function AdminHeroContentPage() {
             {/* TODO: Add list of all banners (active and inactive) for management */}
         </div>
     );
-}
-
-// Optional: Add metadata for the page
-export const metadata = {
-  title: 'Admin: Hero Banners | Almari',
-  description: 'Manage your storefront hero banners',
-}; 
+} 
