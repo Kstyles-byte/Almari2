@@ -3,36 +3,24 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { MapPin, ArrowRight, Clock, ShieldCheck, Users } from 'lucide-react';
 import { Button } from '../ui/button';
+import { getActiveAgents } from '@/actions/agents'; // Import the new action
 
-// Mock agent locations data
-const agentLocations = [
-  {
-    id: 1,
-    name: "Student Union Building",
-    description: "Main floor, next to the cafeteria",
-    image: "/images/locations/location-1.jpg",
-    hours: "Mon-Fri: 9am-6pm, Sat: 10am-4pm",
-    coordinates: { lat: 40.7128, lng: -74.0060 },
-  },
-  {
-    id: 2,
-    name: "Science Complex",
-    description: "Building A, ground floor lobby",
-    image: "/images/locations/location-2.jpg",
-    hours: "Mon-Fri: 8am-5pm, Closed weekends",
-    coordinates: { lat: 40.7138, lng: -74.0070 },
-  },
-  {
-    id: 3,
-    name: "Residence Hall West",
-    description: "Main entrance security desk",
-    image: "/images/locations/location-3.jpg",
-    hours: "7 days a week: 8am-10pm",
-    coordinates: { lat: 40.7148, lng: -74.0080 },
-  },
-];
+// Define the type for agent location data fetched from the action
+interface AgentLocation {
+  id: string;
+  name: string;
+  description: string;
+  image: string; // Using the default image path from the action
+  hours: string;
+}
 
-const AgentPickupSection = () => {
+// Mock data removed
+// const agentLocations = [ ... ];
+
+const AgentPickupSection = async () => {
+  // Fetch active agent locations from the action
+  const agentLocations: AgentLocation[] = await getActiveAgents(3);
+
   return (
     <section className="py-16 bg-zervia-50">
       <div className="container mx-auto px-4">
@@ -95,48 +83,56 @@ const AgentPickupSection = () => {
           </div>
           
           <div className="space-y-4">
-            {agentLocations.map((location) => (
-              <div 
-                key={location.id} 
-                className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow group"
-              >
-                <div className="flex flex-col sm:flex-row">
-                  <div className="relative h-48 sm:h-auto sm:w-1/3 overflow-hidden">
-                    <Image
-                      src={location.image}
-                      alt={location.name}
-                      fill
-                      className="object-cover transition-transform group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="p-5 sm:w-2/3">
-                    <h3 className="font-medium text-lg text-zervia-900 mb-2">
-                      {location.name}
-                    </h3>
-                    <p className="text-zervia-600 text-sm mb-3">
-                      {location.description}
-                    </p>
-                    <div className="flex items-center text-zervia-500 text-sm mb-3">
-                      <Clock className="h-4 w-4 mr-2" />
-                      {location.hours}
+            {agentLocations.length > 0 ? (
+              agentLocations.map((location) => (
+                <div 
+                  key={location.id} 
+                  className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow group"
+                >
+                  <div className="flex flex-col sm:flex-row">
+                    <div className="relative h-48 sm:h-auto sm:w-1/3 overflow-hidden">
+                      <Image
+                        src={location.image} // Use image from fetched data
+                        alt={location.name}
+                        fill
+                        className="object-cover transition-transform group-hover:scale-105"
+                      />
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center text-zervia-600 text-sm">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        <Link href={`/locations/${location.id}`}>
-                          <span className="hover:text-zervia-700 underline">View on Map</span>
-                        </Link>
+                    <div className="p-5 sm:w-2/3">
+                      <h3 className="font-medium text-lg text-zervia-900 mb-2">
+                        {location.name}
+                      </h3>
+                      <p className="text-zervia-600 text-sm mb-3">
+                        {location.description}
+                      </p>
+                      <div className="flex items-center text-zervia-500 text-sm mb-3">
+                        <Clock className="h-4 w-4 mr-2" />
+                        {location.hours}
                       </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/locations/${location.id}`}>
-                          More Info
-                        </Link>
-                      </Button>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-zervia-600 text-sm">
+                          <MapPin className="h-4 w-4 mr-1" />
+                          {/* Update link if you have a specific page per location */}
+                          <Link href={`/locations#${location.id}`}> 
+                            <span className="hover:text-zervia-700 underline">View on Map</span>
+                          </Link>
+                        </div>
+                        {/* Update link if you have a specific page per location */}
+                        <Button variant="outline" size="sm" asChild>
+                           <Link href={`/locations#${location.id}`}>
+                            More Info
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-zervia-600">No active pickup locations found. Please check back later.</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>

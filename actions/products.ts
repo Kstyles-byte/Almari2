@@ -94,12 +94,92 @@ export async function getFeaturedProducts(limit = 8) {
 }
 
 /**
- * Add a new product
+ * Get trending products (based on recent review activity and rating)
  */
-export async function addProduct(formData: FormData) {
+export async function getTrendingProducts(limit = 3) {
+  const supabase = createClient(); // Use server client
   try {
-    const session = await auth();
+    // Fetch recently created, published products with inventory
+    // Select necessary fields and relations
+    const { data: productsData, error } = await supabase
+      .from('Product')
+      .select(`
+        id,
+        name,
+        slug,
+        price,
+        createdAt,
+        ProductImage!inner ( url ), 
+        Category!inner ( name ), 
+        Vendor!inner ( storeName ),
+        Review ( rating )
+      `)
+      .eq('isPublished', true)
+      .gt('inventory', 0)
+      .order('createdAt', { ascending: false })
+      .limit(limit * 5); // Fetch more to filter/sort later
+
+    if (error) {
+      console.error("Error fetching initial trending products:", error.message);
+      throw error;
+    }
+
+    if (!productsData) {
+        return [];
+    }
+
+    // Define expected structure after Supabase query
+    type ProductWithRelations = {
+        id: string;
+        name: string;
+        slug: string;
+        price: number;
+        createdAt: string;
+        ProductImage: { url: string }[];
+        Category: { name: string }[];
+        Vendor: { storeName: string }[];
+        Review: { rating: number }[] | null;
+    };
+
+    // Calculate average rating and format
+    const formattedProducts = (productsData as ProductWithRelations[]).map(product => {
+      const reviews = product.Review || [];
+      const avgRating = reviews.length > 0
+        ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+        : 0;
+      
+      // Format into the structure needed by the component
+      return {
+        id: product.id,
+        name: product.name,
+        price: product.price, 
+        image: product.ProductImage[0]?.url || '/placeholder-product.jpg', // Use first image or placeholder
+        rating: parseFloat(avgRating.toFixed(1)),
+        reviews: reviews.length,
+        vendor: product.Vendor[0]?.storeName || 'Unknown', // Use first vendor name
+        slug: product.slug,
+        category: product.Category[0]?.name || 'Uncategorized' // Use first category name
+      };
+    });
     
+    // Sort by rating (desc) and review count (desc) as a proxy for trending
+    formattedProducts.sort((a, b) => {
+        if (a.rating !== b.rating) {
+            return b.rating - a.rating; // Higher rating first
+        }
+        return b.reviews - a.reviews; // More reviews first if ratings are equal
+    });
+
+    // Return the top 'limit' products
+    return formattedProducts.slice(0, limit);
+
+  } catch (error) {
+    console.error("Error processing trending products:", error);
+    return [];
+  }
+}
+
+/**
     if (!session?.user) {
       return { error: "Unauthorized" };
     }
