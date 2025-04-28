@@ -39,11 +39,7 @@ export function SignInForm() {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
-      try {
-        await signInWithSupabase(values);
-      } catch (err) {
-        console.error("Unexpected error during sign in:", err);
-      }
+      await signInWithSupabase(values);
     });
   }
 

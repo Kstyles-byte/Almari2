@@ -97,7 +97,8 @@ export async function getFeaturedProducts(limit = 8) {
  * Get trending products (based on recent review activity and rating)
  */
 export async function getTrendingProducts(limit = 3) {
-  const supabase = createClient(); // Use server client
+  // Provide URL and Key for server-side client initialization in actions
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey); 
   try {
     // Fetch recently created, published products with inventory
     // Select necessary fields and relations
@@ -551,5 +552,148 @@ export async function deleteProduct(formData: FormData) {
   } catch (error: any) {
     console.error("Unexpected error deleting product:", error);
     return { error: error.message || "Failed to delete product due to an unexpected error" };
+  }
+}
+
+/**
+ * Get products for the listing page with filtering, sorting, and pagination
+ */
+interface GetProductsParams {
+  categorySlug?: string;
+  query?: string;
+  filters?: Record<string, string[]>; // e.g., { color: ['red', 'blue'], size: ['M'] }
+  sortBy?: string; // e.g., 'price-asc', 'newest', 'rating'
+  page?: number;
+  limit?: number;
+}
+
+export async function getProducts({ 
+  categorySlug,
+  query,
+  filters = {},
+  sortBy = 'featured',
+  page = 1,
+  limit = 12 
+}: GetProductsParams) {
+  // Provide URL and Key for server-side client initialization in actions
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+  const offset = (page - 1) * limit;
+
+  try {
+    let queryBuilder = supabase
+      .from('Product')
+      .select(`
+        *,
+        ProductImage ( url ),
+        Category!inner ( id, name, slug ),
+        Vendor!inner ( storeName ),
+        Review ( rating )
+      `, { count: 'exact' }) // Request count for pagination
+      .eq('isPublished', true)
+      .gt('inventory', 0)
+      .range(offset, offset + limit - 1);
+
+    // Filter by Category Slug
+    if (categorySlug) {
+      queryBuilder = queryBuilder.eq('Category.slug', categorySlug);
+    }
+
+    // Filter by Search Query (name or description)
+    if (query) {
+      queryBuilder = queryBuilder.or(`name.ilike.%${query}%,description.ilike.%${query}%`);
+    }
+
+    // TODO: Implement dynamic filtering based on `filters` object
+    // This will likely require more complex logic or potentially a database function (RPC)
+    // Example (Needs refinement for multiple filters and OR/AND logic):
+    // if (filters.color && filters.color.length > 0) {
+    //   queryBuilder = queryBuilder.in('color_column', filters.color); 
+    // }
+    // if (filters.brand && filters.brand.length > 0) {
+    //   // Assuming brand is stored directly on Product or via Vendor relation
+    //   queryBuilder = queryBuilder.in('Vendor.storeName', filters.brand); 
+    // }
+    // if (filters.price?.min && filters.price?.max) {
+    //   queryBuilder = queryBuilder.gte('price', filters.price.min);
+    //   queryBuilder = queryBuilder.lte('price', filters.price.max);
+    // }
+
+    // Apply Sorting
+    switch (sortBy) {
+      case 'price-asc':
+        queryBuilder = queryBuilder.order('price', { ascending: true });
+        break;
+      case 'price-desc':
+        queryBuilder = queryBuilder.order('price', { ascending: false });
+        break;
+      case 'newest':
+        queryBuilder = queryBuilder.order('createdAt', { ascending: false });
+        break;
+      // case 'rating': // Sorting by calculated average rating requires more complex query or post-processing
+      //   // For now, default to featured/newest if rating is selected
+      //   queryBuilder = queryBuilder.order('createdAt', { ascending: false });
+      //   break;
+      case 'featured':
+      default:
+        // Default sort (e.g., by creation date or a specific featured flag if available)
+        queryBuilder = queryBuilder.order('createdAt', { ascending: false });
+        break;
+    }
+
+    // Execute the query
+    const { data: productsData, error, count } = await queryBuilder;
+
+    if (error) {
+      console.error("Error fetching products:", error.message);
+      throw error;
+    }
+
+    if (!productsData) {
+      return { products: [], count: 0, totalPages: 0 };
+    }
+
+    // Define structure for processing
+    type ProductQueryResult = Product & {
+        ProductImage: { url: string }[] | null;
+        Category: { id: string; name: string; slug: string } | null; // Category should be object
+        Vendor: { storeName: string } | null; // Vendor should be object
+        Review: { rating: number }[] | null;
+    };
+
+    // Format data for the listing page
+    const formattedProducts = (productsData as ProductQueryResult[]).map(product => {
+       const reviews = product.Review || [];
+       const avgRating = reviews.length > 0
+         ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+         : 0;
+         
+       const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+       const createdAtTime = new Date(product.createdAt).getTime();
+
+       return {
+         id: product.id,
+         name: product.name,
+         slug: product.slug,
+         price: product.price,
+         comparePrice: product.comparePrice, 
+         image: product.ProductImage?.[0]?.url || '/placeholder-product.jpg',
+         rating: parseFloat(avgRating.toFixed(1)),
+         reviews: reviews.length,
+         isNew: !isNaN(createdAtTime) && createdAtTime > sevenDaysAgo,
+         vendor: product.Vendor?.storeName || 'Unknown',
+         category: product.Category?.name || 'Uncategorized', // For display
+         // Add any other fields needed by the ProductCard component
+       };
+    });
+    
+    // TODO: Implement sorting by rating after fetching if needed
+
+    const totalPages = Math.ceil((count || 0) / limit);
+
+    return { products: formattedProducts, count: count || 0, totalPages };
+
+  } catch (error) {
+    console.error("Error processing products query:", error);
+    return { products: [], count: 0, totalPages: 0 }; // Return empty state on error
   }
 } 
