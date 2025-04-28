@@ -458,7 +458,7 @@ export async function updateHeroImage(prevState: any, formData: FormData): Promi
   }
 }
 
-// --- Zod Schema for Text Content Update ---
+// --- Zod Schema for Content Update (including Settings) ---
 const HeroContentUpdateSchema = z.object({
   bannerId: z.string().uuid('Invalid Banner ID format.'),
   title: z.string().min(3, 'Title must be at least 3 characters.').max(100, 'Title must be 100 characters or less.'),
@@ -467,11 +467,18 @@ const HeroContentUpdateSchema = z.object({
   buttonLink: z.string().max(255).refine(val => !val || val.startsWith('/') || val.startsWith('http'), {
     message: 'Button link must be a relative path (start with /) or a full URL (start with http).',
   }).optional().nullable(),
-  // Add fields for isActive, priority, startDate, endDate later if needed
+  priority: z.coerce.number().int().min(0, 'Priority must be a non-negative integer.'), // Coerce to number
+  isActive: z.preprocess((val) => val === 'on', z.boolean()), // Handle Switch value ('on' or undefined)
+  startDate: z.string().optional().nullable().refine(val => !val || !isNaN(Date.parse(val)), {
+    message: 'Invalid start date format.',
+  }).transform(val => val ? new Date(val).toISOString() : null), // Convert to ISO string or null
+  endDate: z.string().optional().nullable().refine(val => !val || !isNaN(Date.parse(val)), {
+    message: 'Invalid end date format.',
+  }).transform(val => val ? new Date(val).toISOString() : null), // Convert to ISO string or null
 });
 
 /**
- * Server Action to update Hero Banner text content.
+ * Server Action to update Hero Banner text content and settings.
  * Requires admin privileges.
  */
 export async function updateHeroContent(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; error?: any }> {
@@ -494,50 +501,64 @@ export async function updateHeroContent(prevState: any, formData: FormData): Pro
 
   console.log(`Admin user ${user.id} authorized for content update...`);
 
-  const validatedFields = HeroContentUpdateSchema.safeParse({
+  // Extract values from FormData
+  const rawData = {
     bannerId: formData.get('bannerId'),
     title: formData.get('title'),
     subtitle: formData.get('subtitle') || null,
     buttonText: formData.get('buttonText') || null,
     buttonLink: formData.get('buttonLink') || null,
-  });
+    priority: formData.get('priority'),
+    isActive: formData.get('isActive'), // Will be 'on' or null
+    startDate: formData.get('startDate') || null, // Handle empty string
+    endDate: formData.get('endDate') || null,   // Handle empty string
+  };
+
+  console.log("Raw form data:", rawData);
+
+  const validatedFields = HeroContentUpdateSchema.safeParse(rawData);
 
   if (!validatedFields.success) {
-    console.error('Content Validation Error:', validatedFields.error.flatten().fieldErrors);
+    console.error('Content & Settings Validation Error:', validatedFields.error.flatten().fieldErrors);
     return {
       success: false,
-      message: 'Invalid input for content fields.',
+      message: 'Invalid input for content or settings fields.',
       error: validatedFields.error.flatten().fieldErrors,
     };
   }
 
   const { bannerId, ...contentData } = validatedFields.data;
 
+  // Validate end date is after start date if both are provided
+  if (contentData.startDate && contentData.endDate && new Date(contentData.endDate) < new Date(contentData.startDate)) {
+    return {
+      success: false,
+      message: 'End date cannot be before the start date.',
+      error: { endDate: ['End date cannot be before the start date.'] }
+    };
+  }
+
   try {
-    console.log(`Updating Supabase content for banner ${bannerId}`);
+    console.log(`Updating Supabase content & settings for banner ${bannerId}:`, contentData);
     const { error: updateError } = await supabase
       .from('HeroBanner')
       .update({
         ...contentData,
-        // Ensure nulls are passed correctly if fields are empty
-        subtitle: contentData.subtitle || null,
-        buttonText: contentData.buttonText || null,
-        buttonLink: contentData.buttonLink || null,
-        // updatedAt handled by trigger
+        // Supabase handles timestamp updates
       })
       .eq('id', bannerId);
 
     if (updateError) {
       console.error('Supabase Content Update Error:', updateError);
-      throw new Error('Failed to update banner content in database.');
+      throw new Error('Failed to update banner content/settings in database.');
     }
 
     // Revalidate paths
     revalidatePath('/'); // Revalidate homepage
     revalidatePath('/admin/content/hero'); // Revalidate admin page
 
-    console.log(`Successfully updated hero content for banner ${bannerId}`);
-    return { success: true, message: 'Hero content updated successfully.' };
+    console.log(`Successfully updated hero content & settings for banner ${bannerId}`);
+    return { success: true, message: 'Hero content and settings updated successfully.' };
 
   } catch (error: any) {
     console.error('Error in updateHeroContent action:', error);
@@ -549,4 +570,86 @@ export async function updateHeroContent(prevState: any, formData: FormData): Pro
   }
 }
 
-// Add updateHeroContent action here later... 
+/**
+ * Server Action to delete a Hero Banner.
+ * Also deletes the associated image from Cloudinary.
+ * Requires admin privileges.
+ * Expects the banner ID to be bound to the action.
+ */
+export async function deleteHeroBannerAction(bannerId: string): Promise<void> {
+  const supabase = createClient();
+
+  // --- Authorization Check ---
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    console.error('Delete Action: Authentication failed.');
+    return;
+  }
+  const { data: userProfile, error: profileError } = await supabase
+    .from('User').select('role').eq('id', user.id).single();
+  if (profileError || !userProfile) {
+    console.error('Delete Action: Could not verify user role.');
+    return;
+  }
+  if (userProfile.role !== 'ADMIN') {
+    console.error('Delete Action: Unauthorized: Admin access required.');
+    return;
+  }
+  // --- End Authorization Check ---
+
+  if (!bannerId || typeof bannerId !== 'string') {
+    console.error('Delete Action: Invalid Banner ID provided.');
+    return;
+  }
+
+  console.log(`Admin user ${user.id} authorized. Attempting to delete banner ${bannerId}...`);
+
+  try {
+    // 1. Get the banner details to find the Cloudinary public ID
+    const { data: banner, error: fetchError } = await supabase
+      .from('HeroBanner')
+      .select('imagePublicId') // Select only needed field
+      .eq('id', bannerId)
+      .single();
+
+    if (fetchError) {
+      console.error('Supabase Fetch Error (Delete Action):', fetchError);
+      throw new Error('Failed to fetch banner details before deletion.');
+    }
+
+    const publicIdToDelete = banner?.imagePublicId;
+
+    // 2. Delete from Supabase
+    const { error: deleteError } = await supabase
+      .from('HeroBanner')
+      .delete()
+      .eq('id', bannerId);
+
+    if (deleteError) {
+      console.error('Supabase Delete Error:', deleteError);
+      throw new Error('Failed to delete banner from database.');
+    }
+
+    // 3. Delete image from Cloudinary if it exists
+    if (publicIdToDelete) {
+      console.log(`Deleting associated Cloudinary image: ${publicIdToDelete}`);
+      try {
+        await cloudinary.uploader.destroy(publicIdToDelete);
+      } catch (deleteError) {
+        // Log deletion error but don't fail the whole operation if DB delete succeeded
+        console.warn(`Failed to delete image (${publicIdToDelete}) from Cloudinary:`, deleteError);
+      }
+    }
+
+    // 4. Revalidate paths
+    revalidatePath('/'); // Revalidate homepage
+    revalidatePath('/admin/content/hero'); // Revalidate admin page
+
+    console.log(`Successfully deleted hero banner ${bannerId}`);
+
+  } catch (error: any) {
+    console.error('Error in deleteHeroBannerAction:', error);
+  }
+}
+
+// Removed the trailing comment 
