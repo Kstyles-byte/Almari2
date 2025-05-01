@@ -7,7 +7,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 
 interface Product {
-  id: number;
+  id: string;
   name: string;
   price: number;
   image: string;
@@ -21,8 +21,8 @@ interface Product {
 interface ProductGridProps {
   products: Product[];
   view: 'grid' | 'list';
-  onAddToCart?: (productId: number) => void;
-  onAddToWishlist?: (productId: number) => void;
+  onAddToCart?: (productId: string) => void;
+  onAddToWishlist?: (productId: string) => void;
 }
 
 export function ProductGrid({ products, view, onAddToCart, onAddToWishlist }: ProductGridProps) {

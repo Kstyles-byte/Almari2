@@ -41,16 +41,9 @@ export function SignInForm() {
     console.log('[SignInForm] Submitting form with values:', values);
     startTransition(async () => {
       console.log('[SignInForm] Starting transition...');
-      try {
-        console.log('[SignInForm] Calling signInWithSupabase action...');
-        await signInWithSupabase(values);
-        console.log('[SignInForm] signInWithSupabase action finished.'); // This might not be reached if redirect happens
-      } catch (error) {
-        // Although we removed the outer try/catch, it's good practice 
-        // to have one inside startTransition for unexpected errors *during* the transition setup itself,
-        // not for catching the redirect error specifically.
-        console.error('[SignInForm] Unexpected error during transition:', error);
-      }
+      console.log('[SignInForm] Calling signInWithSupabase action...');
+      await signInWithSupabase(values);
+      console.log('[SignInForm] Transition function finished (may have redirected).');
     });
   }
 
