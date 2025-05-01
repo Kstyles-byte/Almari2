@@ -6,7 +6,8 @@ import prisma from "../lib/server/prisma";
 import { hashPassword } from "../lib/server/password";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createClient } from '../lib/supabase/server'
+import { createServerActionClient } from '../lib/supabase/server';
+import { cookies } from 'next/headers';
 
 // Validation schemas
 const SignInSchema = z.object({
@@ -153,9 +154,9 @@ export async function signInWithSupabase(values: z.infer<typeof SignInSchema>) {
   const { email, password } = validatedFields.data;
   console.log(`[Action] Attempting Supabase sign-in for email: ${email}`);
 
-  // createClient reads env variables, no args needed
-  const supabase = createClient();
-  console.log('[Action] Supabase client created.');
+  // Use the new server action client which handles cookies
+  const supabase = await createServerActionClient(); 
+  console.log('[Action] Supabase server action client created.');
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -188,7 +189,8 @@ export async function signUpWithSupabase(values: z.infer<typeof SignUpSchema>) {
   }
 
   const { name, email, password } = validatedFields.data;
-  const supabase = createClient();
+  // Use the new server action client which handles cookies
+  const supabase = await createServerActionClient(); 
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -225,7 +227,8 @@ export async function signUpWithSupabase(values: z.infer<typeof SignUpSchema>) {
 
 // New function for Supabase sign-out
 export async function signOutWithSupabase() {
-  const supabase = createClient();
+  // Use the new server action client which handles cookies
+  const supabase = await createServerActionClient(); 
   const { error } = await supabase.auth.signOut();
 
   if (error) {
@@ -247,7 +250,8 @@ export async function requestPasswordReset(values: z.infer<typeof ForgotPassword
   }
 
   const { email } = validatedFields.data;
-  const supabase = createClient();
+  // Use the new server action client which handles cookies
+  const supabase = await createServerActionClient(); 
 
   // Get the base URL for the redirect
   // Make sure NEXT_PUBLIC_BASE_URL is set in your .env.local
@@ -277,7 +281,8 @@ export async function resetPassword(values: z.infer<typeof ResetPasswordSchema>)
   }
 
   const { password } = validatedFields.data;
-  const supabase = createClient(); // Use server client
+  // Use the new server action client which handles cookies
+  const supabase = await createServerActionClient(); 
 
   // updateUser can only be called from a server component or action
   // when the user is authenticated (in this case, via the reset token link)
