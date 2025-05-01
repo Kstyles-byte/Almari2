@@ -2,7 +2,10 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
-import { getAllCategories, Category } from '../../actions/content';
+import { getAllCategories } from '../../actions/content'
+import { Category } from '@/types';
+
+// import { Category } from '../../types/content';
 
 // Fallback images to use when icon is not available
 const fallbackCategoryImages = {
@@ -35,7 +38,7 @@ const getCategoryImage = (category: Category): string => {
 
 const CategorySection = async () => {
   // Fetch categories from database
-  const categories = await getAllCategories();
+  const categories: Category[] = await getAllCategories();
   
   return (
     <section className="py-16 bg-white">
@@ -55,7 +58,7 @@ const CategorySection = async () => {
         
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
           {categories.length > 0 ? (
-            categories.map((category) => (
+            categories.map((category: Category) => (
               <Link
                 key={category.id}
                 href={`/products?category=${category.slug}`}

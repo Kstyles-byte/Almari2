@@ -135,6 +135,12 @@ export function SignUpForm() {
                 Sign in
               </Link>
             </div>
+            <div className="mt-2 text-center text-sm">
+              Are you a vendor?{" "}
+              <Link href="/signup/vendor" className="underline">
+                Sign up here
+              </Link>
+            </div>
           </CardFooter>
         </form>
       </Form>

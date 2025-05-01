@@ -110,6 +110,12 @@ export function SignInForm() {
                 Sign up
               </Link>
             </div>
+            <div className="mt-2 text-center text-sm">
+              Want to sell?{" "}
+              <Link href="/signup/vendor" className="underline">
+                Sign up as a Vendor
+              </Link>
+            </div>
           </CardFooter>
         </form>
       </Form>

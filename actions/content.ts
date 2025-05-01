@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createServerActionClient } from '../lib/supabase/server';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
-import { HeroBanner, Category } from '../types/supabase';
+import { HeroBanner, Category } from '@/types';
 
 // Configure Cloudinary (ensure environment variables are set)
 cloudinary.config({
@@ -123,32 +123,20 @@ export async function createHeroBanner(data: {
  */
 export async function updateHeroBanner(
   id: string,
-  data: {
-    title?: string;
-    subtitle?: string | null;
-    buttonText?: string | null;
-    buttonLink?: string | null;
-    imageUrl?: string;
-    mobileImageUrl?: string | null;
-    isActive?: boolean;
-    priority?: number;
-    startDate?: Date | null;
-    endDate?: Date | null;
-  }
+  data: Partial<Omit<HeroBanner, 'id' | 'createdAt' | 'updatedAt'>>
 ): Promise<HeroBanner | null> {
   const supabase = await createServerActionClient();
   try {
-    // Format dates to ISO strings if present
-    const formattedData = {
+    // Data should already contain ISO strings or null for dates from the form/schema
+    // No need to call toISOString() again here
+    const updatePayload = {
       ...data,
-      startDate: data.startDate ? data.startDate.toISOString() : null,
-      endDate: data.endDate ? data.endDate.toISOString() : null,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString() // Set update time
     };
 
     const { data: updatedBanner, error } = await supabase
       .from('HeroBanner')
-      .update(formattedData)
+      .update(updatePayload) // Use the prepared payload
       .eq('id', id)
       .select()
       .single();
@@ -576,29 +564,20 @@ export async function updateHeroContent(prevState: any, formData: FormData): Pro
 
 /**
  * Server Action to delete a Hero Banner.
- * Also deletes the associated image from Cloudinary.
+ * Also attempts to delete the associated image from Cloudinary by parsing the imageUrl.
  * Requires admin privileges.
  * Expects the banner ID to be bound to the action.
  */
 export async function deleteHeroBannerAction(bannerId: string): Promise<void> {
   const supabase = await createServerActionClient();
 
-  // --- Authorization Check ---
+  // --- Authorization Check --- (Assumed correct)
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    console.error('Delete Action: Authentication failed.');
-    return;
-  }
+  if (authError || !user) { console.error('Delete Action: Auth failed.'); return; }
   const { data: userProfile, error: profileError } = await supabase
     .from('User').select('role').eq('id', user.id).single();
-  if (profileError || !userProfile) {
-    console.error('Delete Action: Could not verify user role.');
-    return;
-  }
-  if (userProfile.role !== 'ADMIN') {
-    console.error('Delete Action: Unauthorized: Admin access required.');
-    return;
-  }
+  if (profileError || !userProfile) { console.error('Delete Action: Profile fetch failed.'); return; }
+  if (userProfile.role !== 'ADMIN') { console.error('Delete Action: Unauthorized.'); return; }
   // --- End Authorization Check ---
 
   if (!bannerId || typeof bannerId !== 'string') {
@@ -608,22 +587,58 @@ export async function deleteHeroBannerAction(bannerId: string): Promise<void> {
 
   console.log(`Admin user ${user.id} authorized. Attempting to delete banner ${bannerId}...`);
 
+  let extractedPublicId: string | null = null;
+  let bannerNotFound = false;
+
+  // 1. Attempt to fetch the imageUrl first
   try {
-    // 1. Get the banner details to find the Cloudinary public ID
-    const { data: banner, error: fetchError } = await supabase
-      .from('HeroBanner')
-      .select('imagePublicId') // Select only needed field
-      .eq('id', bannerId)
-      .single();
+      const { data: bannerData, error: fetchError } = await supabase
+          .from('HeroBanner')
+          .select('imageUrl') // Fetch imageUrl
+          .eq('id', bannerId)
+          .single();
 
-    if (fetchError) {
-      console.error('Supabase Fetch Error (Delete Action):', fetchError);
-      throw new Error('Failed to fetch banner details before deletion.');
-    }
+      if (fetchError) {
+          if (fetchError.code === 'PGRST116') { 
+              console.warn(`Delete Action: Banner with ID ${bannerId} not found.`);
+              bannerNotFound = true; 
+          } else {
+              console.error('Supabase Fetch Error (Delete Action):', fetchError);
+          }
+      } else if (bannerData?.imageUrl) {
+           try {
+                // Basic parsing for Cloudinary URL structure
+                const url = new URL(bannerData.imageUrl);
+                const pathSegments = url.pathname.split('/');
+                // Find the segment after the version number (e.g., v12345)
+                const versionIndex = pathSegments.findIndex(segment => /^v\d+$/.test(segment));
+                if (versionIndex > -1 && versionIndex < pathSegments.length - 1) {
+                    const publicIdWithExtension = pathSegments.slice(versionIndex + 1).join('/');
+                    extractedPublicId = publicIdWithExtension.substring(0, publicIdWithExtension.lastIndexOf('.'));
+                    console.log(`Extracted publicId: ${extractedPublicId}`);
+                } else {
+                    console.warn(`Could not determine public ID structure from imageUrl: ${bannerData.imageUrl}`);
+                }
+           } catch (parseError) {
+               console.warn(`Could not parse public ID from imageUrl ${bannerData.imageUrl}:`, parseError);
+           }
+      } else if (!bannerData) {
+           console.warn(`Delete Action: Banner ${bannerId} found, but imageUrl is null or data missing.`);
+           bannerNotFound = true;
+      }
+  } catch (fetchCatchError) {
+      console.error('Unexpected error during banner fetch:', fetchCatchError);
+  }
 
-    const publicIdToDelete = banner?.imagePublicId;
+  // Exit now if the banner was confirmed not found
+  if (bannerNotFound) {
+      return; 
+  }
 
-    // 2. Delete from Supabase
+  // Outer try-catch for the deletion part
+  try {
+    // 2. Delete the banner row from Supabase
+    console.log(`Attempting to delete banner row ${bannerId} from Supabase...`);
     const { error: deleteError } = await supabase
       .from('HeroBanner')
       .delete()
@@ -633,26 +648,28 @@ export async function deleteHeroBannerAction(bannerId: string): Promise<void> {
       console.error('Supabase Delete Error:', deleteError);
       throw new Error('Failed to delete banner from database.');
     }
+    console.log(`Successfully deleted banner row ${bannerId} from Supabase.`);
 
-    // 3. Delete image from Cloudinary if it exists
-    if (publicIdToDelete) {
-      console.log(`Deleting associated Cloudinary image: ${publicIdToDelete}`);
+    // 3. Delete image from Cloudinary ONLY if we extracted a public ID
+    if (extractedPublicId) {
+      console.log(`Deleting associated Cloudinary image: ${extractedPublicId}`);
       try {
-        await cloudinary.uploader.destroy(publicIdToDelete);
-      } catch (deleteError) {
-        // Log deletion error but don't fail the whole operation if DB delete succeeded
-        console.warn(`Failed to delete image (${publicIdToDelete}) from Cloudinary:`, deleteError);
+        await cloudinary.uploader.destroy(extractedPublicId);
+      } catch (cloudinaryDeleteError) {
+        console.warn(`Failed to delete image (${extractedPublicId}) from Cloudinary:`, cloudinaryDeleteError);
       }
+    } else {
+        console.log(`No public ID extracted from imageUrl for banner ${bannerId}. Skipping Cloudinary deletion.`);
     }
 
     // 4. Revalidate paths
-    revalidatePath('/'); // Revalidate homepage
-    revalidatePath('/admin/content/hero'); // Revalidate admin page
+    revalidatePath('/');
+    revalidatePath('/admin/content/hero');
 
-    console.log(`Successfully deleted hero banner ${bannerId}`);
+    console.log(`Successfully processed deletion request for hero banner ${bannerId}`);
 
   } catch (error: any) {
-    console.error('Error in deleteHeroBannerAction:', error);
+    console.error('Error during banner deletion phase:', error);
   }
 }
 

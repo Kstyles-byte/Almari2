@@ -8,6 +8,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createServerActionClient } from '../lib/supabase/server';
 import { cookies } from 'next/headers';
+import { Database } from "@/types/supabase";
+import crypto from 'crypto';
 
 // Validation schemas
 const SignInSchema = z.object({
@@ -28,6 +30,14 @@ const ForgotPasswordSchema = z.object({
 const ResetPasswordSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters."),
   // Add confirm password if needed on the frontend, validation done here on single field
+});
+
+// Schema for combined Vendor SignUp
+const VendorSignUpSchema = SignUpSchema.extend({
+  storeName: z.string().min(3, "Store name must be at least 3 characters"),
+  description: z.string().optional(),
+  bankName: z.string().min(2, "Bank name is required"),
+  accountNumber: z.string().regex(/^[0-9]{10}$/, "Enter a valid 10-digit account number"),
 });
 
 /**
@@ -297,4 +307,89 @@ export async function resetPassword(values: z.infer<typeof ResetPasswordSchema>)
 
   // Redirect to login page with success message
   return redirect('/login?message=Password reset successfully. You can now log in.');
+}
+
+// New function for combined Vendor Sign-up
+export async function signUpAsVendor(values: z.infer<typeof VendorSignUpSchema>) {
+  console.log('[Action] signUpAsVendor called with:', values);
+  const supabase = await createServerActionClient();
+
+  // 1. Validate combined input data
+  const validatedFields = VendorSignUpSchema.safeParse(values);
+  if (!validatedFields.success) {
+    console.error("[Action] Vendor Sign Up Validation Failed:", validatedFields.error.flatten());
+    // Redirect back to the vendor signup form with a general error
+    // More specific errors would ideally be handled client-side via return values
+    return redirect('/signup/vendor?message=Invalid details provided.');
+  }
+  console.log('[Action] Vendor sign up validation successful.');
+
+  const { name, email, password, storeName, description, bankName, accountNumber } = validatedFields.data;
+
+  // 2. Sign up the user via Supabase Auth
+  console.log(`[Action] Attempting Supabase Auth signup for vendor: ${email}`);
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: name, // This goes to raw_user_meta_data for the trigger
+      },
+    },
+  });
+
+  if (signUpError) {
+    console.error("[Action] Supabase Auth Sign Up Error:", signUpError);
+    // Redirect back with a Supabase-specific error or a general one
+    return redirect(`/signup/vendor?message=Signup failed: ${signUpError.message}`);
+  }
+
+  // Check if user object exists (it should if no error, but good practice)
+  if (!signUpData.user) {
+     console.error("[Action] Supabase Auth Sign Up Error: User object missing after signup.");
+     return redirect('/signup/vendor?message=Signup failed: Could not create user.');
+  }
+  console.log(`[Action] Supabase Auth user created successfully: ${signUpData.user.id}`);
+
+  // 3. Insert Vendor details into the public.Vendor table
+  const userId = signUpData.user.id;
+
+  // Use crypto.randomUUID() for the vendor profile ID
+  const vendorId = crypto.randomUUID(); 
+
+  const vendorData: Database['public']['Tables']['Vendor']['Insert'] = {
+    id: vendorId, // Assign the generated UUID
+    userId: userId,
+    storeName,
+    description: description || null,
+    isApproved: false, // Vendor starts as not approved
+    commissionRate: 10, // Default commission rate
+    bankName,
+    accountNumber,
+  };
+
+  console.log(`[Action] Inserting Vendor profile for user ${userId}...`);
+  const { error: insertVendorError } = await supabase.from('Vendor').insert(vendorData);
+
+  if (insertVendorError) {
+    console.error("[Action] Error inserting Vendor profile:", insertVendorError);
+    // This is tricky. User is created in Auth, but profile failed.
+    // Options: Attempt delete auth user? Log for manual cleanup? Alert user?
+    // For now, redirect with error indicating partial failure.
+    return redirect(`/login?message=Signup complete, but vendor profile creation failed. Please contact support.`);
+  }
+  console.log(`[Action] Vendor profile created successfully: ${vendorId}`);
+
+  // Optionally: Update the role in public.User table immediately?
+  // Or leave it as CUSTOMER until admin approval?
+  // Let's leave it as CUSTOMER, consistent with Flow 1 (pending approval)
+  // const { error: updateRoleError } = await supabase
+  //   .from('User')
+  //   .update({ role: 'VENDOR' })
+  //   .eq('id', userId);
+  // if (updateRoleError) { ... handle error ... }
+
+  // 4. Redirect user (e.g., to login page with success/pending message)
+  console.log('[Action] Vendor signup process complete.');
+  return redirect('/login?message=Signup successful! Your vendor application is pending review.');
 } 

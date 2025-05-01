@@ -16,7 +16,7 @@ import {
 } from "../lib/services/agent";
 import { createPickupStatusNotification } from "../lib/services/notification";
 import { createClient } from '@supabase/supabase-js';
-import type { Order, Agent } from "../types/supabase"; // Import necessary types
+import type { Order, Agent } from "@/types";
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

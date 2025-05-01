@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { auth } from '../auth';
-import type { Product, Notification } from '../types/supabase';
+import type { Product, Notification } from '@/types';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
