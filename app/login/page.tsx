@@ -7,7 +7,7 @@ interface LoginPageProps {
   };
 }
 
-export default function LoginPage({ searchParams }: LoginPageProps) {
+export default async function LoginPage({ searchParams }: LoginPageProps) {
   const message = searchParams?.message;
 
   return (
