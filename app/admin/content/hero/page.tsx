@@ -1,94 +1,18 @@
-'use client';
-
 import { getActiveHeroBanner } from '@/lib/services/content';
 import { AdminHeroImageForm } from '@/components/admin/content/AdminHeroImageForm';
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
+import { createServerActionClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { deleteHeroBannerAction } from '@/actions/content';
-import { Trash2, AlertCircle, Plus, RefreshCw, ArrowRight } from 'lucide-react';
-import { useFormStatus, useFormState } from 'react-dom';
+import { AlertCircle, Plus, RefreshCw, ArrowRight } from 'lucide-react';
+import { DeleteBannerForm } from '@/components/admin/content/HeroClientComponents';
 
-// Helper function for authorization
+// Helper function for authorization - runs on server
 async function checkAdminAuth() {
-    const supabase = createClient();
+    const supabase = await createServerActionClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
     const { data: userProfile } = await supabase.from('User').select('role').eq('id', user.id).single();
     return userProfile?.role === 'ADMIN';
-}
-
-// Simple Submit Button for Delete Form - Needs 'use client'
-
-function DeleteSubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button 
-      variant="destructive" 
-      size="sm" 
-      type="submit" 
-      disabled={pending} 
-      aria-disabled={pending} 
-      className="bg-red-600 hover:bg-red-700 text-white mt-2"
-    >
-      {pending ? (
-        <>
-          <div className="h-4 w-4 animate-spin mr-2 border-2 border-white/30 border-t-white rounded-full" />
-          Deleting...
-        </>
-      ) : (
-        <>
-          <Trash2 className="mr-2 h-4 w-4" /> Delete This Banner
-        </>
-      )}
-    </Button>
-  );
-}
-
-
-// Component for the Delete Button Form - Needs 'use client'
-
-function DeleteBannerForm({ bannerId }: { bannerId: string }) {
-  const deleteActionWithId = deleteHeroBannerAction.bind(null, bannerId);
-  // Define a type-safe wrapper function for return type
-  const formAction = async () => {
-    await deleteActionWithId();
-    return { success: true, message: 'Banner deleted successfully', error: null };
-  };
-  const [state, dispatch] = useFormState(formAction, { success: false, message: '', error: null });
-
-  return (
-    <Card className="border-red-100 bg-red-50 mt-6">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-red-700 text-lg font-heading flex items-center">
-          <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
-          Danger Zone
-        </CardTitle>
-        <CardDescription className="text-red-600">
-          This action cannot be undone. Please be certain.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-red-700 mb-3">
-          Deleting this banner will remove it permanently from your site. Any associated images will also be deleted from storage.
-        </p>
-        <form action={dispatch}>
-          <DeleteSubmitButton />
-          {state?.error && (
-            <div className="mt-3 text-sm text-red-700 bg-red-100 p-2 rounded border border-red-200">
-              Error: {state.error}
-            </div>
-          )}
-          {state?.success && (
-            <div className="mt-3 text-sm text-green-700 bg-green-100 p-2 rounded border border-green-200">
-              {state.message}
-            </div>
-          )}
-        </form>
-      </CardContent>
-    </Card>
-  );
 }
 
 // --- Server Component Logic starts here ---
@@ -96,7 +20,7 @@ export default async function AdminHeroContentPage() {
     // --- Authorization ---
     const isAdmin = await checkAdminAuth();
     if (!isAdmin) {
-         return (
+        return (
             <div className="p-6 md:p-8">
                 <Card className="max-w-md mx-auto border-red-100">
                     <CardHeader className="bg-red-50 border-b border-red-100">
