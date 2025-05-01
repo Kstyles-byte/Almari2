@@ -1,15 +1,50 @@
 "use server";
 
-import { createClient } from '../lib/supabase/server'; // Use Supabase server client
+import { createServerActionClient } from '../lib/supabase/server';
 import type { Vendor, Product, Review, Category } from '../types/supabase';
 
-// Initialize Supabase client
-const supabase = createClient();
+// Define expected data structure
+interface VendorShowcaseData {
+  id: string;
+  name: string;
+  logoUrl: string;
+}
+
+/**
+ * Fetch active vendors for the showcase
+ */
+export async function getActiveVendors(limit = 6): Promise<VendorShowcaseData[]> {
+  const supabase = await createServerActionClient(); // Create client inside function
+  try {
+    const { data, error } = await supabase
+      .from('Vendor') // Assuming table name is 'Vendor'
+      .select('id, name, logoUrl') // Adjust columns as needed
+      .eq('isActive', true) // Filter for active vendors
+      .order('createdAt', { ascending: false }) // Or order by name, etc.
+      .limit(limit);
+
+    if (error) {
+      console.error("Error fetching active vendors:", error);
+      throw error;
+    }
+
+    return (data || []).map(vendor => ({
+        id: vendor.id,
+        name: vendor.name || 'Unnamed Vendor',
+        logoUrl: vendor.logoUrl || '/images/vendors/default-logo.png' // Provide a default logo
+    }));
+
+  } catch (error) {
+    console.error("Error processing active vendors:", error);
+    return [];
+  }
+}
 
 /**
  * Get featured vendors for homepage
  */
 export async function getFeaturedVendors(limit = 3) {
+  const supabase = await createServerActionClient(); // Create client inside function
   try {
     // Define the structure expected from the vendors query (matching the select statement)
     // Supabase might return relations as arrays even with !inner

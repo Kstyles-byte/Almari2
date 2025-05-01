@@ -1,31 +1,58 @@
-import { createClient } from '@/lib/supabase/server';
-import { HeroBanner } from '@/types/content'; // Assuming types are defined here or create this file
+import { createServerActionClient } from '@/lib/supabase/server';
+import { HeroBanner, Product } from '@/types/supabase';
 
 /**
- * Fetches the highest priority active hero banner.
- * Considers isActive flag and optional start/end dates.
+ * Fetches the active hero banner with the highest priority.
  */
 export async function getActiveHeroBanner(): Promise<HeroBanner | null> {
-  const supabase = createClient();
+  const supabase = await createServerActionClient(); // Await client creation
   const now = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from('HeroBanner')
-    .select('*')
-    .eq('isActive', true)
-    .or(`startDate.is.null,startDate.lte.${now}`) // Active if no start date or start date is past
-    .or(`endDate.is.null,endDate.gte.${now}`)     // Active if no end date or end date is future
-    .order('priority', { ascending: false })    // Highest priority first
-    .limit(1)
-    .maybeSingle(); // Returns single object or null
+  try {
+    const { data, error } = await supabase
+      .from('HeroBanner')
+      .select('*')
+      .eq('isActive', true)
+      .or(`startDate.is.null,startDate.lte.${now}`)
+      .or(`endDate.is.null,endDate.gte.${now}`)
+      .order('priority', { ascending: false })
+      .limit(1)
+      .maybeSingle(); // Use maybeSingle to return null if not found
 
-  if (error) {
-    console.error('Error fetching active hero banner:', error);
-    return null; // Or throw error depending on desired handling
+    if (error) throw error;
+    return data;
+
+  } catch (error) {
+    console.error("Error fetching active hero banner:", error);
+    return null; // Return null on error
   }
+}
 
-  // TODO: Define the HeroBanner type properly in @/types/content.ts based on the schema
-  return data as HeroBanner | null; 
+/**
+ * Fetches featured products.
+ */
+export async function getFeaturedProducts(limit = 4): Promise<Product[]> {
+  const supabase = await createServerActionClient(); // Await client creation
+
+  try {
+    const { data, error } = await supabase
+      .from('Product')
+      .select(`
+        *,
+        Vendor ( id, storeName ),
+        Category ( id, name )
+      `)
+      .eq('isFeatured', true)
+      .eq('isPublished', true)
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+
+  } catch (error) {
+    console.error("Error fetching featured products:", error);
+    return []; // Return empty array on error
+  }
 }
 
 // Add other content-related service functions here later if needed 

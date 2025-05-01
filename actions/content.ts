@@ -2,14 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { createClient } from '../lib/supabase/server';
+import { createServerActionClient } from '../lib/supabase/server';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { HeroBanner, Category } from '../types/supabase';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configure Cloudinary (ensure environment variables are set)
 cloudinary.config({
@@ -25,6 +20,7 @@ cloudinary.config({
  * Orders by priority (highest first)
  */
 export async function getActiveHeroBanners(): Promise<HeroBanner[]> {
+  const supabase = await createServerActionClient();
   try {
     const now = new Date().toISOString();
     
@@ -65,6 +61,7 @@ export async function getActiveHeroBanners(): Promise<HeroBanner[]> {
  * Get a single hero banner by ID
  */
 export async function getHeroBannerById(id: string): Promise<HeroBanner | null> {
+  const supabase = await createServerActionClient();
   try {
     const { data, error } = await supabase
       .from('HeroBanner')
@@ -96,6 +93,7 @@ export async function createHeroBanner(data: {
   startDate?: Date;
   endDate?: Date;
 }): Promise<HeroBanner | null> {
+  const supabase = await createServerActionClient();
   try {
     // Format dates to ISO strings if present
     const formattedData = {
@@ -138,6 +136,7 @@ export async function updateHeroBanner(
     endDate?: Date | null;
   }
 ): Promise<HeroBanner | null> {
+  const supabase = await createServerActionClient();
   try {
     // Format dates to ISO strings if present
     const formattedData = {
@@ -167,6 +166,7 @@ export async function updateHeroBanner(
  * Delete a hero banner
  */
 export async function deleteHeroBanner(id: string): Promise<boolean> {
+  const supabase = await createServerActionClient();
   try {
     const { error } = await supabase
       .from('HeroBanner')
@@ -186,6 +186,7 @@ export async function deleteHeroBanner(id: string): Promise<boolean> {
  * Toggle the active status of a hero banner
  */
 export async function toggleHeroBannerActive(id: string): Promise<HeroBanner | null> {
+  const supabase = await createServerActionClient();
   try {
     // First get the current banner to check its active status
     const { data: currentBanner, error: fetchError } = await supabase
@@ -222,7 +223,7 @@ export async function toggleHeroBannerActive(id: string): Promise<HeroBanner | n
  * Optionally include their child categories
  */
 export async function getAllCategories(includeChildren: boolean = false): Promise<Category[]> {
-  const supabase = createClient(); // Create client inside function if not global
+  const supabase = await createServerActionClient();
   try {
     // First get all categories
     const { data: categories, error } = await supabase
@@ -257,6 +258,7 @@ export async function getAllCategories(includeChildren: boolean = false): Promis
  * Get categories with no parent (root/main categories)
  */
 export async function getRootCategories(): Promise<Category[]> {
+  const supabase = await createServerActionClient();
   try {
     const { data, error } = await supabase
       .from('Category')
@@ -277,6 +279,7 @@ export async function getRootCategories(): Promise<Category[]> {
  * Get child categories for a specific parent category
  */
 export async function getChildCategories(parentId: string): Promise<Category[]> {
+  const supabase = await createServerActionClient();
   try {
     const { data, error } = await supabase
       .from('Category')
@@ -297,6 +300,7 @@ export async function getChildCategories(parentId: string): Promise<Category[]> 
  * Get a single category by slug
  */
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
+  const supabase = await createServerActionClient();
   try {
     const { data, error } = await supabase
       .from('Category')
@@ -326,7 +330,7 @@ const HeroImageUpdateSchema = z.object({
  * Requires admin privileges.
  */
 export async function updateHeroImage(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; error?: any }> {
-  const supabase = createClient();
+  const supabase = await createServerActionClient();
   
   // --- Authorization Check ---
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -482,7 +486,7 @@ const HeroContentUpdateSchema = z.object({
  * Requires admin privileges.
  */
 export async function updateHeroContent(prevState: any, formData: FormData): Promise<{ success: boolean; message: string; error?: any }> {
-  const supabase = createClient();
+  const supabase = await createServerActionClient();
 
   // --- Authorization Check (Reusing the pattern from updateHeroImage) ---
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -577,7 +581,7 @@ export async function updateHeroContent(prevState: any, formData: FormData): Pro
  * Expects the banner ID to be bound to the action.
  */
 export async function deleteHeroBannerAction(bannerId: string): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createServerActionClient();
 
   // --- Authorization Check ---
   const { data: { user }, error: authError } = await supabase.auth.getUser();

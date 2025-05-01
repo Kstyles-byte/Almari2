@@ -1,58 +1,70 @@
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
 // Import the server client to query the public User table
-import { createClient } from '@/lib/supabase/server' 
+// import { createClient } from '@/lib/supabase/server' 
 
 // Define public routes
-const publicRoutes = [
-  '/', // Homepage
-  '/login', // Login page
-  '/signup', // Signup page
-  '/forgot-password',
-  '/reset-password', // Technically needs a token, but page itself can load
-  '/products', // Main product listing page
-  '/product/*', // All individual product pages
-  // Add category pages if they exist and should be public
-  // '/categories',
-  // '/category/*',
-  '/cart', // Cart page
-  '/checkout', // Checkout page (login might be enforced later in the flow)
-  // Add other static pages like /about, /contact, /faq if they exist
-  // Add other specific public paths if needed, e.g.:
-  // '/products',
-  // '/api/public/*' 
-];
+const publicPaths = ['/login', '/signup', '/auth/confirm', '/error']; // Add other public paths like '/', '/products', etc.
 
-// Function to check if a path is public
-function isPublic(path: string): boolean {
-  return publicRoutes.some(route => {
-    if (route.endsWith('/*')) {
-      // Handle wildcard routes (simple prefix match)
-      return path.startsWith(route.slice(0, -2));
-    } 
-    return path === route;
-  });
+function isPublic(pathname: string): boolean {
+  return publicPaths.some(path => pathname === path || (path !== '/' && pathname.startsWith(path)));
 }
 
 export async function middleware(request: NextRequest) {
-  // 1. Refresh the session and get the response object
-  const response = await updateSession(request)
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
-  // 2. Get user from refreshed session
-  // We need to create a client instance here AFTER updateSession ran,
-  // to ensure cookies are handled correctly for this call.
-  const supabase = createClient() 
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // Use ANON key in middleware
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options })
+          // Create a new response to apply the cookie changes
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: '', ...options })
+           // Create a new response to apply the cookie changes
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
+
+  // IMPORTANT: Avoid manually calling getSession() here.
+  // The createServerClient setup above handles session refreshing automatically
+  // when you make subsequent auth calls like getUser().
+
+  // Get user information (this will also handle session refresh)
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 3. Get URL path
+  // Get URL path
   const { pathname } = request.nextUrl;
 
-  // 4. Handle public routes
+  // Handle public routes
   if (isPublic(pathname)) {
-    return response; // Allow access to public routes
+    return response; // Allow access
   }
 
-  // 5. Redirect unauthenticated users trying to access protected routes
+  // Redirect unauthenticated users trying to access protected routes
   if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
@@ -61,61 +73,52 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 6. Implement RBAC for authenticated users
-  let userRole: string | null = null;
+  // Implement RBAC for authenticated users
   try {
-    // Query the public User table to get the role
+    // Query the public User table to get the role using the SAME Supabase client instance
     const { data: userData, error: userError } = await supabase
-      .from('User') // Use the exact table name from your schema
+      .from('User') // Use the exact table name
       .select('role')
       .eq('id', user.id)
       .single();
 
     if (userError) {
-      console.error('Error fetching user role:', userError.message);
-      // Decide how to handle: block access, redirect to error, or allow temporarily?
-      // For safety, let's redirect to home with an error
+      console.error('Error fetching user role in middleware:', userError.message);
+      // Redirect to a generic error or home page if role check fails
       const url = request.nextUrl.clone();
-      url.pathname = '/';
-      url.searchParams.set('message', 'Error checking user role.');
+      url.pathname = '/error';
+      url.searchParams.set('message', 'Error checking user permissions.');
       return NextResponse.redirect(url);
     }
-    userRole = userData?.role;
-    
+
+    const userRole = userData?.role;
+    console.log(`User: ${user.email}, Role: ${userRole}, Path: ${pathname}`);
+
+    // Redirect logic based on role
+    if (pathname.startsWith('/admin') && userRole !== 'ADMIN') {
+      console.log('Redirecting non-admin from /admin');
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    if (pathname.startsWith('/vendor') && userRole !== 'VENDOR' && userRole !== 'ADMIN') {
+      console.log('Redirecting non-vendor/admin from /vendor');
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    if (pathname.startsWith('/agent') && userRole !== 'AGENT' && userRole !== 'ADMIN') {
+      console.log('Redirecting non-agent/admin from /agent');
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
   } catch (e) {
-    console.error('Exception fetching user role:', e);
+    console.error('Exception during RBAC check in middleware:', e);
     const url = request.nextUrl.clone();
-    url.pathname = '/';
-    url.searchParams.set('message', 'Error checking user role.');
+    url.pathname = '/error';
+    url.searchParams.set('message', 'An unexpected error occurred while checking permissions.');
     return NextResponse.redirect(url);
-  }
-  
-  // Redirect logic based on role
-  console.log(`User: ${user.email}, Role: ${userRole}, Path: ${pathname}`);
-
-  if (pathname.startsWith('/admin') && userRole !== 'ADMIN') {
-    console.log('Redirecting non-admin from /admin');
-    const url = request.nextUrl.clone();
-    url.pathname = '/'; 
-    return NextResponse.redirect(url);
-  }
-  
-  if (pathname.startsWith('/vendor') && userRole !== 'VENDOR' && userRole !== 'ADMIN') {
-    console.log('Redirecting non-vendor/admin from /vendor');
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    return NextResponse.redirect(url);
-  }
-  
-  // Example: Agent routes (assuming agents have a dashboard)
-  if (pathname.startsWith('/agent') && userRole !== 'AGENT' && userRole !== 'ADMIN') {
-     console.log('Redirecting non-agent/admin from /agent');
-     const url = request.nextUrl.clone();
-     url.pathname = '/';
-     return NextResponse.redirect(url);
   }
 
-  // If all checks pass, continue to the requested page with the updated session
+  // If all checks pass, allow the request to proceed
   return response;
 }
 
