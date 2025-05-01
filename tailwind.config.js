@@ -6,7 +6,6 @@ module.exports = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/**/*.{js,ts,jsx,tsx,mdx}',
-    './**/*.{js,ts,jsx,tsx,mdx}',  // This will catch files at any level
   ],
   prefix: "",
   theme: {
