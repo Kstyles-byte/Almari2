@@ -1,4 +1,5 @@
 'use client'; // Make CartPage a client component to use state
+export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react'; // Import useState and useEffect
 import Link from 'next/link';
