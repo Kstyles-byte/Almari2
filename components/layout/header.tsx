@@ -5,14 +5,51 @@ import Link from 'next/link';
 import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Icons } from '../icons';
+import { getCart } from '@/actions/cart'; // Import the getCart action
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [cartItemCount, setCartItemCount] = useState(0); // State for cart item count
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
+  
+  // Function to fetch cart data
+  const fetchCartItemCount = async () => {
+    try {
+      const cartData = await getCart();
+      if (cartData.success && cartData.cart?.items) {
+        // Calculate total items in cart (sum of quantities)
+        const totalItems = cartData.cart.items.reduce((total: number, item: { quantity: number }) => total + item.quantity, 0);
+        setCartItemCount(totalItems);
+      } else {
+        setCartItemCount(0);
+      }
+    } catch (error) {
+      console.error("Error fetching cart count:", error);
+      setCartItemCount(0);
+    }
+  };
+
+  // Fetch cart count on initial load and set up event listener for cart updates
+  useEffect(() => {
+    fetchCartItemCount();
+    
+    // Listen for cart update events
+    const handleCartUpdate = () => {
+      fetchCartItemCount();
+    };
+    
+    // Add event listener for custom cart-updated event
+    window.addEventListener('cart-updated', handleCartUpdate);
+    
+    // Cleanup event listener on component unmount
+    return () => {
+      window.removeEventListener('cart-updated', handleCartUpdate);
+    };
+  }, []);
   
   // Handle scroll effect
   useEffect(() => {
@@ -124,9 +161,12 @@ const Header = () => {
               }`}>
                 <ShoppingCart className="h-5 w-5" />
               </div>
-              <span className="absolute -top-1 -right-1 bg-zervia-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                3
-              </span>
+              {/* Only show the badge if there are items in the cart */}
+              {cartItemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-zervia-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {cartItemCount}
+                </span>
+              )}
             </Link>
             <button 
               onClick={toggleMobileMenu}

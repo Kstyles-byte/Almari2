@@ -47,6 +47,8 @@ export function CartItem({ item, onUpdate }: CartItemProps) {
         toast.error(result.error);
       } else {
         toast.success('Quantity updated.');
+        // Dispatch custom event to notify header about cart update
+        window.dispatchEvent(new Event('cart-updated'));
         // Call the passed-in onUpdate function (which is fetchCart)
         onUpdate?.(); 
       }
@@ -64,7 +66,9 @@ export function CartItem({ item, onUpdate }: CartItemProps) {
             toast.error(result.error);
         } else {
             toast.success('Item removed from cart.');
-             // Call the passed-in onUpdate function (which is fetchCart)
+            // Dispatch custom event to notify header about cart update
+            window.dispatchEvent(new Event('cart-updated'));
+            // Call the passed-in onUpdate function (which is fetchCart)
             onUpdate?.();
         }
     });

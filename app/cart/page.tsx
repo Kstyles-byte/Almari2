@@ -195,6 +195,8 @@ export default function CartPage() {
                                       toast.error(result.error);
                                   } else {
                                       toast.success("Cart cleared.");
+                                      // Dispatch custom event to notify header about cart update
+                                      window.dispatchEvent(new Event('cart-updated'));
                                       fetchCart(); // Refetch after clearing
                                   }
                               })}

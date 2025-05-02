@@ -41,6 +41,8 @@ export function RelatedProductCard({ product }: RelatedProductCardProps) {
       const result = await addToCart({ productId: product.id, quantity: 1 });
       if (result.success) {
         toast.success(`${product.name} added to cart!`);
+        // Dispatch custom event to notify header about cart update
+        window.dispatchEvent(new Event('cart-updated'));
       } else {
         toast.error(result.error || 'Could not add item to cart.');
       }

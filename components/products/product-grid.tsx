@@ -37,6 +37,8 @@ export function ProductGrid({ products }: ProductGridProps) {
       const result = await addToCart({ productId, quantity: 1 });
       if (result.success) {
         toast.success(`${productName} added to cart!`);
+        // Dispatch custom event to notify header about cart update
+        window.dispatchEvent(new Event('cart-updated'));
       } else {
         toast.error(result.error || 'Could not add item to cart.');
       }

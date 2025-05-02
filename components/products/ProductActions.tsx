@@ -48,6 +48,8 @@ export function ProductActions({ productId, productName, inventory }: ProductAct
     }
     if (state.success) {
       toast.success(`${productName} added to cart!`);
+      // Dispatch custom event to notify header about cart update
+      window.dispatchEvent(new Event('cart-updated'));
       // Optionally reset quantity or form state here
       setQuantity(1); 
     }
