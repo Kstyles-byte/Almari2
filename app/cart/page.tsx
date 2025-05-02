@@ -12,11 +12,6 @@ import { CouponInputForm } from '../../components/cart/CouponInputForm'; // Impo
 import { useSession } from 'next-auth/react'; // Use useSession for client-side auth check
 import { useRouter } from 'next/navigation'; // For client-side redirect
 
-export const metadata = {
-  title: 'Your Cart | Zervia - Multi-vendor E-commerce Platform',
-  description: 'View and manage items in your shopping cart.',
-};
-
 const recommendedProducts = [
   {
     id: 4,
