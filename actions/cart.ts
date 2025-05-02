@@ -1,6 +1,5 @@
 "use server";
 
-import { auth } from "../auth";
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from "next/cache";
 import { getCustomerByUserId, getCustomerCart } from "../lib/services/customer";
@@ -20,41 +19,96 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 // Initialize the service role client for actions requiring elevated privileges
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
+// Define the expected input type when called directly
+interface AddToCartInput {
+  productId: string;
+  quantity: number;
+}
+
+// Define the return type
+interface AddToCartResult {
+  error?: string;
+  success?: boolean;
+}
+
 /**
- * Add a product to the user's cart
+ * Add a product to the user's cart.
+ * Can accept FormData from a form or an object for direct calls.
  */
-export async function addToCart(formData: FormData) {
+export async function addToCart(input: FormData | AddToCartInput): Promise<AddToCartResult> {
+  console.log("--- addToCart action started ---"); // Log start
   try {
-    const session = await auth();
+    // Get cookies for server client
+    const cookieStore = await cookies();
     
+    // Create a Supabase client that has access to the user's session via cookies
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.delete({ name, ...options });
+          },
+        },
+      }
+    );
+
+    // Get session using the cookie-based client
+    const { data: { session } } = await supabaseAuth.auth.getSession();
+    console.log("Session object in addToCart:", JSON.stringify(session, null, 2)); // Log session object
+
     if (!session?.user) {
+      console.error("Authorization failed: No user session found in addToCart."); // Specific log
       return { error: "Unauthorized" };
     }
-    
-    // Get customer profile (already uses Supabase service)
+    console.log("User ID from session:", session.user.id); // Log user ID
+
     const customer = await getCustomerByUserId(session.user.id);
-    
+    console.log("Customer profile fetched:", customer); // Log customer profile result
+
     if (!customer) {
+      console.error(`Customer profile check failed for user ${session.user.id}.`); // Specific log
       return { error: "Customer profile not found" };
     }
-    
-    const productId = formData.get("productId") as string;
-    const quantityStr = formData.get("quantity") as string;
-    const quantity = parseInt(quantityStr);
-    
+    console.log("Customer profile found, ID:", customer.id); // Log success
+
+    let productId: string | null | undefined;
+    let quantity: number | undefined;
+
+    // Extract data based on input type
+    if (input instanceof FormData) {
+      productId = input.get("productId") as string;
+      const quantityStr = input.get("quantity") as string;
+      quantity = quantityStr ? parseInt(quantityStr) : undefined;
+    } else {
+      productId = input.productId;
+      quantity = input.quantity;
+    }
+
+    console.log(`Attempting to add Product ID: ${productId}, Quantity: ${quantity}`); // Log input
+
     // Validate input
     if (!productId) {
+      console.error("Validation failed: Product ID missing.");
       return { error: "Product ID is required" };
     }
-    
-    if (!quantityStr || isNaN(quantity) || quantity <= 0) {
+    if (quantity === undefined || isNaN(quantity) || quantity <= 0) {
+      console.error(`Validation failed: Invalid quantity (${quantity}).`);
       return { error: "Quantity must be a positive number" };
     }
     
-    // Check if product exists, is published, and has enough inventory using Supabase
+    // Check product existence, availability, and inventory
+    console.log(`Fetching product details for ID: ${productId}`);
     const { data: productData, error: productError } = await supabase
       .from('Product')
-      .select('id, name, inventory, isPublished')
+      .select('id, name, inventory, is_published')
       .eq('id', productId)
       .single();
 
@@ -62,38 +116,39 @@ export async function addToCart(formData: FormData) {
         console.error("Error fetching product:", productError.message);
         return { error: "Failed to find product." };
     }
+    console.log("Product data fetched:", productData);
     if (!productData) {
+      console.error("Product not found in DB.");
       return { error: "Product not found." };
     }
-    if (!productData.isPublished) {
+    if (!productData.is_published) {
+        console.error("Product is not published.");
         return { error: "Product is not available." };
     }
     if (productData.inventory < quantity) {
+      console.error(`Insufficient inventory. Needed: ${quantity}, Available: ${productData.inventory}`);
       return { error: `Not enough inventory available for ${productData.name}. Only ${productData.inventory} left.` };
     }
     
-    // Get or create cart using the migrated service function
+    // Get or create cart
+    console.log(`Getting cart for customer ID: ${customer.id}`);
     const cartResult = await getCustomerCart(customer.id);
-
     if (!cartResult) {
-        // getCustomerCart throws errors internally now, but handle null just in case
+        console.error(`Failed to get or create cart for customer ${customer.id}.`);
         return { error: "Failed to retrieve or create cart." };
     }
     const cartId = cartResult.cart.id;
+    console.log(`Cart ID: ${cartId}. Upserting item...`);
 
-    // Upsert cart item using Supabase
-    // 'upsert' will insert if (cartId, productId) doesn't exist, or update if it does.
+    // Upsert cart item
     const { error: upsertError } = await supabase
         .from('CartItem')
         .upsert({
-            cartId: cartId,
-            productId: productId,
+            cart_id: cartId, // Ensure snake_case
+            product_id: productId, // Ensure snake_case
             quantity: quantity,
-            // createdAt is handled by DB default, updatedAt by trigger or manual update if needed
         }, { 
-            onConflict: 'cartId, productId', // Specify conflict target columns
-            // Default behavior is 'merge-duplicates', which updates existing row.
-            // No explicit 'update' data needed unless you want different update logic.
+            onConflict: 'cart_id, product_id', // Ensure snake_case
         });
 
     if (upsertError) {
@@ -101,13 +156,15 @@ export async function addToCart(formData: FormData) {
         return { error: "Failed to add item to cart." };
     }
     
+    console.log("Item successfully added/updated in cart. Revalidating paths...");
     revalidatePath("/cart");
-    // Also potentially revalidate related product pages if cart count is shown there
+    revalidatePath(`/product/${productId}`); // Also revalidate product page if needed
     
+    console.log("--- addToCart action finished successfully ---");
     return { success: true };
+
   } catch (error) {
-    console.error("Error adding to cart:", error);
-    // Catch errors from getCustomerCart or other unexpected issues
+    console.error("--- addToCart action failed with error: ---", error);
     return { error: error instanceof Error ? error.message : "Failed to add to cart" };
   }
 }
@@ -117,7 +174,31 @@ export async function addToCart(formData: FormData) {
  */
 export async function updateCartItem(formData: FormData) {
   try {
-    const session = await auth();
+    // Get cookies for server client
+    const cookieStore = await cookies();
+    
+    // Create a Supabase client that has access to the user's session via cookies
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.delete({ name, ...options });
+          },
+        },
+      }
+    );
+
+    // Get session using the cookie-based client
+    const { data: { session } } = await supabaseAuth.auth.getSession();
+    
     if (!session?.user) {
       return { error: "Unauthorized" };
     }
@@ -241,8 +322,29 @@ export async function removeFromCart(
   console.log(`Attempting to remove cart item: ${cartItemId}`);
 
   // Check user authentication
-  const session = await auth();
-  if (!session?.user?.id) {
+  const cookieStore = await cookies();
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.delete({ name, ...options });
+        },
+      },
+    }
+  );
+
+  // Get session using the cookie-based client
+  const { data: { session } } = await supabaseAuth.auth.getSession();
+  
+  if (!session?.user) {
     console.error("Authentication failed: No user session found.");
     return { error: "Authentication required." };
   }
@@ -329,12 +431,35 @@ export async function removeFromCart(
 }
 
 /**
- * Clear the user's cart
+ * Clear all items from the user's cart
  */
-// Migrate to Supabase
 export async function clearCart() {
   try {
-    const session = await auth();
+    // Get cookies for server client
+    const cookieStore = await cookies();
+    
+    // Create a Supabase client that has access to the user's session via cookies
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.delete({ name, ...options });
+          },
+        },
+      }
+    );
+
+    // Get session using the cookie-based client
+    const { data: { session } } = await supabaseAuth.auth.getSession();
+    
     if (!session?.user) {
       return { error: "Unauthorized" };
     }
@@ -344,33 +469,33 @@ export async function clearCart() {
       return { error: "Customer profile not found" };
     }
     
-      // Get cart ID using the service function
-      const cartResult = await getCustomerCart(customer.id);
+    // Get cart ID using the service function
+    const cartResult = await getCustomerCart(customer.id);
 
-      // If cart doesn't exist or failed to fetch, there's nothing to clear
-      if (!cartResult) {
-        console.log("No cart found or error fetching cart for customer:", customer.id);
-        return { success: true }; // Nothing to clear, operation is 'successful'
-      }
-      const cartId = cartResult.cart.id;
+    // If cart doesn't exist or failed to fetch, there's nothing to clear
+    if (!cartResult) {
+      console.log("No cart found or error fetching cart for customer:", customer.id);
+      return { success: true }; // Nothing to clear, operation is 'successful'
+    }
+    const cartId = cartResult.cart.id;
 
-      // Delete all cart items associated with the cart ID
-      const { error: deleteError } = await supabase
-        .from('CartItem') // Use correct table name
-        .delete()
-        .eq('cartId', cartId); // Use correct field name (cart_id vs cartId)
+    // Delete all cart items associated with the cart ID
+    const { error: deleteError } = await supabase
+      .from('CartItem') // Use correct table name
+      .delete()
+      .eq('cartId', cartId); // Use correct field name (cart_id vs cartId)
 
-      if (deleteError) {
-          console.error(`Error clearing cart items for cart ${cartId}:`, deleteError.message);
-          throw new Error("Failed to clear cart items.");
-      }
-    
+    if (deleteError) {
+        console.error(`Error clearing cart items for cart ${cartId}:`, deleteError.message);
+        throw new Error("Failed to clear cart items.");
+    }
+  
     revalidatePath("/cart");
     return { success: true };
   } catch (error) {
     console.error("Error clearing cart:", error);
-      return { error: error instanceof Error ? error.message : "Failed to clear cart" };
-    }
+    return { error: error instanceof Error ? error.message : "Failed to clear cart" };
+  }
 }
 
 export async function getCart(): Promise<{ success: boolean; cart?: any; message: string }> {
@@ -425,7 +550,7 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
     const { data: cartData, error: cartError } = await supabase 
       .from('Cart') // Use correct table name 'Cart'
       .select('id') // Select only the cart ID
-      .eq('customerId', customerProfile.id) // Filter by customer ID (customerId vs customer_id?)
+      .eq('customer_id', customerProfile.id) // Fixed: use snake_case 'customer_id' instead of 'customerId'
       .maybeSingle(); // Expect one or zero carts
 
     if (cartError) {
@@ -442,11 +567,9 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
     const cartId = cartData.id; // Get the cart ID
     console.log("Cart ID found:", cartId);
 
-
     // Define the type for the structure returned by THIS SPECIFIC QUERY
-    // Adjusting to expect product as an array based on linter error
-    // And defining the product structure explicitly based on the select query
-     type CartItemQueryResult = {
+    // Adjusting to expect product as an OBJECT or null
+    type CartItemQueryResult = {
       id: string;
       quantity: number;
       product: ({
@@ -455,12 +578,12 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
         name: string;
         price: number;
         inventory: number;
-        isPublished: boolean;
+        is_published: boolean;
         // Relations are nested objects/arrays
         images: Pick<ProductImage, 'url' | 'alt_text'>[] | null;
-        // Expect vendor relation within product to also be an array
-        vendor: Pick<Vendor, 'id' | 'store_name'>[] | null; 
-      })[] | null; // Expect product as an array or null
+        // Expect vendor relation within product to also be an object
+        vendor: Pick<Vendor, 'id' | 'store_name'> | null; 
+      }) | null; 
     };
 
     // Fetch cart items with product details (including images and vendor)
@@ -475,12 +598,12 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
           name,
           price,
           inventory,
-          isPublished,
+          is_published,
           images: ProductImage ( url, alt_text ),
           vendor: Vendor ( id, store_name )
         )
       `)
-      .eq("cartId", cartId); // Filter by the fetched cart ID (cartId vs cart_id?)
+      .eq("cart_id", cartId); // Fixed: use snake_case 'cart_id' instead of 'cartId'
 
     if (itemsError) {
       console.error("Error fetching cart items:", itemsError);
@@ -490,14 +613,11 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
     console.log("Cart items fetched:", cartItems);
 
     // Flatten the structure slightly for easier frontend consumption
-    // Add explicit type annotation to the map callback parameter using the query result type
-    const formattedItems = cartItems?.map((item: CartItemQueryResult) => { 
+    const formattedItems = cartItems?.map((item: any) => { // Use 'any' for item type here
       // Safely access nested properties
-      // Access the first element of the product array
-      const product = item.product?.[0]; 
+      const product = item.product; // Access product directly 
       const images = product?.images;
-      // Access the first element of the vendor array within the product
-      const vendor = product?.vendor?.[0]; 
+      const vendor = product?.vendor; 
 
       return {
         id: item.id,
@@ -507,8 +627,8 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
         slug: product ? product.name.replace(/\s+/g, '-').toLowerCase() : '#',
         price: product ? product.price : 0,
         inventory: product ? product.inventory : 0,
-        image: product?.images?.[0]?.url ?? '/placeholder-product.jpg',
-        imageAlt: product?.images?.[0]?.alt_text ?? 'Product image',
+        image: images?.[0]?.url ?? '/placeholder-product.jpg', 
+        imageAlt: images?.[0]?.alt_text ?? 'Product image', 
         vendorId: vendor ? vendor.id : 'N/A',
         vendorName: vendor ? vendor.store_name : 'N/A',
       };

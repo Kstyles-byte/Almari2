@@ -9,6 +9,8 @@ import { ImageGallery } from '../../../components/ui/image-gallery';
 import { getProductBySlug } from '../../../actions/products'; // Import the action
 import { notFound } from 'next/navigation'; // Import notFound for handling missing products
 import type { Metadata, ResolvingMetadata } from 'next';
+import { ProductActions } from '../../../components/products/ProductActions'; // Import the new component
+import { RelatedProductCard } from '../../../components/products/RelatedProductCard'; // Import the new component
 
 // Dynamic Metadata Generation
 export async function generateMetadata(
@@ -153,110 +155,21 @@ export default async function ProductDetail({ params }: { params: { slug: string
             {/* Short description - Use fetched description */}
             <p className="text-zervia-700">{product.description || 'No description available.'}</p>
             
-            {/* Color selection - Placeholder/Example - Requires Variant System */}
-            {product.colors && product.colors.length > 0 && product.colors[0] !== 'Default' && (
-              <div>
-                <h3 className="text-sm font-medium text-zervia-900 mb-3">Color</h3>
-                <div className="flex space-x-2">
-                  {product.colors.map((color: string, index: number) => (
-                    <button
-                      key={index}
-                      className={`w-8 h-8 rounded-full border-2 ${
-                        index === 0 // TODO: Implement actual color selection state
-                          ? "border-zervia-600"
-                          : "border-transparent hover:border-zervia-400"
-                      } focus:outline-none focus:ring-2 focus:ring-zervia-500`}
-                      style={{ 
-                         backgroundColor: color.toLowerCase() === "black" ? "#000000" : 
-                         color.toLowerCase() === "camel" ? "#C19A6B" : 
-                         color.toLowerCase() === "grey" ? "#808080" : 
-                         color.toLowerCase() === "navy" ? "#000080" : 
-                         color.toLowerCase() === "white" ? "#FFFFFF" : color // Fallback to color name if not predefined
-                      }}
-                      aria-label={`Select ${color} color`}
-                    />
-                  ))}
-                </div>
-                <p className="mt-2 text-sm text-zervia-700">
-                  Selected: <span className="font-medium">{product.colors[0]}</span>
-                </p>
-              </div>
-            )}
-            
-            {/* Size selection - Placeholder/Example - Requires Variant System */}
-             {product.sizes && product.sizes.length > 0 && product.sizes[0] !== 'One Size' && (
-              <div>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-zervia-900">Size</h3>
-                  {/* TODO: Link to actual size guide if available */}
-                  <button className="text-sm font-medium text-zervia-600 hover:text-zervia-800">
-                    Size Guide
-                  </button>
-                </div>
-                <div className="grid grid-cols-5 gap-2 mt-3">
-                  {product.sizes.map((size: string, index: number) => (
-                    <button
-                      key={index}
-                      className={`py-2 border rounded-md text-sm font-medium ${
-                        index === 0 // TODO: Implement actual size selection state
-                          ? "bg-zervia-600 border-zervia-600 text-white"
-                          : "border-gray-300 text-zervia-700 hover:border-zervia-600"
-                      } focus:outline-none focus:ring-2 focus:ring-zervia-500`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-             )}
-            
-            {/* Quantity and add to cart - TODO: Implement client-side state and cart action */}
+            {/* Product actions (Quantity and Add to Cart) */}
             <div className="pt-4">
               <div className="flex space-x-4">
-                 {/* Quantity Selector - Requires client-side state */}
-                <div className="flex items-center border border-gray-300 rounded-md w-32">
-                  {/* Placeholder buttons - functionality needs client component */}
-                  <button 
-                    className="w-10 h-10 flex items-center justify-center text-zervia-600 hover:bg-zervia-50 disabled:opacity-50"
-                    aria-label="Decrease quantity"
-                    // disabled={quantity <= 1} onClick={() => setQuantity(q => q - 1)}
-                  >
-                    -
-                  </button>
-                  <input
-                    type="text"
-                    className="w-full h-10 text-center border-0 focus:outline-none focus:ring-0"
-                    value={1} // Placeholder - needs client state
-                    readOnly
-                  />
-                   <button 
-                    className="w-10 h-10 flex items-center justify-center text-zervia-600 hover:bg-zervia-50 disabled:opacity-50"
-                    aria-label="Increase quantity"
-                    // disabled={quantity >= product.inventory} onClick={() => setQuantity(q => q + 1)}
-                  >
-                    +
-                  </button>
-                </div>
-                
-                 {/* Add to Cart Button - Requires client component and action */}
-                <Button size="lg" className="flex-1" disabled={product.inventory <= 0}>
-                  <ShoppingCart className="mr-2 h-5 w-5" /> 
-                  {product.inventory > 0 ? 'Add to Cart' : 'Out of Stock'}
-                </Button>
-                
-                {/* Wishlist Button - Requires client component and action */}
+                {/* Use the ProductActions component */}
+                <ProductActions 
+                  productId={product.id} 
+                  productName={product.name} 
+                  inventory={product.inventory}
+                />
+
+                {/* Wishlist Button - Requires client component and action - kept separate for now */}
                 <Button variant="outline" size="icon" className="h-12 w-12">
                   <Heart className="h-5 w-5 text-zervia-600" />
                 </Button>
-                
-                 {/* Share Button - Requires client component and potentially library */}
-                <Button variant="outline" size="icon" className="h-12 w-12">
-                  <Share2 className="h-5 w-5 text-zervia-600" />
-                </Button>
               </div>
-              {product.inventory <= 5 && product.inventory > 0 && (
-                  <p className="text-sm text-red-600 mt-2">Only {product.inventory} left in stock!</p>
-              )}
             </div>
             
             {/* Product details - Use fetched data */}
@@ -300,99 +213,17 @@ export default async function ProductDetail({ params }: { params: { slug: string
           <Tabs defaultValue="description">
             <TabsList className="border-b border-gray-200 w-full justify-start">
               <TabsTrigger value="description">Description</TabsTrigger>
-              {/* Optionally show features tab if data exists */}
-              {product.features && product.features.length > 0 && (
-                <TabsTrigger value="features">Features & Specs</TabsTrigger>
-              )}
               <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
             </TabsList>
             
-            {/* Description Tab */}
             <TabsContent value="description" className="pt-6">
-              <div className="prose max-w-none text-zervia-700">
-                {/* Render longDescription if available, otherwise fallback to description */}
-                 <p className="mb-4">{product.longDescription || product.description || 'No detailed description provided.'}</p>
-                 {/* Add more content as needed */} 
+              <h3 className="text-lg font-medium text-zervia-900 mb-4">Product Details</h3>
+              <div className="prose prose-sm max-w-none text-zervia-600">
+                {/* Use product.description as longDescription is not available */}
+                <p>{product.description || 'Detailed description not available.'}</p>
+                {/* Add more content here if needed */}
               </div>
             </TabsContent>
-            
-            {/* Features & Specs Tab - Use fetched features and details */}
-            {product.features && product.features.length > 0 && (
-              <TabsContent value="features" className="pt-6">
-                <div className="grid md:grid-cols-2 gap-8">
-                  <div>
-                    <h3 className="text-lg font-medium text-zervia-900 mb-4">Features</h3>
-                    <ul className="space-y-2">
-                      {product.features.map((feature: string, index: number) => (
-                        <li key={index} className="flex items-start">
-                          <Check className="h-5 w-5 text-zervia-600 mr-2 mt-0.5 flex-shrink-0" />
-                          <span className="text-zervia-700">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-medium text-zervia-900 mb-4">Product Details</h3>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-4 text-sm border-b border-gray-200 pb-2">
-                        <span className="text-zervia-500">Brand</span>
-                        <span className="text-zervia-900">{product.vendorName || 'N/A'}</span>
-                      </div>
-                      {/* Example: Add Material if available in schema */}
-                      {/* 
-                      {product.material && (
-                        <div className="grid grid-cols-2 gap-4 text-sm border-b border-gray-200 pb-2">
-                          <span className="text-zervia-500">Material</span>
-                          <span className="text-zervia-900">{product.material}</span>
-                        </div>
-                      )} 
-                      */}
-                      {product.sku && (
-                        <div className="grid grid-cols-2 gap-4 text-sm border-b border-gray-200 pb-2">
-                          <span className="text-zervia-500">SKU</span>
-                          <span className="text-zervia-900">{product.sku}</span>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-2 gap-4 text-sm border-b border-gray-200 pb-2">
-                        <span className="text-zervia-500">Category</span>
-                        <span className="text-zervia-900">
-                          <Link href={`/products?category=${product.categorySlug}`} className="text-zervia-600 hover:underline">
-                            {product.categoryName || 'Uncategorized'}
-                          </Link>
-                          {/* Add Subcategory Link if available */}
-                        </span>
-                      </div>
-                      {product.tags && product.tags.length > 0 && (
-                        <div className="grid grid-cols-2 gap-4 text-sm border-b border-gray-200 pb-2">
-                          <span className="text-zervia-500">Tags</span>
-                          <span className="text-zervia-900">
-                            {product.tags.map((tag: string, index: number) => (
-                              <span key={index}>
-                                {/* TODO: Link to tag search page if implemented */}
-                                <Link href={`/products?tag=${tag}`} className="text-zervia-600 hover:underline">
-                                  {tag}
-                                </Link>
-                                {index < product.tags.length - 1 ? ", " : ""}
-                              </span>
-                            ))}
-                          </span>
-                        </div>
-                      )}
-                       {/* Example: Add Care Instructions if available */}
-                       {/*
-                       {product.careInstructions && (
-                         <div className="grid grid-cols-2 gap-4 text-sm">
-                           <span className="text-zervia-500">Care</span>
-                           <span className="text-zervia-900">{product.careInstructions}</span>
-                         </div>
-                       )}
-                       */}
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-            )}
             
             {/* Reviews Tab - Use fetched reviews */}
             <TabsContent value="reviews" className="pt-6">
@@ -498,49 +329,10 @@ export default async function ProductDetail({ params }: { params: { slug: string
           <div className="mt-16">
             <h2 className="text-2xl font-bold text-zervia-900 mb-8">You May Also Like</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+              {/* Map over relatedProducts and use RelatedProductCard */}
               {relatedProducts.map((relatedProduct) => (
-                <div key={relatedProduct.id} className="group">
-                  <Link href={`/product/${relatedProduct.slug}`}>
-                    <div className="relative h-64 rounded-lg overflow-hidden bg-zervia-50 mb-4">
-                      <Image
-                        src={relatedProduct.image || '/placeholder-product.jpg'}
-                        alt={relatedProduct.name}
-                        fill
-                        className="object-cover transition-transform group-hover:scale-105"
-                         onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-product.jpg'; }}
-                      />
-                    </div>
-                  </Link>
-                  <Link href={`/product/${relatedProduct.slug}`} className="group">
-                    <h3 className="font-medium text-zervia-900 group-hover:text-zervia-600 transition-colors truncate">
-                      {relatedProduct.name}
-                    </h3>
-                  </Link>
-                  <div className="flex items-center mt-1">
-                    <div className="flex">
-                      {[...Array(5)].map((_, i) => (
-                        <Star 
-                          key={i}
-                          size={12}
-                          className={i < Math.floor(relatedProduct.rating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
-                        />
-                      ))}
-                    </div>
-                    <span className="ml-1 text-xs text-zervia-500">
-                      ({relatedProduct.reviewCount})
-                    </span>
-                  </div>
-                  <div className="mt-2 font-medium text-zervia-900">
-                    {relatedProduct.comparePrice && relatedProduct.comparePrice > relatedProduct.price ? (
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-zervia-900">${relatedProduct.price.toFixed(2)}</span>
-                            <span className="text-sm text-zervia-500 line-through">${relatedProduct.comparePrice.toFixed(2)}</span>
-                        </div>
-                        ) : (
-                            <span>${relatedProduct.price.toFixed(2)}</span>
-                        )}
-                  </div>
-                </div>
+                // Pass the whole relatedProduct object as a prop
+                <RelatedProductCard key={relatedProduct.id} product={relatedProduct} />
               ))}
             </div>
           </div>

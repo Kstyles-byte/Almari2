@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Customer, Order, Review, Cart, CartItem, Product, Vendor, ProductImage } from '../../types/supabase'; // Assuming these types exist
+// Import from the central types index file
+import type { Customer, Order, Review, Cart, CartItem, Product, Vendor, ProductImage } from '@/types/index'; 
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -22,8 +23,8 @@ export async function getCustomerByUserId(userId: string): Promise<Customer | nu
   try {
     const { data, error } = await supabase
       .from('Customer')
-      .select(`*, User:userId (id, name, email)`)
-      .eq('userId', userId)
+      .select('*')
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
@@ -189,10 +190,10 @@ export async function getCustomerOrders(
       .from('Order')
       .select(`
         *,
-        Agent:agentId ( name, location ),
-        OrderItem ( *, Product:productId ( *, ProductImage!ProductImage_productId_fkey(url, order) ), Vendor:vendorId(id, storeName) )
+        Agent:agent_id ( name, location ),
+        OrderItem ( *, Product:product_id ( *, ProductImage!ProductImage_productId_fkey(url, order) ), Vendor:vendor_id(id, store_name) )
       `, { count: 'exact' })
-      .eq('customerId', customerId);
+      .eq('customer_id', customerId);
 
     // Apply status filter if provided
     if (statusFilter) {
@@ -201,7 +202,7 @@ export async function getCustomerOrders(
     }
 
     // Apply sorting and pagination
-    query = query.order('createdAt', { ascending: false })
+    query = query.order('created_at', { ascending: false })
                  .range(skip, skip + limit - 1);
 
     // Execute the query
@@ -265,9 +266,9 @@ export async function getCustomerCart(customerId: string): Promise<{ cart: Cart;
       .from('Cart')
       .select(`
         *,
-        CartItem ( *, Product:productId ( *, ProductImage!ProductImage_productId_fkey(url, order), Vendor:vendorId(id, storeName) ) )
+        CartItem ( *, Product:product_id ( *, ProductImage(url, display_order), Vendor:vendor_id(id, store_name) ) )
       `)
-      .eq('customerId', customerId)
+      .eq('customer_id', customerId)
       .maybeSingle();
 
     if (fetchCartError && fetchCartError.code !== 'PGRST116') {
@@ -279,7 +280,7 @@ export async function getCustomerCart(customerId: string): Promise<{ cart: Cart;
     if (!cart) {
         const { data: newCart, error: createCartError } = await supabase
             .from('Cart')
-            .insert({ customerId: customerId })
+            .insert({ customer_id: customerId })
             .select()
             .single();
         
@@ -366,10 +367,10 @@ export async function getCustomerReviews(
       .from('Review')
       .select(`
         *,
-        Product:productId ( id, name, slug, ProductImage!ProductImage_productId_fkey(url, order) )
+        Product:product_id ( id, name, slug, ProductImage!ProductImage_productId_fkey(url, order) )
       `, { count: 'exact' })
-      .eq('customerId', customerId)
-      .order('createdAt', { ascending: false })
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false })
       .range(skip, skip + limit - 1);
 
      if (error) {

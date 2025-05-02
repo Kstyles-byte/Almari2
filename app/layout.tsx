@@ -1,9 +1,10 @@
-import React from 'react';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import Header from '../components/layout/header';
-import Footer from '../components/layout/footer';
-import { Preloader } from '../components/ui/preloader';
+import type { Metadata } from "next";
+import { Inter, Montserrat } from "next/font/google";
+import "./globals.css";
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
+import { Toaster } from "sonner";
+import AuthProvider from "@/components/providers/AuthProvider";
 
 // Initialize the Inter font with Latin subset
 const inter = Inter({
@@ -11,24 +12,34 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
-export const metadata = {
-  title: 'Zervia - Multi-vendor E-commerce Platform',
-  description: 'Shop the latest products from various vendors with our agent-based delivery system.',
-  keywords: 'ecommerce, campus shopping, agent pickup, student shopping',
+// Configure Montserrat
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: "--font-montserrat",
+});
+
+export const metadata: Metadata = {
+  title: 'Zervia - Campus Marketplace',
+  description: 'Your one-stop shop for everything you need on campus.',
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-zervia-50 font-sans antialiased flex flex-col">
-        <Preloader />
-        <Header />
-        <main className="flex-grow">{children}</main>
-        <Footer />
+    <html lang="en" className={`${inter.variable} ${montserrat.variable} font-sans`}>
+      <body className="min-h-screen bg-zervia-50 antialiased flex flex-col">
+        <AuthProvider>
+          <div className="flex flex-col min-h-screen">
+            <Header />
+            <main className="flex-grow">{children}</main>
+            <Footer />
+          </div>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

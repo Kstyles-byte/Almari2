@@ -70,6 +70,7 @@ export default function CheckoutPage() {
   
   const [currentStep, setCurrentStep] = useState(0);
   const [contactInfo, setContactInfo] = useState<FormData | null>(null);
+  const [checkoutEmail, setCheckoutEmail] = useState<string>('');
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
@@ -176,11 +177,6 @@ export default function CheckoutPage() {
   const selectedAgent = agents.find(agent => agent.id === selectedAgentId);
   
   // Handlers (keep existing logic for now)
-  const handleInformationSubmit = (data: FormData) => {
-    setContactInfo(data);
-    handleNext(); // Move to next step after saving info
-  };
-  
   const handleAgentSelect = (agentId: string) => {
     setSelectedAgentId(agentId);
   };
@@ -245,67 +241,43 @@ export default function CheckoutPage() {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
         <div className="lg:col-span-2">
-          {/* Step 1: Information - Pass addresses */}
+          {/* Step 1: Information - Pass onSuccess={handleNext} and addresses */}
           {currentStep === 0 && (
-            <CheckoutInformationForm 
-              onSubmit={handleInformationSubmit} 
-              // Remove onNext prop if submission automatically triggers next step
-              addresses={addresses as any[]} // Pass addresses (cast to any[] temporarily)
+            <CheckoutInformationForm
+              onSuccess={(emailFromForm) => {
+                  setCheckoutEmail(emailFromForm);
+                  handleNext(); 
+              }}
+              addresses={addresses}
             />
           )}
           
-          {/* Step 2: Agent Location Selection */}
+          {/* Step 2: Agent Location */}
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <AgentLocationSelector 
-                agents={agents} // Pass fetched agents
-                selectedAgentId={selectedAgentId} 
-                onSelectAgent={handleAgentSelect} 
-              />
-              
-              <div className="flex justify-between mt-4">
-                 <button 
-                   onClick={handleBack}
-                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                 >
-                   Back
-                 </button>
-                 <button 
-                   onClick={handleNext}
-                   disabled={!selectedAgentId}
-                   className={`px-4 py-2 rounded-md text-white ${
-                     selectedAgentId 
-                       ? 'bg-zervia-600 hover:bg-zervia-700' 
-                       : 'bg-gray-400 cursor-not-allowed'
-                   }`}
-                 >
-                   Continue to Payment
-                 </button>
-               </div>
-            </div>
+            <AgentLocationSelector
+              agents={agents} // Pass fetched agents
+              selectedAgentId={selectedAgentId}
+              onSelectAgent={handleAgentSelect}
+              onNext={handleNext} // Use the same handleNext
+              onBack={handleBack}
+              error={agentError} // Pass agent fetch error
+            />
           )}
           
-          {/* Step 3: Payment */}
-          {currentStep === 2 && contactInfo && (
-            <CheckoutPaymentForm 
-              amount={total} // Pass calculated total
-              email={contactInfo.get('email') as string}
-              contactInfo={contactInfo} // Pass the contactInfo FormData
+          {/* Step 3: Payment - Add check for contactInfo !== null */}
+          {currentStep === 2 && contactInfo && checkoutEmail && (
+            <CheckoutPaymentForm
+              amount={total}
+              email={checkoutEmail}
+              contactInfo={contactInfo}
               onPaymentInit={handlePaymentInit}
               onPaymentComplete={handlePaymentComplete}
               onBack={handleBack}
             />
           )}
-          
-          {/* Step 4: Confirmation */}
-          {currentStep === 3 && contactInfo && selectedAgent && (
-            <CheckoutConfirmation 
-              orderNumber={orderNumber}
-              pickupCode={pickupCode}
-              agentLocation={selectedAgent.name}
-              agentAddress={`${selectedAgent.address_line1}${selectedAgent.address_line2 ? `, ${selectedAgent.address_line2}` : ''}, ${selectedAgent.city}, ${selectedAgent.country}`}
-              customerEmail={contactInfo.get('email') as string}
-            />
+          {/* Optional: Add message if contactInfo is missing at step 2 */} 
+          {currentStep === 2 && (!contactInfo || !checkoutEmail) && (
+             <p className="text-center text-red-500">Cannot proceed to payment. Please go back and complete your information.</p>
           )}
         </div>
         

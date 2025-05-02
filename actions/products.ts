@@ -1,421 +1,129 @@
-"use server";
+'use server';
 
 import { auth } from "../auth";
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from "next/cache";
-import slugify from "slugify";
-import { getVendorByUserId } from "../lib/services/vendor";
-import type { Database, Tables } from '../types/supabase';
-import { notFound } from "next/navigation";
+import slugify from "slugify"; // Import slugify
+import type {
+    Product, 
+    Category, 
+    Vendor, 
+    Review, 
+    ProductImage, 
+    UserProfile
+} from '../types/index';
+import type { User } from '@supabase/supabase-js'; // Import User type from supabase-js
+// Or import from base Supabase types if needed: import type { Tables } from '../types/supabase';
 
-// IMPORTANT: Assumes types/supabase.ts reflects the snake_case schema.
-// If not, regenerate types: npx supabase gen types typescript ... > types/supabase.ts
-// OR manually adjust types below / inline (less ideal).
-
-// Using the generated types which should now match the snake_case schema
-type Product = Tables<'Product'>;
-type ProductImage = Tables<'ProductImage'>;
-type Category = Tables<'Category'>;
-type Vendor = Tables<'Vendor'>;
-type Review = Tables<'Review'>;
-// Assuming UserProfile is derived from User table or a view/function if used
-type UserProfile = Pick<Tables<'User'>, 'id' | 'name'>; // Example subset
-
-// Initialize Supabase client
+// Initialize Supabase client ONCE at the top level
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 if (!supabaseUrl || !supabaseServiceRoleKey) {
-  console.error("Supabase URL or Service Role Key is missing in environment variables for product actions.");
-  // Handle appropriately
+  console.error("Supabase URL/Key missing in product actions.");
+  // Throw an error or handle appropriately in a real app
+  // For now, this will prevent the client from being created properly.
 }
+// Use the service role client for all actions in this file
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 /**
- * Get featured products for homepage
- */
-export async function getFeaturedProducts(limit = 8) {
-  try {
-    // Fetch products that are published and have inventory > 0
-    // Sort by compare_at_price and created_at
-     const { data: productsData, error } = await supabase
-      .from('Product')
-      .select(`
-        *,
-        ProductImage!inner (url, alt_text),
-        Category!inner (name, slug),
-        Vendor!inner (store_name),
-        Review (rating)
-      `) // Use snake_case
-      .eq('is_published', true) // Use snake_case
-      .gt('inventory', 0)
-      .order('compare_at_price', { ascending: false, nullsFirst: false }) // Use snake_case
-      .order('created_at', { ascending: false }) // Use snake_case
-      .limit(limit);
-
-    if (error) {
-      console.error("Error fetching featured products:", error.message);
-      throw error;
-    }
-
-    if (!productsData) {
-        return [];
-    }
-
-    // Define the expected structure more precisely based on selection
-     type ProductWithFeaturedRelations = Product & {
-        ProductImage: Pick<ProductImage, 'url' | 'alt_text'>[];
-        Category: Pick<Category, 'name' | 'slug'>;
-        Vendor: Pick<Vendor, 'store_name'>;
-        Review: Pick<Review, 'rating'>[] | null;
-    };
-
-    // Format the data, mapping DB snake_case to component camelCase if needed
-    const formattedProducts = (productsData as ProductWithFeaturedRelations[]).map(product => {
-      const reviews = product.Review || [];
-      const avgRating = reviews.length > 0
-        ? reviews.reduce((sum: number, review) => sum + (review.rating ?? 0), 0) // Handle potential null rating?
-        : 0;
-
-      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      const createdAtTime = new Date(product.created_at).getTime(); // Use snake_case from DB
-
-      return {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        comparePrice: product.compare_at_price, // Map to camelCase
-        slug: product.slug,
-        image: product.ProductImage[0]?.url || '/placeholder-product.jpg',
-        // alt: product.ProductImage[0]?.alt_text || product.name, // Optional alt text
-        rating: parseFloat(avgRating.toFixed(1)),
-        reviews: reviews.length,
-        isNew: !isNaN(createdAtTime) && createdAtTime > sevenDaysAgo,
-        vendor: product.Vendor.store_name || 'Unknown', // Use snake_case from DB result
-        category: product.Category.name
-      };
-    });
-    return formattedProducts;
-
-  } catch (error) {
-    console.error("Error processing featured products:", error);
-    return [];
-  }
-}
-
-/**
- * Get trending products (based on recent review activity and rating)
- */
-export async function getTrendingProducts(limit = 3) {
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-  try {
-    const { data: productsData, error } = await supabase
-      .from('Product')
-      .select(`
-        id,
-        name,
-        slug,
-        price,
-        created_at,
-        ProductImage!inner ( url ),
-        Category!inner ( name ),
-        Vendor!inner ( store_name ), 
-        Review ( rating )
-      `)
-      .eq('is_published', true) // Use snake_case
-      .gt('inventory', 0)
-      .order('created_at', { ascending: false }) // Use snake_case
-      .limit(limit * 5);
-
-    if (error) {
-      console.error("Error fetching initial trending products:", error.message);
-      throw error;
-    }
-
-    if (!productsData) {
-        return [];
-    }
-
-    // Define expected structure matching the query and snake_case
-    type TrendingProductQueryResult = Pick<Product, 'id' | 'name' | 'slug' | 'price' | 'created_at'> & {
-        ProductImage: { url: string }[];
-        Category: { name: string }[];
-        Vendor: { store_name: string }[]; // Use snake_case
-        Review: { rating: number }[] | null;
-    };
-
-    const formattedProducts = (productsData as unknown as TrendingProductQueryResult[]).map(product => {
-      const reviews = product.Review || [];
-      const avgRating = reviews.length > 0
-        ? reviews.reduce((sum: number, review) => sum + (review.rating ?? 0), 0) / reviews.length
-        : 0;
-
-      return {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        image: product.ProductImage[0]?.url || '/placeholder-product.jpg',
-        rating: parseFloat(avgRating.toFixed(1)),
-        reviews: reviews.length,
-        vendor: product.Vendor[0]?.store_name || 'Unknown', // Use snake_case from result
-        slug: product.slug,
-        category: product.Category[0]?.name || 'Uncategorized'
-      };
-    });
-
-    formattedProducts.sort((a, b) => {
-        if (a.rating !== b.rating) {
-            return b.rating - a.rating;
-        }
-        return b.reviews - a.reviews;
-    });
-
-    return formattedProducts.slice(0, limit);
-
-  } catch (error) {
-    console.error("Error processing trending products:", error);
-    return [];
-  }
-}
-
-/**
- * Get detailed product information by slug, including relations.
- */
-export async function getProductBySlug(slug: string) {
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-  try {
-    // Select specific columns using snake_case
-    const { data: productData, error: productError } = await supabase
-      .from('Product')
-      .select(`
-        id, name, slug, description, price, compare_at_price, inventory, is_published, created_at, updated_at,
-        Category!inner (id, name, slug),
-        Vendor!inner (id, store_name),
-        ProductImage (id, url, alt_text, display_order),
-        Review (*, UserProfile:User(id, name)) -- Changed alias, assumes RLS setup allows user read
-      `)
-      .eq('slug', slug)
-      .eq('is_published', true)
-      .maybeSingle();
-
-    if (productError) {
-      console.error(`Error fetching product by slug '${slug}':`, productError.message);
-      throw productError;
-    }
-
-    if (!productData) {
-      console.log(`Product with slug '${slug}' not found.`);
-      return null;
-    }
-
-     // Define expected structure based on query (snake_case)
-     type ReviewWithUserProfile = Review & {
-        UserProfile: UserProfile | null; // Use defined UserProfile type
-     };
-     type ProductImageSubset = Pick<ProductImage, 'id' | 'url' | 'alt_text' | 'display_order'>;
-     type VendorSubset = Pick<Vendor, 'id' | 'store_name'>;
-     type CategorySubset = Pick<Category, 'id' | 'name' | 'slug'>; // Added id
-
-     // Combine Product base type with nested relation types
-     type ProductDetailQueryResult = Omit<Product, 'category_id' | 'vendor_id'> & { // Omit FK IDs
-        Category: CategorySubset;
-        Vendor: VendorSubset;
-        ProductImage: ProductImageSubset[] | null;
-        Review: ReviewWithUserProfile[] | null;
-     };
-
-    // Use double assertion as suggested by linter when type inference struggles
-    const typedProductData = productData as unknown as ProductDetailQueryResult;
-
-    const reviews = typedProductData.Review || [];
-    const reviewCount = reviews.length;
-    const avgRating = reviewCount > 0
-      ? reviews.reduce((sum, review) => sum + (review.rating ?? 0), 0) / reviewCount
-      : 0;
-
-    const categoryId = typedProductData.Category.id; // Now ID is included
-    let relatedProductsData: any[] = [];
-    if (categoryId) {
-      const { data: relatedData, error: relatedError } = await supabase
-        .from('Product')
-        .select(`
-          id, name, slug, price, compare_at_price, created_at,
-          ProductImage!inner(url),
-          Review(rating)
-        `)
-        .eq('category_id', categoryId)
-        .neq('id', typedProductData.id)
-        .eq('is_published', true)
-        .gt('inventory', 0)
-        .limit(4);
-
-      if (relatedError) {
-        console.error(`Error fetching related products for category '${categoryId}':`, relatedError.message);
-      } else {
-        relatedProductsData = relatedData || [];
-      }
-    }
-
-    type RelatedProductQueryResult = Pick<Product, 'id' | 'name' | 'slug' | 'price' | 'compare_at_price' | 'created_at'> & {
-        ProductImage: { url: string }[];
-        Review: { rating: number }[] | null;
-    };
-
-    const formattedRelatedProducts = relatedProductsData.map(prod => {
-        const typedProd = prod as RelatedProductQueryResult;
-        const relatedReviews = typedProd.Review || [];
-        const relatedAvgRating = relatedReviews.length > 0
-            ? relatedReviews.reduce((sum: number, review) => sum + (review.rating ?? 0), 0) / relatedReviews.length
-            : 0;
-        return {
-            id: typedProd.id,
-            name: typedProd.name,
-            slug: typedProd.slug,
-            price: typedProd.price,
-            comparePrice: typedProd.compare_at_price, // Map to camelCase
-            image: typedProd.ProductImage[0]?.url || '/placeholder-product.jpg',
-            rating: parseFloat(relatedAvgRating.toFixed(1)),
-            reviewCount: relatedReviews.length,
-        };
-    });
-
-    const formattedImages = typedProductData.ProductImage
-        ?.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)) // Sort images, handle null order
-        .map(img => ({
-            id: img.id,
-            url: img.url,
-            alt: img.alt_text || typedProductData.name
-        })) || [];
-
-    const formattedReviews = reviews.map(r => ({
-        id: r.id,
-        user: r.UserProfile?.name || 'Anonymous', // Access name from UserProfile alias
-        rating: r.rating,
-        date: r.created_at, // Use snake_case
-        comment: r.comment,
-        avatar: '/images/avatars/default-avatar.png' // Assuming no avatarURL in UserProfile selection
-    }));
-
-    // Format the final product data for the component (using camelCase where expected)
-    const finalProductData = {
-      id: typedProductData.id,
-      name: typedProductData.name,
-      slug: typedProductData.slug,
-      description: typedProductData.description,
-      price: typedProductData.price,
-      comparePrice: typedProductData.compare_at_price, // Map to camelCase
-      inventory: typedProductData.inventory,
-      isPublished: typedProductData.is_published, // Map to camelCase
-      createdAt: typedProductData.created_at, // Map to camelCase
-      updatedAt: typedProductData.updated_at, // Map to camelCase
-      categoryName: typedProductData.Category.name,
-      categorySlug: typedProductData.Category.slug,
-      vendorName: typedProductData.Vendor.store_name, // Map to camelCase expected by component?
-      vendorId: typedProductData.Vendor.id,
-      images: formattedImages,
-      reviews: formattedReviews,
-      relatedProducts: formattedRelatedProducts,
-      rating: parseFloat(avgRating.toFixed(1)),
-      reviewCount: reviewCount,
-      // Add other potential fields if needed by component, e.g., SKU if it existed
-    };
-
-    // Return the formatted data ready for the component
-    return finalProductData;
-
-  } catch (error) {
-    console.error("Unexpected error in getProductBySlug:", error);
-    return null;
-  }
-}
-
-
-/**
- * Add a new product (Vendor or Admin)
+ * Add a new product (Restoring the function definition)
  */
 export async function addProduct(formData: FormData) {
-  try {
+  try { // Add the beginning of the try block
     const session = await auth();
-    if (!session?.user?.id) { // Check user ID existence
-      return { error: "Unauthorized" };
+    if (!session?.user?.id) return { error: "Unauthorized" };
+
+    // Fetch user data including vendor_id (using service role client)
+    // Use User type from supabase-js, roles might be in app_metadata or a separate table
+    const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(session.user.id);
+
+    if (authUserError || !authUser?.user) {
+        console.error("Error fetching auth user data:", authUserError?.message);
+        return { error: "Could not verify user." };
     }
 
-    // Fetch user role from your public.User table for reliability
+    // Assuming role is stored in app_metadata or user_metadata
+    const userRole = authUser.user.app_metadata?.role || authUser.user.user_metadata?.role || 'CUSTOMER'; // Default to CUSTOMER if no role
+    
+    // If using a separate User/Profile table linked to auth.users.id, fetch that instead
+    // For now, assume role is in metadata and fetch potential linked vendor_id from User table
     const { data: userData, error: userError } = await supabase
-        .from('User')
-        .select('role')
+        .from('User') // Your public.User table linked to auth.users
+        .select('vendor_id') 
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
-    if (userError || !userData) {
-        console.error("Error fetching user role or user not found in public.User:", userError?.message);
-        return { error: "User role not found or could not be verified." };
+    if (userError) {
+        console.error("Error fetching linked user data:", userError?.message);
+        // Non-fatal? Maybe proceed without vendor_id if admin?
     }
-    const userRole = userData.role;
-
-    if (userRole !== "VENDOR" && userRole !== "ADMIN") {
-      return { error: "Only vendors or admins can add products" };
-    }
-
-    let vendorId: string; // UUID string
-    if (userRole === "VENDOR") {
-        const { data: vendorData, error: vendorError } = await supabase
-            .from('Vendor')
-            .select('id')
-            .eq('user_id', session.user.id)
-            .single();
-
-        if (vendorError || !vendorData) {
-            console.error("Error fetching vendor ID for user:", session.user.id, vendorError?.message);
-            return { error: "Vendor profile not found for current user." };
+    
+    let vendorId: string;
+    if (userRole === 'ADMIN') {
+        const formVendorId = formData.get("vendorId") as string;
+        if (!formVendorId) {
+             return { error: "Admin must specify a Vendor ID to add a product." };
         }
-        vendorId = vendorData.id;
-    } else { // Admin case
-      const vendorIdFromForm = formData.get("vendorId") as string;
-      if (!vendorIdFromForm) return { error: "Admin must specify Vendor ID" };
-      // TODO: Optionally verify vendorIdFromForm exists in Vendor table
-      vendorId = vendorIdFromForm;
+        // TODO: Add check to ensure formVendorId exists in Vendor table
+        vendorId = formVendorId;
+    } else if (userRole === 'VENDOR' && userData?.vendor_id) {
+        vendorId = userData.vendor_id; 
+    } else {
+        return { error: "User must be an authorized Vendor or Admin to add products." };
     }
 
-    // Use snake_case for form field names if possible, otherwise map here
+    // Extract and validate form data (Must be done INSIDE the function)
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
-    const price = parseFloat(formData.get("price") as string);
-    // Assume form sends 'compare_at_price' or map from 'comparePrice'/'compareAtPrice'
-    const compareAtPrice = formData.get("compare_at_price") ? parseFloat(formData.get("compare_at_price") as string) : null;
-    const categoryId = formData.get("categoryId") as string; // Expecting UUID string
-    const inventory = parseInt(formData.get("inventory") as string || "0", 10);
-    // Assume form sends 'is_published' or map from 'isPublished'
-    const isPublished = formData.get("is_published") === "true";
+    const priceStr = formData.get("price") as string;
+    const compareAtPriceStr = formData.get("compare_at_price") as string;
+    const categoryId = formData.get("categoryId") as string;
+    const inventoryStr = formData.get("inventory") as string;
+    const isPublishedStr = formData.get("is_published") as string;
     const imagesJson = formData.get("images") as string;
 
-    // Validation... (keep existing logic)
-    if (!name || !price || !categoryId || isNaN(price) || price <= 0 || isNaN(inventory) || inventory < 0) {
-      return { error: "Invalid product data. Name, valid Price, Category, and non-negative Inventory required." };
+    // --- Basic Validation ---
+    if (!name || !priceStr || !categoryId || !inventoryStr) {
+      return { error: "Missing required fields: Name, Price, Category, Inventory." };
+    }
+
+    const price = parseFloat(priceStr);
+    const inventory = parseInt(inventoryStr, 10);
+    const compareAtPrice = compareAtPriceStr ? parseFloat(compareAtPriceStr) : null;
+    const isPublished = isPublishedStr === "true";
+
+    if (isNaN(price) || price <= 0) {
+      return { error: "Invalid Price." };
+    }
+    if (isNaN(inventory) || inventory < 0) {
+      return { error: "Invalid Inventory count." };
     }
      if (compareAtPrice !== null && (isNaN(compareAtPrice) || compareAtPrice <= 0)) {
-      return { error: "Compare price must be a positive number if provided." };
+      return { error: "Invalid Compare At Price. Must be positive if provided." };
     }
 
-    // Check category exists... (keep existing logic)
+    // --- Advanced Validation ---
+    // Check if Category exists
      const { data: categoryData, error: categoryError } = await supabase
-      .from('Category')
-      .select('id', { count: 'exact', head: true }) // More efficient check
-      .eq('id', categoryId);
+      .from('Category').select('id', { count: 'exact', head: true }).eq('id', categoryId);
+
      if (categoryError || categoryData === null) {
-       console.error("Error checking category or category not found:", categoryError?.message);
-       return { error: "Failed to verify category or category not found" };
+       console.error("Category check failed:", categoryError?.message);
+       return { error: "Category not found or error checking category." };
      }
 
-    // Parse images (adjust property name if form sends 'alt')
-    let images: { url: string; alt_text?: string }[] = [];
+    // Parse and validate images JSON
+    let images: { url: string; alt_text?: string }[] = []; // Default to empty array
     try {
       if (imagesJson) {
           const parsedImages = JSON.parse(imagesJson);
           if (Array.isArray(parsedImages)) {
-               images = parsedImages.map(img => ({
+               // Validate basic structure (presence of url)
+               images = parsedImages.filter(img => typeof img.url === 'string').map(img => ({
                    url: img.url,
-                   alt_text: img.alt || img.alt_text // Accept 'alt' or 'alt_text' from form
+                   alt_text: img.alt || img.alt_text || name // Default alt text to product name
                }));
           } else { throw new Error("Images data is not an array"); }
       }
@@ -763,10 +471,10 @@ export async function getProducts({
         *,
         ProductImage ( url ),
         Category!inner ( id, name, slug ),
-        Vendor!inner ( store_name ), -- Use snake_case
+        Vendor!inner ( store_name ),
         Review ( rating )
       `, { count: 'exact' })
-      .eq('is_published', true) // Use snake_case
+      .eq('is_published', true) 
       .gt('inventory', 0);
 
     if (categorySlug) {
@@ -846,6 +554,7 @@ export async function getProducts({
          isNew: !isNaN(createdAtTime) && createdAtTime > sevenDaysAgo,
          vendor: product.Vendor?.store_name || 'Unknown', // Use snake_case from DB
          category: product.Category?.name || 'Uncategorized',
+         inventory: product.inventory
        };
     });
 
@@ -856,5 +565,159 @@ export async function getProducts({
   } catch (error) {
     console.error("Error processing products query:", error);
     return { products: [], count: 0, totalPages: 0 };
+  }
+}
+
+
+/**
+ * Get detailed product information by slug, including relations.
+ */
+export async function getProductBySlug(slug: string) {
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+  try {
+    // Select specific columns using snake_case
+    const { data: productData, error: productError } = await supabase
+      .from('Product')
+      .select(`
+        id, name, slug, description, price, compare_at_price, inventory, is_published, created_at, updated_at,
+        Category!inner (id, name, slug),
+        Vendor!inner (id, store_name),
+        ProductImage (id, url, alt_text, display_order),
+        Review (*, UserProfile:User(id, name)) -- Changed alias, assumes RLS setup allows user read
+      `)
+      .eq('slug', slug)
+      .eq('is_published', true)
+      .maybeSingle();
+
+    if (productError) {
+      console.error(`Error fetching product by slug '${slug}':`, productError.message);
+      throw productError;
+    }
+
+    if (!productData) {
+      console.log(`Product with slug '${slug}' not found.`);
+      return null;
+    }
+
+     // Define expected structure based on query (snake_case)
+     type ReviewWithUserProfile = Review & {
+        UserProfile: UserProfile | null; // Use defined UserProfile type
+     };
+     type ProductImageSubset = Pick<ProductImage, 'id' | 'url' | 'alt_text' | 'display_order'>;
+     type VendorSubset = Pick<Vendor, 'id' | 'store_name'>;
+     type CategorySubset = Pick<Category, 'id' | 'name' | 'slug'>; // Added id
+
+     // Combine Product base type with nested relation types
+     type ProductDetailQueryResult = Omit<Product, 'category_id' | 'vendor_id'> & { // Omit FK IDs
+        Category: CategorySubset;
+        Vendor: VendorSubset;
+        ProductImage: ProductImageSubset[] | null;
+        Review: ReviewWithUserProfile[] | null;
+     };
+
+    // Use double assertion as suggested by linter when type inference struggles
+    const typedProductData = productData as unknown as ProductDetailQueryResult;
+
+    const reviews = typedProductData.Review || [];
+    const reviewCount = reviews.length;
+    const avgRating = reviewCount > 0
+      ? reviews.reduce((sum, review) => sum + (review.rating ?? 0), 0) / reviewCount
+      : 0;
+
+    const categoryId = typedProductData.Category.id; // Now ID is included
+    let relatedProductsData: any[] = [];
+    if (categoryId) {
+      const { data: relatedData, error: relatedError } = await supabase
+        .from('Product')
+        .select(`
+          id, name, slug, price, compare_at_price, created_at, inventory,
+          ProductImage!inner(url),
+          Review(rating)
+        `)
+        .eq('category_id', categoryId)
+        .neq('id', typedProductData.id)
+        .eq('is_published', true)
+        .gt('inventory', 0)
+        .limit(4);
+
+      if (relatedError) {
+        console.error(`Error fetching related products for category '${categoryId}':`, relatedError.message);
+      } else {
+        relatedProductsData = relatedData || [];
+      }
+    }
+
+    // Updated type to include inventory
+    type RelatedProductQueryResult = Pick<Product, 'id' | 'name' | 'slug' | 'price' | 'compare_at_price' | 'created_at' | 'inventory'> & {
+        ProductImage: { url: string }[];
+        Review: { rating: number }[] | null;
+    };
+
+    const formattedRelatedProducts = relatedProductsData.map(prod => {
+        const typedProd = prod as RelatedProductQueryResult;
+        const relatedReviews = typedProd.Review || [];
+        const relatedAvgRating = relatedReviews.length > 0
+            ? relatedReviews.reduce((sum: number, review) => sum + (review.rating ?? 0), 0) / relatedReviews.length
+            : 0;
+        return {
+            id: typedProd.id,
+            name: typedProd.name,
+            slug: typedProd.slug,
+            price: typedProd.price,
+            comparePrice: typedProd.compare_at_price, // Map to camelCase
+            image: typedProd.ProductImage[0]?.url || '/placeholder-product.jpg',
+            rating: parseFloat(relatedAvgRating.toFixed(1)),
+            reviewCount: relatedReviews.length,
+            inventory: typedProd.inventory // Added inventory to the result object
+        };
+    });
+
+    const formattedImages = typedProductData.ProductImage
+        ?.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)) // Sort images, handle null order
+        .map(img => ({
+            id: img.id,
+            url: img.url,
+            alt: img.alt_text || typedProductData.name
+        })) || [];
+
+    const formattedReviews = reviews.map(r => ({
+        id: r.id,
+        user: r.UserProfile?.name || 'Anonymous', // Access name from UserProfile alias
+        rating: r.rating,
+        date: r.created_at, // Use snake_case
+        comment: r.comment,
+        avatar: '/images/avatars/default-avatar.png' // Assuming no avatarURL in UserProfile selection
+    }));
+
+    // Format the final product data for the component (using camelCase where expected)
+    const finalProductData = {
+      id: typedProductData.id,
+      name: typedProductData.name,
+      slug: typedProductData.slug,
+      description: typedProductData.description,
+      price: typedProductData.price,
+      comparePrice: typedProductData.compare_at_price, // Map to camelCase
+      inventory: typedProductData.inventory,
+      isPublished: typedProductData.is_published, // Map to camelCase
+      createdAt: typedProductData.created_at, // Map to camelCase
+      updatedAt: typedProductData.updated_at, // Map to camelCase
+      categoryName: typedProductData.Category.name,
+      categorySlug: typedProductData.Category.slug,
+      vendorName: typedProductData.Vendor.store_name, // Map to camelCase expected by component?
+      vendorId: typedProductData.Vendor.id,
+      images: formattedImages,
+      reviews: formattedReviews,
+      relatedProducts: formattedRelatedProducts, // Pass the updated related products
+      rating: parseFloat(avgRating.toFixed(1)),
+      reviewCount: reviewCount,
+      // Add other potential fields if needed by component, e.g., SKU if it existed
+    };
+
+    // Return the formatted data ready for the component
+    return finalProductData;
+
+  } catch (error) {
+    console.error("Unexpected error in getProductBySlug:", error);
+    return null;
   }
 }
