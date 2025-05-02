@@ -3,14 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { MapPin } from 'lucide-react';
+import type { Tables } from '@/types/supabase'; // Import Supabase types
 
-interface Agent {
-  id: string;
-  name: string;
-  location: string;
-  address: string;
-  timing: string;
-}
+// Use Supabase Agent type directly
+type Agent = Tables<'Agent'>;
 
 interface AgentLocationSelectorProps {
   agents: Agent[];
@@ -59,6 +55,9 @@ export function AgentLocationSelector({
                   <p className="text-sm text-gray-600">{agent.location}</p>
                   <p className="text-sm text-gray-500 mt-1">{agent.address}</p>
                   <p className="text-xs text-gray-400 mt-1">Hours: {agent.timing}</p>
+                  <p className="text-sm text-gray-600">{agent.city}, {agent.state_province}</p>
+                  <p className="text-sm text-gray-500 mt-1">{agent.address_line1}{agent.address_line2 ? `, ${agent.address_line2}` : ''}</p>
+                  <p className="text-xs text-gray-400 mt-1">Hours: {agent.operating_hours || 'Not specified'}</p>
                 </div>
               </Label>
             </div>

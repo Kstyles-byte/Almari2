@@ -5,10 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CreditCard, Wallet } from 'lucide-react';
+import { createOrder } from '@/actions/orders';
+import { useState } from 'react';
 
 interface CheckoutPaymentFormProps {
   amount: number;
   email: string;
+  contactInfo: FormData;
   onPaymentInit: () => void;
   onPaymentComplete: (reference: string) => void;
   onBack: () => void;
@@ -17,23 +20,40 @@ interface CheckoutPaymentFormProps {
 export function CheckoutPaymentForm({
   amount,
   email,
+  contactInfo,
   onPaymentInit,
   onPaymentComplete,
   onBack
 }: CheckoutPaymentFormProps) {
   const [paymentMethod, setPaymentMethod] = React.useState<'card' | 'wallet'>('card');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  // Mock function to simulate Paystack payment initialization
-  const handlePayment = () => {
+  const handlePayment = async () => {
     onPaymentInit();
+    setIsLoading(true);
+    setError(null);
     
-    // In a real implementation, we would initialize Paystack here
-    // For now, we'll just simulate a successful payment after a delay
-    setTimeout(() => {
-      // Generate a fake transaction reference
-      const reference = `TRX-${Math.floor(Math.random() * 1000000000)}`;
-      onPaymentComplete(reference);
-    }, 2000);
+    try {
+      const result = await createOrder(contactInfo);
+      
+      if (result.error) {
+        setError(result.error);
+        setIsLoading(false);
+      } else if ('success' in result && result.success && result.payment?.authorizationUrl) {
+        window.location.href = result.authorizationUrl;
+      } else if ('error' in result && result.error) {
+        setError(result.error);
+        setIsLoading(false);
+      } else {
+        setError("Could not initialize payment or unexpected response. Please try again.");
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error("Error calling createOrder action:", err);
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -123,12 +143,18 @@ export function CheckoutPaymentForm({
           <p>Receipt will be sent to: <span className="font-medium text-gray-900">{email}</span></p>
         </div>
         
+        {error && (
+          <p className="text-sm text-red-600 text-center">Error: {error}</p>
+        )}
+        
         <div className="space-y-2 pt-4">
           <Button
             className="w-full bg-zervia-600 hover:bg-zervia-700 text-white"
             onClick={handlePayment}
+            disabled={isLoading}
           >
             Pay ${amount.toFixed(2)}
+            {isLoading ? "Processing..." : `Pay NGN ${amount.toFixed(2)}`}
           </Button>
           
           <Button

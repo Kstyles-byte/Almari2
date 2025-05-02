@@ -7,7 +7,8 @@ import { getCustomerByUserId } from "../lib/services/customer";
 import { initializePayment, verifyPayment } from "../lib/paystack";
 import { findNearestAgent, generatePickupCode } from "../lib/services/agent";
 import { createOrderStatusNotification } from "../lib/services/notification";
-import type { Customer, Product, Cart, CartItem, Order, OrderItem, Agent } from '../types/supabase';
+import type { Customer, Product, Cart, CartItem, Order, OrderItem, Agent } from '../types/index';
+import type { Tables } from '../types/supabase';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -61,7 +62,7 @@ export async function createOrder(formData: FormData) {
     // Adjust type assertion: Product is likely an array
     type CartItemWithProductArray = { 
         quantity: number; 
-        Product: Product[] | null 
+        Product: Tables<'Product'>[] | null
     };
     const cartItems = (cartData?.CartItem || []) as CartItemWithProductArray[];
 
@@ -134,7 +135,7 @@ export async function createOrder(formData: FormData) {
         return {
             orderId: newOrder.id,
             productId: product.id, 
-            vendorId: product.vendorId,
+            vendorId: product.vendor_id,
           quantity: item.quantity,
             price: product.price,
           status: "PENDING",
@@ -210,7 +211,7 @@ export async function createOrder(formData: FormData) {
         total,
         agent: {
           name: agent.name,
-          location: agent.location,
+          address: `${agent.address_line1}, ${agent.city}`,
         },
       },
       payment: {

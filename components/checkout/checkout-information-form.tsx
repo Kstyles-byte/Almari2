@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group"
 import { Label } from '../ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import type { Tables } from '@/types/supabase'; // Add import for Supabase types
 
 // Define Address type using any temporarily
 type AddressType = any;
+type Address = Tables<'Address'>; // Use the specific Supabase table type
 
 // Form schema using Zod
 const informationSchema = z.object({
@@ -55,6 +57,7 @@ type InformationFormData = z.infer<typeof informationSchema>;
 interface CheckoutInformationFormProps {
   onSubmit: (data: FormData) => void;
   addresses: AddressType[]; // Accept addresses array (using any for now)
+  addresses: Address[]; // Use the imported Address type
 }
 
 export function CheckoutInformationForm({ onSubmit, addresses }: CheckoutInformationFormProps) {

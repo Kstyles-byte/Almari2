@@ -11,12 +11,13 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { getCart } from '@/actions/cart'; // Assuming getCart is needed for summary
 import { getUserAddresses } from '@/actions/profile'; // Import address action
-// Removed Supabase types import temporarily due to regeneration needed
-// import type { Tables } from '@/types/supabase'; 
+import { getActiveAgents } from '@/lib/services/agent'; // Import agent service function
+import type { Tables } from '@/types/supabase'; // Add import for Supabase types
 
 // Define Address type locally using 'any' until regenerated types confirm it
 // REMINDER: Run npx supabase gen types... after adding Address table!
 type AddressType = any; // Use 'any' temporarily
+type Address = Tables<'Address'>; // Use the specific Supabase table type
 
 // Define CartItem type locally 
 type CartItemType = {
@@ -59,7 +60,7 @@ const mockAgents = [
 ];
 
 // Checkout steps
-const CHECKOUT_STEPS = ['Information', 'Pickup Location', 'Payment', 'Confirmation'];
+const CHECKOUT_STEPS = ['Information', 'Pickup Location', 'Payment']; // Remove Confirmation step
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
@@ -74,8 +75,10 @@ export default function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [cartItems, setCartItems] = useState<CartItemType[]>([]);
   const [cartError, setCartError] = useState<string | null>(null);
-  const [addresses, setAddresses] = useState<AddressType[]>([]); // Use AddressType (any for now)
-  const [addressError, setAddressError] = useState<string | null>(null); 
+  const [addresses, setAddresses] = useState<Address[]>([]); // Use the imported Address type
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<Tables<'Agent'>[]>([]); // State for fetched agents
+  const [agentError, setAgentError] = useState<string | null>(null); // State for agent fetch error
   
   // Fetch cart and addresses
   useEffect(() => {
@@ -90,6 +93,7 @@ export default function CheckoutPage() {
         setIsLoading(true);
         setCartError(null);
         setAddressError(null);
+        setAgentError(null); // Reset agent error
         
         try {
           // Fetch cart
@@ -116,6 +120,17 @@ export default function CheckoutPage() {
               } else {
                   setAddressError(addressData.error || "Failed to load addresses.");
                   setAddresses([]);
+              }
+          }
+          
+          // Fetch active agents
+          const agentData = await getActiveAgents();
+          if (isMounted) {
+              if (agentData.success) {
+                  setAgents(agentData.agents || []);
+              } else {
+                  setAgentError(agentData.error || "Failed to load pickup locations.");
+                  setAgents([]);
               }
           }
 
@@ -157,6 +172,7 @@ export default function CheckoutPage() {
 
   // Get the selected agent details
   const selectedAgent = mockAgents.find(agent => agent.id === selectedAgentId);
+  const selectedAgent = agents.find(agent => agent.id === selectedAgentId);
   
   // Handlers (keep existing logic for now)
   const handleInformationSubmit = (data: FormData) => {
@@ -217,11 +233,12 @@ export default function CheckoutPage() {
       
       <CheckoutStepper steps={CHECKOUT_STEPS} currentStep={currentStep} />
       
-      {(cartError || addressError) && (
+      {(cartError || addressError || agentError) && (
            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative my-4" role="alert">
             <strong className="font-bold">Error:</strong>
             {cartError && <span className="block sm:inline"> {cartError}</span>}
             {addressError && <span className="block sm:inline"> {addressError}</span>}
+            {agentError && <span className="block sm:inline"> {agentError}</span>}
           </div>
       )}
       
@@ -238,11 +255,11 @@ export default function CheckoutPage() {
           
           {/* Step 2: Agent Location Selection */}
           {currentStep === 1 && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <AgentLocationSelector 
-                agents={mockAgents} // Replace with fetched agents later
-                selectedAgentId={selectedAgentId}
-                onSelectAgent={handleAgentSelect}
+                agents={agents} // Pass fetched agents
+                selectedAgentId={selectedAgentId} 
+                onSelectAgent={handleAgentSelect} 
               />
               
               <div className="flex justify-between mt-4">
@@ -272,6 +289,7 @@ export default function CheckoutPage() {
             <CheckoutPaymentForm 
               amount={total} // Pass calculated total
               email={contactInfo.get('email') as string}
+              contactInfo={contactInfo} // Pass the contactInfo FormData
               onPaymentInit={handlePaymentInit}
               onPaymentComplete={handlePaymentComplete}
               onBack={handleBack}

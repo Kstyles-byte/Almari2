@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Agent, Order } from '../../types/supabase'; // Assuming Order type exists
+import type { Tables } from '../../types/supabase'; // Import the Tables generic type
 import { createPickupStatusNotification } from './notification';
 
 // Initialize Supabase client
@@ -26,7 +27,7 @@ export async function createAgent(data: {
   location: string;
   operatingHours?: string;
   capacity?: number;
-}): Promise<{ success: boolean; agent?: Agent | null; error?: string }> {
+}): Promise<{ success: boolean; agent?: Tables<'Agent'> | null; error?: string }> {
   try {
     const insertData = {
       userId: data.userId,
@@ -65,7 +66,7 @@ export async function createAgent(data: {
 /**
  * Get agent by user ID
  */
-export async function getAgentByUserId(userId: string): Promise<Agent | null> {
+export async function getAgentByUserId(userId: string): Promise<Tables<'Agent'> | null> {
   try {
     const { data: agent, error } = await supabase
       .from('Agent')
@@ -89,7 +90,7 @@ export async function getAgentByUserId(userId: string): Promise<Agent | null> {
 /**
  * Get agent by ID
  */
-export async function getAgentById(agentId: string): Promise<Agent | null> {
+export async function getAgentById(agentId: string): Promise<Tables<'Agent'> | null> {
   try {
     const { data: agent, error } = await supabase
       .from('Agent')
@@ -160,6 +161,30 @@ export async function getAllAgents(options?: {
 }
 
 /**
+ * Get all ACTIVE agents (without pagination)
+ * Useful for dropdowns or selectors.
+ */
+export async function getActiveAgents(): Promise<{ success: boolean; agents?: Tables<'Agent'>[]; error?: string }> {
+  try {
+    const { data: agents, error } = await supabase
+      .from('Agent')
+      .select('*')
+      .eq('isActive', true)
+      .order('name', { ascending: true }); // Optional: order by name
+
+    if (error) {
+      console.error("Error fetching active agents:", error.message);
+      throw error;
+    }
+
+    return { success: true, agents: agents || [] };
+  } catch (error) {
+    console.error("Error in getActiveAgents service:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to fetch active agents" };
+  }
+}
+
+/**
  * Update agent
  */
 export async function updateAgent(agentId: string, data: {
@@ -170,7 +195,7 @@ export async function updateAgent(agentId: string, data: {
   operatingHours?: string;
   capacity?: number;
   isActive?: boolean;
-}): Promise<{ success: boolean; agent?: Agent | null; error?: string }> {
+}): Promise<{ success: boolean; agent?: Tables<'Agent'> | null; error?: string }> {
   try {
     const updateData = { ...data, updatedAt: new Date().toISOString() };
 
@@ -340,7 +365,7 @@ export async function getAgentPendingPickups(agentId: string, options?: {
  * NOTE: This is a simplified placeholder. Real implementation requires geospatial querying (e.g., PostGIS).
  * Currently, it returns the first active agent found.
  */
-export async function findNearestAgent(location: string): Promise<Agent | null> {
+export async function findNearestAgent(location: string): Promise<Tables<'Agent'> | null> {
   try {
     console.warn("findNearestAgent currently returns the first active agent found. Geospatial query not implemented.");
     const { data: agent, error } = await supabase
@@ -378,15 +403,15 @@ export async function updateOrderPickupStatus(
     orderId: string,
     pickupStatus: PickupStatus, // Use defined type
     pickupDate?: Date
-): Promise<{ success: boolean; order?: Order | null; error?: string }> {
+): Promise<{ success: boolean; order?: Tables<'Order'> | null; error?: string }> {
   try {
-    const updatePayload: Partial<Order> & { updatedAt: string } = {
-        pickupStatus: pickupStatus,
-        updatedAt: new Date().toISOString()
+    const updatePayload: Partial<Tables<'Order'>> = {
+      pickup_status: pickupStatus, // Correct field name based on error
+      updatedAt: new Date().toISOString()
     };
 
-    if (pickupDate && pickupStatus === 'PICKED_UP') { // Use the specific enum value from schema
-        updatePayload.pickupDate = pickupDate.toISOString();
+    if (pickupDate && pickupStatus === 'PICKED_UP') {
+      updatePayload.actual_pickup_date = pickupDate.toISOString(); // Correct field name based on error
     }
 
     // Check if order exists first (optional but good practice)
@@ -432,7 +457,7 @@ export async function updateOrderPickupStatus(
 /**
  * Verify the pickup code for an order
  */
-export async function verifyPickupCode(orderId: string, code: string): Promise<{ success: boolean; order?: Order | null; error?: string }> {
+export async function verifyPickupCode(orderId: string, code: string): Promise<{ success: boolean; order?: Tables<'Order'> | null; error?: string }> {
   try {
     // Fetch the order and check the pickup code
     const { data: order, error } = await supabase

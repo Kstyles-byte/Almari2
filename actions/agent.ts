@@ -347,7 +347,7 @@ export async function verifyCustomerPickup(formData: FormData) {
     }
 
     // Check if the order is assigned to this agent (optional check, service might handle it)
-    if (verifyResult.order.agentId !== agent.id) {
+    if (verifyResult.order.agent_id !== agent.id) {
       return { error: "Not authorized to manage this order" };
     }
 
@@ -496,7 +496,7 @@ export async function deleteAgentAction(formData: FormData) {
     if (!agentToDelete) {
         return { error: "Agent not found." };
     }
-    const userIdToUpdate = agentToDelete.userId;
+    const userIdToUpdate = agentToDelete.user_id;
 
     // Delete agent using service function
     const result = await deleteAgent(agentId);
