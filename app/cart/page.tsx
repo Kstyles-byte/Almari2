@@ -74,7 +74,9 @@ type CartItemType = {
 
 export default function CartPage() {
   // Client-side session check
-  const { data: session, status } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data; // Safely access data
+  const status = sessionResult?.status; // Safely access status
   const router = useRouter();
 
   // State for cart items, loading status, and error
