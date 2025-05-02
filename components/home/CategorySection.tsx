@@ -19,11 +19,6 @@ const fallbackCategoryImages = {
 
 // Function to get an appropriate image for a category
 const getCategoryImage = (category: Category): string => {
-  // First check if the category has an icon that's a URL
-  if (category.icon && category.icon.startsWith('http')) {
-    return category.icon;
-  }
-  
   // Check if we have a fallback for this category slug
   const slugLower = category.slug.toLowerCase();
   for (const [key, url] of Object.entries(fallbackCategoryImages)) {
@@ -71,11 +66,6 @@ const CategorySection = async () => {
                     fill
                     className="object-cover"
                   />
-                  {category.icon && !category.icon.startsWith('http') && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-zervia-100/50">
-                      <span className="text-5xl">{category.icon}</span>
-                    </div>
-                  )}
                 </div>
                 <div className="p-4 text-center">
                   <h3 className="font-medium text-zervia-900 group-hover:text-zervia-600 transition-colors">

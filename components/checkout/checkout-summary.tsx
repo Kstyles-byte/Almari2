@@ -12,21 +12,14 @@ interface CartItem {
 
 interface CheckoutSummaryProps {
   items: CartItem[];
+  subtotal: number;
+  discount: number;
+  shipping: number;
+  tax: number;
+  total: number;
 }
 
-export function CheckoutSummary({ items }: CheckoutSummaryProps) {
-  // Calculate subtotal
-  const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  
-  // Fixed shipping cost for now - could be made dynamic later
-  const shipping = 5.00;
-  
-  // Calculate tax at 7.5%
-  const tax = subtotal * 0.075;
-  
-  // Calculate total
-  const total = subtotal + shipping + tax;
-
+export function CheckoutSummary({ items, subtotal, discount, shipping, tax, total }: CheckoutSummaryProps) {
   return (
     <Card className="bg-white shadow-sm">
       <CardHeader>
@@ -63,8 +56,12 @@ export function CheckoutSummary({ items }: CheckoutSummaryProps) {
             <span>${subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
+            <span>Discount</span>
+            <span>${discount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
             <span>Shipping</span>
-            <span>${shipping.toFixed(2)}</span>
+            <span>{shipping > 0 ? `$${shipping.toFixed(2)}` : 'Free'}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span>Tax</span>

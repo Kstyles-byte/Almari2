@@ -1,7 +1,8 @@
 "use server";
 
 import { createServerActionClient } from '../lib/supabase/server';
-import type { Vendor, Product, Review, Category } from '../types/supabase';
+import type { Vendor, Product, Review, Category } from '@/types';
+import { revalidatePath } from 'next/cache';
 
 // Define expected data structure
 interface VendorShowcaseData {
@@ -18,20 +19,20 @@ export async function getActiveVendors(limit = 6): Promise<VendorShowcaseData[]>
   try {
     const { data, error } = await supabase
       .from('Vendor') // Assuming table name is 'Vendor'
-      .select('id, name, logoUrl') // Adjust columns as needed
-      .eq('isActive', true) // Filter for active vendors
-      .order('createdAt', { ascending: false }) // Or order by name, etc.
-      .limit(limit);
+      .select('id, store_name, logo_url') // Use snake_case
+      .eq('is_active', true) // Filter for active vendors & use snake_case
+      .order('created_at', { ascending: false }); // Use snake_case
 
     if (error) {
       console.error("Error fetching active vendors:", error);
-      throw error;
+      return []; 
     }
+    if (!data) return [];
 
-    return (data || []).map(vendor => ({
+    return data.map(vendor => ({
         id: vendor.id,
-        name: vendor.name || 'Unnamed Vendor',
-        logoUrl: vendor.logoUrl || '/images/vendors/default-logo.png' // Provide a default logo
+        name: vendor.store_name || 'Unnamed Vendor', // Use snake_case
+        logoUrl: vendor.logo_url || '/images/vendors/default-logo.png' // Use snake_case
     }));
 
   } catch (error) {
@@ -50,14 +51,14 @@ export async function getFeaturedVendors(limit = 3) {
     // Supabase might return relations as arrays even with !inner
     type VendorWithUser = {
         id: string;
-        storeName: string | null;
+        store_name: string | null;
         description: string | null;
-        logo: string | null;
-        banner: string | null;
+        logo_url: string | null;
+        banner_url: string | null;
         User: { 
             name: string | null;
             email: string | null;
-        }[]; // Expect User as an array
+        } | null; // Expect single object or null
     };
     
     // 1. Fetch approved vendors with their basic user info
@@ -65,14 +66,14 @@ export async function getFeaturedVendors(limit = 3) {
       .from('Vendor')
       .select(`
         id,
-        storeName,
+        store_name,
         description,
-        logo,
-        banner,
+        logo_url,
+        banner_url,
         User!inner ( name, email ) 
       `)
-      .eq('isApproved', true)
-      .order('createdAt', { ascending: false })
+      .eq('is_approved', true)
+      .order('created_at', { ascending: false })
       .limit(limit);
 
     if (vendorsError) {
@@ -86,14 +87,11 @@ export async function getFeaturedVendors(limit = 3) {
 
     const vendorIds = vendorsData.map(v => v.id);
 
-     type ProductWithDetails = {
-        id: string;
-        vendorId: string;
-        categoryId: string;
-        Category: { 
-            name: string | null; 
-        }[]; // Expect Category as an array
-        Review: Pick<Review, 'rating'>[] | null; 
+    // Define the expected shape of the result after join
+    type ProductWithDetails = Product & {
+        category_id: string; // Use snake_case
+        Category: Pick<Category, 'id' | 'name'> | null;
+        Review: { rating: number }[] | null; // Match the select query
     };
 
     // 2. Fetch products associated with these vendors to get categories and review data
@@ -101,12 +99,12 @@ export async function getFeaturedVendors(limit = 3) {
       .from('Product')
       .select(`
         id,
-        vendorId,
-        categoryId,
+        vendor_id,
+        category_id,
         Category!inner ( name ), 
         Review ( rating )       
       `) 
-      .in('vendorId', vendorIds)
+      .in('vendor_id', vendorIds)
       .eq('isPublished', true); 
 
     if (productsError) {
@@ -125,7 +123,7 @@ export async function getFeaturedVendors(limit = 3) {
     }>();
 
     products.forEach(product => { 
-      const vendorId = product.vendorId;
+      const vendorId = product.vendor_id;
       if (!vendorStats.has(vendorId)) {
         vendorStats.set(vendorId, { productCount: 0, totalRating: 0, totalReviews: 0, categoryNames: new Set() });
       }
@@ -133,7 +131,7 @@ export async function getFeaturedVendors(limit = 3) {
 
       stats.productCount += 1;
       // Safely access category name from the first element of the array
-      const categoryName = product.Category?.[0]?.name;
+      const categoryName = product.Category?.name;
       if (categoryName) { 
         stats.categoryNames.add(categoryName);
       }
@@ -151,14 +149,14 @@ export async function getFeaturedVendors(limit = 3) {
         ? stats.totalRating / stats.totalReviews
         : 4.5; 
 
-      const slug = `${(vendor.storeName || 'vendor').toLowerCase().replace(/\s+/g, '-')}-${vendor.id.slice(0, 8)}`;
+      const slug = `${(vendor.store_name || 'vendor').toLowerCase().replace(/\s+/g, '-')}-${vendor.id.slice(0, 8)}`;
 
       return {
         id: vendor.id,
-        name: vendor.storeName || 'Unnamed Vendor',
+        name: vendor.store_name || 'Unnamed Vendor',
         description: vendor.description || '',
-        image: vendor.banner || 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=2070', 
-        logo: vendor.logo || 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?q=80&w=1938',   
+        image: vendor.banner_url || 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=2070',   
+        logo: vendor.logo_url || 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?q=80&w=1938',   
         rating: parseFloat(avgRating.toFixed(1)),
         reviews: stats.totalReviews,
         productCount: stats.productCount,
@@ -170,5 +168,31 @@ export async function getFeaturedVendors(limit = 3) {
   } catch (error) {
     console.error("Error processing featured vendors:", error);
     return []; 
+  }
+}
+
+export async function getVendorDetails(vendorId: string) {
+  const supabase = await createServerActionClient();
+  try {
+    const { data: vendor, error } = await supabase
+      .from('Vendor')
+      .select('id, store_name, logo_url') // Use snake_case
+      .eq('id', vendorId)
+      .single();
+
+    if (error) throw error;
+    if (!vendor) return { success: false, error: 'Vendor not found' };
+
+    return {
+      success: true,
+      vendor: {
+        id: vendor.id,
+        name: vendor.store_name, // Use snake_case
+        logoUrl: vendor.logo_url, // Use snake_case
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching vendor details:", error);
+    return { success: false, error: 'Error fetching vendor details' };
   }
 }

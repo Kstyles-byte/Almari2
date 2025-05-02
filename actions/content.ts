@@ -228,13 +228,13 @@ export async function getAllCategories(includeChildren: boolean = false): Promis
     }
     
     // If children are requested, organize them into a hierarchical structure
-    const rootCategories = allCategories.filter((category: Category) => !category.parentId);
-    const childCategories = allCategories.filter((category: Category) => category.parentId);
+    const rootCategories = allCategories.filter((category: Category) => !category.parent_id);
+    const childCategories = allCategories.filter((category: Category) => category.parent_id);
     
     // Add children to their respective parent categories
     return rootCategories.map((category: Category) => ({
       ...category,
-      children: childCategories.filter((child: Category) => child.parentId === category.id)
+      children: childCategories.filter((child: Category) => child.parent_id === category.id)
     }));
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -251,7 +251,7 @@ export async function getRootCategories(): Promise<Category[]> {
     const { data, error } = await supabase
       .from('Category')
       .select('*')
-      .is('parentId', null)
+      .is('parent_id', null)
       .order('name');
     
     if (error) throw error;
@@ -272,7 +272,7 @@ export async function getChildCategories(parentId: string): Promise<Category[]> 
     const { data, error } = await supabase
       .from('Category')
       .select('*')
-      .eq('parentId', parentId)
+      .eq('parent_id', parentId)
       .order('name');
     
     if (error) throw error;

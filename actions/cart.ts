@@ -4,7 +4,7 @@ import { auth } from "../auth";
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from "next/cache";
 import { getCustomerByUserId, getCustomerCart } from "../lib/services/customer";
-import type { Product, CartItem, Cart, Customer, ProductImage, Vendor } from '../types/supabase';
+import type { Product, CartItem, Cart, Customer, ProductImage, Vendor } from '@/types';
 import { z } from "zod";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -457,9 +457,9 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
         inventory: number;
         isPublished: boolean;
         // Relations are nested objects/arrays
-        images: Pick<ProductImage, 'url' | 'alt'>[] | null;
+        images: Pick<ProductImage, 'url' | 'alt_text'>[] | null;
         // Expect vendor relation within product to also be an array
-        vendor: Pick<Vendor, 'id' | 'storeName'>[] | null; 
+        vendor: Pick<Vendor, 'id' | 'store_name'>[] | null; 
       })[] | null; // Expect product as an array or null
     };
 
@@ -476,8 +476,8 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
           price,
           inventory,
           isPublished,
-          images: ProductImage ( url, alt ),
-          vendor: Vendor ( id, storeName )
+          images: ProductImage ( url, alt_text ),
+          vendor: Vendor ( id, store_name )
         )
       `)
       .eq("cartId", cartId); // Filter by the fetched cart ID (cartId vs cart_id?)
@@ -502,24 +502,27 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
       return {
         id: item.id,
         quantity: item.quantity,
-        product: product ? { // Check if product exists
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          inventory: product.inventory,
-          isPublished: product.isPublished,
-          // Select the first image URL as thumbnail, or provide a default/null
-          thumbnail: images && images.length > 0 ? images[0].url : null,
-          // Access vendor name from the potentially first vendor object
-          vendorName: vendor ? vendor.storeName : 'N/A', 
-        } : null // Return null for product if it's null
+        productId: product ? product.id : '',
+        name: product ? product.name : 'Product not found',
+        slug: product ? product.name.replace(/\s+/g, '-').toLowerCase() : '#',
+        price: product ? product.price : 0,
+        inventory: product ? product.inventory : 0,
+        image: product?.images?.[0]?.url ?? '/placeholder-product.jpg',
+        imageAlt: product?.images?.[0]?.alt_text ?? 'Product image',
+        vendorId: vendor ? vendor.id : 'N/A',
+        vendorName: vendor ? vendor.store_name : 'N/A',
       };
-    }).filter(item => item.product !== null) ?? []; // Filter out items where product was null
+    }) ?? [];
 
+    const validItems = formattedItems ?? [];
+
+    // Calculate totals based on validItems
+    const totalQuantity = validItems.reduce((total, item) => total + item.quantity, 0);
+    const totalPrice = validItems.reduce((total, item) => total + (item.quantity * item.price), 0);
 
     return {
       success: true,
-      cart: { id: cartId, items: formattedItems },
+      cart: { id: cartId, items: validItems },
       message: "Cart retrieved successfully.",
     };
 

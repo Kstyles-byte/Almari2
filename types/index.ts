@@ -95,10 +95,10 @@ export type Notification = Database['public']['Tables']['Notification']['Row'] &
 // --- Define specific types used elsewhere --- 
 
 // Example: Maybe a simplified Product type for listings
-export type ProductListing = Pick<Product, 'id' | 'name' | 'slug' | 'price' | 'comparePrice' | 'inventory'> & {
+export type ProductListing = Pick<Product, 'id' | 'name' | 'slug' | 'price' | 'compare_at_price' | 'inventory'> & {
     category?: Pick<Category, 'id' | 'name' | 'slug'>;
-    vendor?: Pick<Vendor, 'id' | 'storeName'>;
-    mainImage?: Pick<ProductImage, 'url' | 'alt'>; // Often only need the first image
+    vendor?: Pick<Vendor, 'id' | 'store_name'>;
+    mainImage?: Pick<ProductImage, 'url' | 'alt_text'>;
     averageRating?: number; // May be calculated separately
 };
 

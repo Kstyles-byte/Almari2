@@ -390,7 +390,7 @@ export async function updateProduct(data: UpdateProductInput) {
     if (validatedData.stock !== undefined) updatePayload.inventory = validatedData.stock; // Map stock to inventory
     if (validatedData.status !== undefined) updatePayload.status = validatedData.status; // Assign validated status
     // Map isActive (from Zod) to isPublished (from Product type/table) if intended
-    if (validatedData.isActive !== undefined) updatePayload.isPublished = validatedData.isActive;
+    if (validatedData.isActive !== undefined) updatePayload.is_published = validatedData.isActive;
 
     // Update category ID if provided and different (Schema supports only one categoryId)
     // Assuming categoryId *is* intended to be updatable via this admin action, even if not explicitly handled by original Prisma logic
@@ -400,7 +400,7 @@ export async function updateProduct(data: UpdateProductInput) {
         if (!categoryExists) {
             throw new Error(`Category with ID ${validatedData.categoryIds[0]} not found.`);
         }
-        updatePayload.categoryId = validatedData.categoryIds[0]; // Use the first ID from the array
+        updatePayload.category_id = validatedData.categoryIds[0]; // Use the first ID from the array
     }
 
     // Note: Image updates are not handled in this admin function based on original Prisma code
@@ -551,7 +551,7 @@ export async function getProductDetails(productId: string) {
       .from('Product')
       .select(`
         *,
-        Vendor ( id, storeName, User ( id, name, email ) ),
+        Vendor ( id, store_name, User ( id, name, email ) ),
         Category ( * ),
         Review ( *, Customer ( User ( id, name ) ) )
       `)
@@ -639,7 +639,7 @@ export async function getProducts({
       .from('Product')
       .select(`
         *,
-        Vendor ( id, storeName ),
+        Vendor ( id, store_name ),
         Category ( id, name ),
         Review ( count ),
         OrderItem ( count )
@@ -690,7 +690,7 @@ export async function getProducts({
     if (sortBy === 'stock') sortColumn = 'inventory'; 
     
     const ascending = sortOrder === 'asc';
-    // Handle sorting by related fields if necessary (e.g., Vendor(storeName)) - requires careful syntax
+    // Handle sorting by related fields if necessary (e.g., Vendor(store_name)) - requires careful syntax
     query = query.order(sortColumn, { ascending });
 
 
@@ -709,7 +709,7 @@ export async function getProducts({
      const formattedProducts = products?.map(p => {
       // Map Supabase result structure to expected structure
       // Access related data directly (e.g., p.Vendor, p.Category)
-      const vendorInfo = p.Vendor as { id: string; storeName: string } | null; // Type assertion
+      const vendorInfo = p.Vendor as { id: string; store_name: string } | null; // Use store_name
       const categoryInfo = p.Category as { id: string; name: string } | null; // Type assertion
       // Review and OrderItem counts might need refinement based on actual query result
       const reviewCount = (p.Review as any)?.[0]?.count ?? 0;
@@ -717,7 +717,7 @@ export async function getProducts({
 
       return {
         ...(p as Product), // Spread the base product fields
-        store: vendorInfo ? { id: vendorInfo.id, name: vendorInfo.storeName } : null, // Map Vendor to store
+        store: vendorInfo ? { id: vendorInfo.id, name: vendorInfo.store_name } : null, // Map Vendor to store using store_name
         categories: categoryInfo ? [{ id: categoryInfo.id, name: categoryInfo.name }] : [], // Map Category to categories array
         _count: {
             reviews: reviewCount,
