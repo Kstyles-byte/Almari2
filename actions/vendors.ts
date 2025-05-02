@@ -105,7 +105,7 @@ export async function getFeaturedVendors(limit = 3) {
         Review ( rating )       
       `) 
       .in('vendor_id', vendorIds)
-      .eq('isPublished', true); 
+      .eq('is_published', true); 
 
     if (productsError) {
       console.error("Error fetching vendor products:", productsError.message);
