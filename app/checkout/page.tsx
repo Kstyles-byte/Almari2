@@ -171,7 +171,6 @@ export default function CheckoutPage() {
   })); 
 
   // Get the selected agent details
-  const selectedAgent = mockAgents.find(agent => agent.id === selectedAgentId);
   const selectedAgent = agents.find(agent => agent.id === selectedAgentId);
   
   // Handlers (keep existing logic for now)
@@ -302,7 +301,7 @@ export default function CheckoutPage() {
               orderNumber={orderNumber}
               pickupCode={pickupCode}
               agentLocation={selectedAgent.name}
-              agentAddress={selectedAgent.address}
+              agentAddress={`${selectedAgent.address_line1}${selectedAgent.address_line2 ? `, ${selectedAgent.address_line2}` : ''}, ${selectedAgent.city}, ${selectedAgent.country}`}
               customerEmail={contactInfo.get('email') as string}
             />
           )}
