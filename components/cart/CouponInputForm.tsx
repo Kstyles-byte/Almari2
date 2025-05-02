@@ -1,7 +1,10 @@
 'use client';
 
-import React from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import React, { useActionState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useFormStatus } from 'react-dom';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { applyCoupon, type ApplyCouponState } from '../../actions/coupon';
@@ -24,7 +27,7 @@ function SubmitButton() {
 
 export function CouponInputForm({ cartSubtotal, onCouponApply }: CouponInputFormProps) {
   const initialState: ApplyCouponState = { success: false, message: "" };
-  const [state, formAction] = useFormState(applyCoupon, initialState);
+  const [state, formAction] = useActionState(applyCoupon, initialState);
   
   // State to keep track of the entered coupon code for display/clearing
   const [couponCodeInput, setCouponCodeInput] = React.useState("");

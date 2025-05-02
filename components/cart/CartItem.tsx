@@ -7,7 +7,6 @@ import { Trash2, Plus, Minus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { updateCartItem, removeFromCart } from '../../actions/cart'; // Import actions
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
 
 // Define the type for a single cart item passed as a prop
 // Matches the structure from getCart action after formatting
@@ -25,13 +24,12 @@ type CartItemProps = {
     vendorId: string;
     vendorName: string | null;
   };
-  // Optional: Callback to notify parent page of changes if needed (e.g., recalculate total instantly)
-  onUpdate?: () => void; 
+  // Update prop type to accept a function returning Promise<void>
+  onUpdate?: () => Promise<void>; 
 };
 
 export function CartItem({ item, onUpdate }: CartItemProps) {
   const [isPending, startTransition] = useTransition();
-  const router = useRouter(); // For refreshing data after action
 
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity < 1 || newQuantity > item.inventory) {
@@ -49,9 +47,8 @@ export function CartItem({ item, onUpdate }: CartItemProps) {
         toast.error(result.error);
       } else {
         toast.success('Quantity updated.');
-        // Re-fetch or update state on parent page
-        router.refresh(); // Simple refresh to refetch cart data
-        onUpdate?.(); // Call callback if provided
+        // Call the passed-in onUpdate function (which is fetchCart)
+        onUpdate?.(); 
       }
     });
   };
@@ -67,9 +64,8 @@ export function CartItem({ item, onUpdate }: CartItemProps) {
             toast.error(result.error);
         } else {
             toast.success('Item removed from cart.');
-             // Re-fetch or update state on parent page
-            router.refresh(); // Simple refresh to refetch cart data
-            onUpdate?.(); // Call callback if provided
+             // Call the passed-in onUpdate function (which is fetchCart)
+            onUpdate?.();
         }
     });
   };

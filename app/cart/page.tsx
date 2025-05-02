@@ -1,7 +1,7 @@
 'use client'; // Make CartPage a client component to use state
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useTransition } from 'react'; // Import useState, useEffect, and useTransition
+import React, { useState, useEffect, useTransition, useCallback } from 'react'; // Import useState, useEffect, and useTransition
 import Link from 'next/link';
 import Image from 'next/image';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Heart, Star } from 'lucide-react';
@@ -88,56 +88,48 @@ export default function CartPage() {
 
   // Add handler for Clear All button
   const [isClearing, startClearTransition] = useTransition();
-  const handleClearCart = () => {
-      startClearTransition(async () => {
-          const result = await clearCart();
-          if (result?.error) {
-              toast.error(result.error);
-          } else {
-              toast.success("Cart cleared.");
-              router.refresh();
-          }
-      });
-  };
 
-  // Fetch cart data on component mount
-  useEffect(() => {
-    // Fetch cart directly assuming middleware handles authentication
-    const fetchCart = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const cartData = await getCart();
-        if (cartData.success && cartData.cart?.items) {
-          setCartItems(cartData.cart.items as CartItemType[]); 
-          setAppliedDiscount(0);
-          setAppliedCouponCode(null);
-          // Redirect if cart is empty AFTER successful fetch
-          if (cartData.cart.items.length === 0) {
-             toast.info("Your cart is empty.");
-             router.push('/'); // Go to homepage instead of login
-             return;
-          }
-        } else {
-          setError(cartData.message || "Failed to load cart items.");
-          setCartItems([]);
-          // If the error indicates auth issue, maybe redirect (though middleware should handle)
-          if (cartData.message === "User not authenticated.") {
-              router.push('/login?callbackUrl=/cart');
-              return;
-          }
+  // --- Create a reusable function to fetch cart data ---
+  const fetchCart = useCallback(async (isInitialLoad = false) => {
+    if (!isInitialLoad) {
+        // Optionally show a subtle loading state during updates?
+    } else {
+        setIsLoading(true); // Only set full loading on initial load
+    }
+    setError(null);
+    try {
+      const cartData = await getCart();
+      if (cartData.success && cartData.cart?.items) {
+        setCartItems(cartData.cart.items as CartItemType[]); 
+        // Check for empty cart only on initial load maybe?
+        if (isInitialLoad && cartData.cart.items.length === 0) {
+           toast.info("Your cart is empty.");
+           router.push('/'); // Go to homepage instead of login
+           return;
         }
-      } catch (err: any) {
-        console.error("Error fetching cart:", err);
-        setError(err.message || "An unexpected error occurred while fetching the cart.");
+      } else {
+        setError(cartData.message || "Failed to load cart items.");
         setCartItems([]);
-      } finally {
-        setIsLoading(false);
+        if (cartData.message === "User not authenticated.") {
+            router.push('/login?callbackUrl=/cart');
+            return;
+        }
       }
-    };
-    fetchCart();
+    } catch (err: any) {
+      console.error("Error fetching cart:", err);
+      setError(err.message || "An unexpected error occurred while fetching the cart.");
+      setCartItems([]);
+    } finally {
+       if (isInitialLoad) {
+            setIsLoading(false); // Turn off initial loading state
+       }
+    }
+  }, [router]); // Add dependencies for useCallback
 
-  }, [router]); 
+  // --- useEffect for initial fetch ---
+  useEffect(() => {
+    fetchCart(true); // Pass true for initial load
+  }, [fetchCart]); // Depend on fetchCart
 
   // Calculate totals based on state
   const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -197,7 +189,15 @@ export default function CartPage() {
                               variant="ghost" 
                               size="sm" 
                               className="text-zervia-600 hover:text-red-600 disabled:opacity-50"
-                              onClick={handleClearCart}
+                              onClick={() => startClearTransition(async () => {
+                                  const result = await clearCart();
+                                  if (result?.error) {
+                                      toast.error(result.error);
+                                  } else {
+                                      toast.success("Cart cleared.");
+                                      fetchCart(); // Refetch after clearing
+                                  }
+                              })}
                               disabled={isClearing || cartItems.length === 0}
                             >
                               {isClearing ? "Clearing..." : "Clear All"}
@@ -206,7 +206,7 @@ export default function CartPage() {
                     </div>
                     <div className="divide-y divide-gray-200">
                     {cartItems.map((item) => (
-                        <CartItem key={item.id} item={item} />
+                        <CartItem key={item.id} item={item} onUpdate={fetchCart} />
                     ))}
                     </div>
                 </div>

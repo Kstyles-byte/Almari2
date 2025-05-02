@@ -233,7 +233,7 @@ export async function updateCartItem(formData: FormData) {
         .select(`
             id,
             quantity,
-            cartId,
+            cart_id,
             Product (
                 id,
                 name,
@@ -241,7 +241,7 @@ export async function updateCartItem(formData: FormData) {
             )
         `)
         .eq('id', cartItemId)
-        .eq('cartId', cartId) // Ensure item belongs to the user's cart
+        .eq('cart_id', cartId)
         .single();
 
     if (fetchError) {
@@ -373,7 +373,7 @@ export async function removeFromCart(
     // Fetch the specific cart item to verify ownership
     const { data: cartItemData, error: fetchError } = await supabase
       .from("CartItem") // Use correct table name 'CartItem' based on types/prisma?
-      .select("id, cartId") // Adjust field name if needed (cart_id vs cartId)
+      .select("id, cart_id") // Adjust field name if needed (cart_id vs cartId)
       .eq("id", cartItemId)
       .single();
 
@@ -395,9 +395,9 @@ export async function removeFromCart(
 
     // Verify the item belongs to the customer's cart using the fetched cart ID
     // Adjust field name if needed (cart_id vs cartId)
-    if (cartItemData.cartId !== customerCartId) { 
+    if (cartItemData.cart_id !== customerCartId) { 
       console.error(
-        `Security check failed: Cart item ${cartItemId} (cart ${cartItemData.cartId}) does not belong to customer ${userId}'s cart (${customerCartId}).`
+        `Security check failed: Cart item ${cartItemId} (cart ${cartItemData.cart_id}) does not belong to customer ${userId}'s cart (${customerCartId}).`
       );
       return { error: "Unauthorized action. Cannot remove this item." };
     }
@@ -483,7 +483,7 @@ export async function clearCart() {
     const { error: deleteError } = await supabase
       .from('CartItem') // Use correct table name
       .delete()
-      .eq('cartId', cartId); // Use correct field name (cart_id vs cartId)
+      .eq('cart_id', cartId); // Use correct field name (cart_id vs cartId)
 
     if (deleteError) {
         console.error(`Error clearing cart items for cart ${cartId}:`, deleteError.message);
@@ -639,6 +639,8 @@ export async function getCart(): Promise<{ success: boolean; cart?: any; message
     // Calculate totals based on validItems
     const totalQuantity = validItems.reduce((total, item) => total + item.quantity, 0);
     const totalPrice = validItems.reduce((total, item) => total + (item.quantity * item.price), 0);
+
+    console.log("Data being returned by getCart:", JSON.stringify({ id: cartId, items: validItems }, null, 2)); // Log returned data
 
     return {
       success: true,
