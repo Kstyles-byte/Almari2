@@ -107,7 +107,7 @@ export function ProductGrid({ products }: ProductGridProps) {
                 <span className="text-sm text-zervia-500">({product.reviews} reviews)</span>
               </div>
               
-              <p className="font-semibold text-zervia-900 mt-2">${product.price.toFixed(2)}</p>
+              <p className="font-semibold text-zervia-900 mt-2">₦{product.price.toFixed(2)}</p>
             </div>
             
             <Button 

@@ -141,14 +141,14 @@ export default async function ProductDetail({ params }: { params: { slug: string
             <div>
               {product.comparePrice && product.comparePrice > product.price ? (
                 <div className="flex items-baseline">
-                  <span className="text-2xl font-bold text-zervia-900">${product.price.toFixed(2)}</span>
-                  <span className="ml-2 text-lg text-zervia-500 line-through">${product.comparePrice.toFixed(2)}</span>
+                  <span className="text-2xl font-bold text-zervia-900">₦{product.price.toFixed(2)}</span>
+                  <span className="ml-2 text-lg text-zervia-500 line-through">₦{product.comparePrice.toFixed(2)}</span>
                   <span className="ml-2 text-sm bg-red-100 text-red-600 px-2 py-0.5 rounded">
-                    Save ${(product.comparePrice - product.price).toFixed(2)}
+                    Save ₦{(product.comparePrice - product.price).toFixed(2)}
                   </span>
                 </div>
               ) : (
-                <span className="text-2xl font-bold text-zervia-900">${product.price.toFixed(2)}</span>
+                <span className="text-2xl font-bold text-zervia-900">₦{product.price.toFixed(2)}</span>
               )}
             </div>
             

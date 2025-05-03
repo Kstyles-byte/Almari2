@@ -120,13 +120,12 @@ export function ProductFilters({
   }
   
   const formatPrice = (price: number) => {
-    // Assuming NGN currency
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: 'NGN',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(price)
+    }).format(price);
   }
   
   const renderFilterGroup = (group: FilterGroupData) => (

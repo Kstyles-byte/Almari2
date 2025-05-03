@@ -1,16 +1,56 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Agent, Order } from '../../types/supabase'; // Assuming Order type exists
+// import type { Agent, Order } from '@/types/supabase'; // REMOVE THIS LINE
 import type { Tables } from '../../types/supabase'; // Import the Tables generic type
 import { createPickupStatusNotification } from './notification';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// Helper function to get Supabase client - ensures env vars are checked at call time
+const getSupabaseClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  console.error("Supabase URL or Service Role Key is missing in environment variables for agent service.");
-}
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+  // Add debugging to see what environment variables are available AT CALL TIME
+  console.log('Attempting to create Supabase client (Agent Service):');
+  console.log('NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'defined' : 'undefined');
+  console.log('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceRoleKey ? 'defined' : 'undefined');
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.warn("WARNING: Supabase URL or Service Role Key is missing. This is expected if running on client-side or in development without proper environment setup.");
+    console.warn("Please ensure you're calling agent services from a server action or API route!");
+    
+    // In development, return a mock client or use public key instead
+    if (process.env.NODE_ENV === 'development') {
+      const publicKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (supabaseUrl && publicKey) {
+        console.log("Using public anon key for development...");
+        return createClient(supabaseUrl, publicKey);
+      }
+      
+      console.warn("Returning mock implementation - ONLY FOR DEVELOPMENT");
+      // Return mock implementation for development testing
+      return {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              order: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+                single: async () => ({ data: null, error: null }),
+                limit: () => ({
+                  maybeSingle: async () => ({ data: null, error: null }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as any;
+    }
+    
+    // In production, we should fail clearly
+    throw new Error("Supabase environment variables missing for agent service. In production, this must be called server-side.");
+  }
+
+  return createClient(supabaseUrl, supabaseServiceRoleKey);
+};
+
 
 // Define OrderStatus and PickupStatus enums (adjust based on your actual types/enums)
 type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'PAYMENT_FAILED' | 'PARTIALLY_FULFILLED';
@@ -28,6 +68,7 @@ export async function createAgent(data: {
   operatingHours?: string;
   capacity?: number;
 }): Promise<{ success: boolean; agent?: Tables<'Agent'> | null; error?: string }> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const insertData = {
       userId: data.userId,
@@ -67,6 +108,7 @@ export async function createAgent(data: {
  * Get agent by user ID
  */
 export async function getAgentByUserId(userId: string): Promise<Tables<'Agent'> | null> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const { data: agent, error } = await supabase
       .from('Agent')
@@ -91,6 +133,7 @@ export async function getAgentByUserId(userId: string): Promise<Tables<'Agent'> 
  * Get agent by ID
  */
 export async function getAgentById(agentId: string): Promise<Tables<'Agent'> | null> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const { data: agent, error } = await supabase
       .from('Agent')
@@ -119,6 +162,7 @@ export async function getAllAgents(options?: {
   limit?: number;
   isActive?: boolean;
 }) {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const page = options?.page || 1;
     const limit = options?.limit || 10;
@@ -165,12 +209,13 @@ export async function getAllAgents(options?: {
  * Useful for dropdowns or selectors.
  */
 export async function getActiveAgents(): Promise<{ success: boolean; agents?: Tables<'Agent'>[]; error?: string }> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const { data: agents, error } = await supabase
       .from('Agent')
       .select('*')
-      .eq('isActive', true)
-      .order('name', { ascending: true }); // Optional: order by name
+      .eq('is_active', true)
+      .order('name', { ascending: true });
 
     if (error) {
       console.error("Error fetching active agents:", error.message);
@@ -196,8 +241,12 @@ export async function updateAgent(agentId: string, data: {
   capacity?: number;
   isActive?: boolean;
 }): Promise<{ success: boolean; agent?: Tables<'Agent'> | null; error?: string }> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
-    const updateData = { ...data, updatedAt: new Date().toISOString() };
+    // Correct property name from 'updatedAt' to 'updated_at' if needed based on schema
+    // Assuming 'updated_at' is the correct column name in your 'Agent' table
+    const updateData: Partial<Tables<'Agent'>> = { ...data, updated_at: new Date().toISOString() };
+
 
     const { data: agent, error } = await supabase
       .from('Agent')
@@ -226,6 +275,7 @@ export async function updateAgent(agentId: string, data: {
  * Delete agent
  */
 export async function deleteAgent(agentId: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
      // Optional: Check if agent has assigned orders first?
      // const { count } = await supabase.from('Order').select('id', { count: 'exact', head: true }).eq('agentId', agentId).not('status', 'in', '("DELIVERED", "CANCELLED")');
@@ -257,6 +307,7 @@ export async function getAgentOrders(agentId: string, options?: {
   status?: string;
   pickupStatus?: string;
 }) {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const page = options?.page || 1;
     const limit = options?.limit || 10;
@@ -314,6 +365,7 @@ export async function getAgentPendingPickups(agentId: string, options?: {
   page?: number;
   limit?: number;
 }) {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const page = options?.page || 1;
     const limit = options?.limit || 10;
@@ -330,7 +382,7 @@ export async function getAgentPendingPickups(agentId: string, options?: {
         OrderItem ( *, Product:productId (*) )
       `, { count: 'exact' })
       .eq('agentId', agentId)
-      .eq('pickupStatus', targetPickupStatus); 
+      .eq('pickupStatus', targetPickupStatus);
 
     query = query.order('updatedAt', { ascending: false }) // Order by when it became ready?
                  .range(skip, skip + limit - 1);
@@ -366,12 +418,13 @@ export async function getAgentPendingPickups(agentId: string, options?: {
  * Currently, it returns the first active agent found.
  */
 export async function findNearestAgent(location: string): Promise<Tables<'Agent'> | null> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     console.warn("findNearestAgent currently returns the first active agent found. Geospatial query not implemented.");
     const { data: agent, error } = await supabase
       .from('Agent')
       .select('*')
-      .eq('isActive', true)
+      .eq('is_active', true)
       .limit(1)
       .maybeSingle();
 
@@ -395,29 +448,33 @@ export function generatePickupCode(): string {
 }
 
 /**
- * Generates a random 6-digit pickup code.
- * @param pickupDate Optional date when the pickup occurred
- * @returns The updated order object or null/error
+ * Update order pickup status and send notification.
+ * @param orderId The ID of the order to update.
+ * @param pickupStatus The new pickup status.
+ * @param pickupDate Optional date when the pickup occurred.
+ * @returns The updated order object or null/error.
  */
 export async function updateOrderPickupStatus(
     orderId: string,
     pickupStatus: PickupStatus, // Use defined type
     pickupDate?: Date
 ): Promise<{ success: boolean; order?: Tables<'Order'> | null; error?: string }> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const updatePayload: Partial<Tables<'Order'>> = {
-      pickup_status: pickupStatus, // Correct field name based on error
-      updatedAt: new Date().toISOString()
+      pickup_status: pickupStatus, // Assuming 'pickup_status' is the DB column
+      updated_at: new Date().toISOString() // Assuming 'updated_at' is the DB column
     };
 
     if (pickupDate && pickupStatus === 'PICKED_UP') {
-      updatePayload.actual_pickup_date = pickupDate.toISOString(); // Correct field name based on error
+      // Assuming 'actual_pickup_date' is the DB column
+      updatePayload.actual_pickup_date = pickupDate.toISOString();
     }
 
-    // Check if order exists first (optional but good practice)
+    // Fetch existing order first
     const { data: existingOrder, error: fetchError } = await supabase
         .from('Order')
-        .select('id, customerId') // Fetch needed fields for notification
+        .select('id, customerId')
         .eq('id', orderId)
         .single();
 
@@ -434,21 +491,26 @@ export async function updateOrderPickupStatus(
       .select('*') // Select the updated order data
       .single();
 
+    // Check for update error AFTER the update call
     if (updateError) {
         console.error("Error updating order pickup status:", updateError.message);
+        // Use a more specific error message if possible
         throw new Error(`Failed to update pickup status: ${updateError.message}`);
     }
 
     // Send notification based on new status
-    if (pickupStatus === 'READY_FOR_PICKUP') {
-        await createPickupStatusNotification(orderId, 'PICKUP_READY');
-    } else if (pickupStatus === 'PICKED_UP') {
-        await createPickupStatusNotification(orderId, 'ORDER_PICKED_UP');
+    if (updatedOrder) { // Ensure we have the updated order data for notifications
+        if (pickupStatus === 'READY_FOR_PICKUP') {
+            await createPickupStatusNotification(orderId, 'PICKUP_READY');
+        } else if (pickupStatus === 'PICKED_UP') {
+            await createPickupStatusNotification(orderId, 'ORDER_PICKED_UP');
+        }
     }
 
     return { success: true, order: updatedOrder };
 
   } catch (error) {
+    // Catch errors from getSupabaseClient, fetch, update, or notifications
     console.error("Error in updateOrderPickupStatus service:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to update pickup status" };
   }
@@ -458,11 +520,12 @@ export async function updateOrderPickupStatus(
  * Verify the pickup code for an order
  */
 export async function verifyPickupCode(orderId: string, code: string): Promise<{ success: boolean; order?: Tables<'Order'> | null; error?: string }> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     // Fetch the order and check the pickup code
     const { data: order, error } = await supabase
       .from('Order')
-      .select('*')
+      .select('*') // This select is fine
       .eq('id', orderId)
       .single();
 
@@ -489,6 +552,7 @@ export async function verifyPickupCode(orderId: string, code: string): Promise<{
     }
 
     // Verify the code
+     // Assuming 'pickupCode' is the correct column name in your DB
     if (order.pickupCode !== code) {
       return { success: false, error: "Invalid pickup code." };
     }
@@ -500,4 +564,4 @@ export async function verifyPickupCode(orderId: string, code: string): Promise<{
     console.error("Error in verifyPickupCode service:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to verify pickup code" };
   }
-} 
+}

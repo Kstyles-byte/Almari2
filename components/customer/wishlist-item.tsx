@@ -64,7 +64,7 @@ export function WishlistItem({ product, onRemove, onAddToCart }: WishlistItemPro
         </div>
         
         <div className="flex items-center justify-between mt-3 sm:mt-4">
-          <div className="font-semibold text-lg text-zervia-900">${product.price.toFixed(2)}</div>
+          <div className="font-semibold text-lg text-zervia-900">₦{product.price.toFixed(2)}</div>
           <div className="text-sm text-gray-500">
             {product.inStock ? (
               <span className="text-green-600">In Stock</span>

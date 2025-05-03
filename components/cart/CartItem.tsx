@@ -105,11 +105,11 @@ export function CartItem({ item, onUpdate }: CartItemProps) {
             </div>
             <div className="mt-2 sm:mt-0 sm:text-right">
               <div className="font-medium text-zervia-900">
-                ${item.price.toFixed(2)}
+                ₦{item.price.toFixed(2)}
               </div>
               {item.quantity > 1 && (
                 <div className="text-xs text-zervia-500 mt-1">
-                  (${item.price.toFixed(2)} each)
+                  (₦{item.price.toFixed(2)} each)
                 </div>
               )}
             </div>

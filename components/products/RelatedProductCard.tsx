@@ -95,11 +95,11 @@ export function RelatedProductCard({ product }: RelatedProductCardProps) {
          <div className="font-medium text-zervia-900">
              {product.comparePrice && product.comparePrice > product.price ? (
                  <div className="flex items-baseline gap-1 text-sm">
-                     <span className="text-zervia-900">${product.price.toFixed(2)}</span>
-                     <span className="text-zervia-500 line-through">${product.comparePrice.toFixed(2)}</span>
+                     <span className="text-zervia-900">₦{product.price.toFixed(2)}</span>
+                     <span className="text-zervia-500 line-through">₦{product.comparePrice.toFixed(2)}</span>
                  </div>
                  ) : (
-                     <span className="text-sm">${product.price.toFixed(2)}</span>
+                     <span className="text-sm">₦{product.price.toFixed(2)}</span>
                  )}
          </div>
          <Button 

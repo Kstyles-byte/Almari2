@@ -13,53 +13,10 @@ import { CouponInputForm } from '../../components/cart/CouponInputForm';
 import { CartItem } from '../../components/cart/CartItem';
 import { useRouter } from 'next/navigation'; // For client-side redirect
 import { toast } from 'sonner'; // Use sonner instead of react-hot-toast
-
-const recommendedProducts = [
-  {
-    id: 4,
-    name: "Leather Gloves",
-    price: 39.99,
-    image: "/images/products/gloves.jpg",
-    rating: 4.7,
-    reviews: 62,
-    vendor: "Velvet Vault",
-    slug: "leather-gloves"
-  },
-  {
-    id: 5,
-    name: "Wool Fedora Hat",
-    price: 45.99,
-    image: "/images/products/hat.jpg",
-    rating: 4.6,
-    reviews: 41,
-    vendor: "Emporium Elegance",
-    slug: "wool-fedora-hat"
-  },
-  {
-    id: 6,
-    name: "Winter Boots",
-    price: 129.99,
-    image: "/images/products/boots.jpg",
-    rating: 4.8,
-    reviews: 108,
-    vendor: "Urban Threads",
-    slug: "winter-boots"
-  },
-  {
-    id: 7,
-    name: "Designer Sunglasses",
-    price: 149.99,
-    image: "/images/products/sunglasses.jpg",
-    rating: 4.7,
-    reviews: 53,
-    vendor: "Emporium Elegance",
-    slug: "designer-sunglasses"
-  }
-];
+import { PageTransitionLoader } from '@/components/ui/loader';
+import { getProducts } from '@/actions/products'; // Import getProducts action
 
 // Define type for cart items fetched from getCart
-// (Adjust based on the actual structure returned by getCart)
-// This type should now match the prop type expected by CartItem
 type CartItemType = {
   id: string; // CartItem ID
   quantity: number;
@@ -74,6 +31,18 @@ type CartItemType = {
   vendorName: string | null;
 };
 
+// Define type for recommended products
+type RecommendedProductType = {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  rating: number;
+  reviews: number;
+  vendor: string;
+  slug: string;
+};
+
 export default function CartPage() {
   const router = useRouter();
 
@@ -85,6 +54,10 @@ export default function CartPage() {
   // State for applied discount
   const [appliedDiscount, setAppliedDiscount] = useState<number>(0);
   const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+
+  // State for recommended products
+  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProductType[]>([]);
+  const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
 
   // Add handler for Clear All button
   const [isClearing, startClearTransition] = useTransition();
@@ -126,10 +99,41 @@ export default function CartPage() {
     }
   }, [router]); // Add dependencies for useCallback
 
+  // Function to fetch recommended products
+  const fetchRecommendedProducts = useCallback(async () => {
+    setIsLoadingRecommended(true);
+    try {
+      // Get 4 random products using the getProducts function
+      const result = await getProducts({
+        limit: 4,
+        sortBy: 'newest' // Could also use 'random' if implemented in the getProducts function
+      });
+      
+      if (result && result.products) {
+        const mappedProducts = result.products.map(product => ({
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image: product.image || '/placeholder-product.jpg',
+          rating: product.rating || 0,
+          reviews: product.reviews || 0,
+          vendor: product.vendor || 'Unknown Vendor',
+          slug: product.slug
+        }));
+        setRecommendedProducts(mappedProducts);
+      }
+    } catch (error) {
+      console.error("Error fetching recommended products:", error);
+    } finally {
+      setIsLoadingRecommended(false);
+    }
+  }, []);
+
   // --- useEffect for initial fetch ---
   useEffect(() => {
     fetchCart(true); // Pass true for initial load
-  }, [fetchCart]); // Depend on fetchCart
+    fetchRecommendedProducts(); // Fetch recommended products
+  }, [fetchCart, fetchRecommendedProducts]); // Depend on fetchCart and fetchRecommendedProducts
 
   // Calculate totals based on state
   const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -151,14 +155,7 @@ export default function CartPage() {
 
   // Loading state return
   if (isLoading) {
-    return (
-      <div className="bg-zervia-50 py-8 min-h-screen flex items-center justify-center">
-        <div className="container mx-auto px-4 text-center">
-          <p>Loading your cart...</p>
-          {/* Add Spinner component here if desired */}
-        </div>
-      </div>
-    );
+    return <PageTransitionLoader text="Loading your cart..." />;
   }
   
   return (
@@ -223,22 +220,22 @@ export default function CartPage() {
                      {/* Subtotal, Taxes, Fee */}
                      <div className="flex justify-between text-zervia-700">
                        <span>Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})</span>
-                       <span>${Number(subtotal).toFixed(2)}</span> 
+                       <span>₦{Number(subtotal).toFixed(2)}</span> 
                      </div>
                      <div className="flex justify-between text-zervia-700">
                        <span>Taxes</span>
-                       <span>{taxes === 0 ? 'Calculated at checkout' : `$${Number(taxes).toFixed(2)}`}</span>
+                       <span>{taxes === 0 ? 'Calculated at checkout' : `₦${Number(taxes).toFixed(2)}`}</span>
                      </div>
                      <div className="flex justify-between text-zervia-700">
                        <span>Campus Pickup Fee</span>
-                       <span>{pickupFee === 0 ? 'Free' : `$${Number(pickupFee).toFixed(2)}`}</span>
+                       <span>{pickupFee === 0 ? 'Free' : `₦${Number(pickupFee).toFixed(2)}`}</span>
                      </div>
                      {/* Applied Discount */}
                      {appliedDiscount > 0 && (
                        <div className="flex justify-between text-zervia-600 font-medium bg-green-50 p-2 rounded">
                          {/* Display code if available (handleCouponApply might need adjustment if needed) */}
                          <span>Discount {appliedCouponCode ? `(${appliedCouponCode})` : ''}</span>
-                         <span className="text-green-700">-${Number(appliedDiscount).toFixed(2)}</span>
+                         <span className="text-green-700">-₦{Number(appliedDiscount).toFixed(2)}</span>
                        </div>
                      )}
                    </div>
@@ -250,7 +247,7 @@ export default function CartPage() {
                    {/* Estimated Total */}
                    <div className="border-t border-gray-200 pt-4 flex justify-between font-bold text-zervia-900 text-lg">
                      <span>Estimated Total</span>
-                     <span>${Number(total).toFixed(2)}</span> 
+                     <span>₦{Number(total).toFixed(2)}</span> 
                    </div>
                  </CardContent>
                  <CardFooter className="p-6 border-t border-gray-100">
@@ -279,41 +276,57 @@ export default function CartPage() {
          <div className="mt-16">
             <h2 className="text-xl font-bold text-zervia-900 mb-6">You Might Also Like</h2>
              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                {recommendedProducts.map((recProduct) => (
-                    <div key={recProduct.id} className="group">
-                      {/* ... (Recommend product card content - no Add to Cart needed here) ... */}
-                       <Link href={`/product/${recProduct.slug}`}>
-                         <div className="relative h-56 rounded-lg overflow-hidden bg-zervia-50 mb-4">
-                           <Image
-                             src={recProduct.image || '/placeholder-product.jpg'}
-                             alt={recProduct.name}
-                             fill
-                             className="object-cover transition-transform group-hover:scale-105"
-                           />
-                         </div>
-                       </Link>
-                       <Link href={`/product/${recProduct.slug}`} className="group">
-                         <h3 className="font-medium text-sm text-zervia-900 group-hover:text-zervia-600 transition-colors truncate">
-                           {recProduct.name}
-                         </h3>
-                       </Link>
-                       <div className="flex items-center mt-1">
-                         <div className="flex">
-                           {[...Array(5)].map((_, i) => (
-                             <Star 
-                               key={i}
-                               size={12}
-                               className={i < Math.floor(recProduct.rating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
-                             />
-                           ))}
-                         </div>
-                         <span className="ml-1 text-xs text-zervia-500">({recProduct.reviews})</span>
-                       </div>
-                       <div className="mt-2 font-medium text-sm text-zervia-900">
-                          <span>${recProduct.price.toFixed(2)}</span>
-                       </div>
+                {isLoadingRecommended ? (
+                  // Show loading state for recommended products
+                  Array(4).fill(0).map((_, i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="h-56 bg-gray-200 rounded-lg mb-4"></div>
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                     </div>
-                ))}
+                  ))
+                ) : recommendedProducts.length > 0 ? (
+                  // Show recommended products
+                  recommendedProducts.map((recProduct) => (
+                      <div key={recProduct.id} className="group">
+                        <Link href={`/product/${recProduct.slug}`}>
+                          <div className="relative h-56 rounded-lg overflow-hidden bg-zervia-50 mb-4">
+                            <Image
+                              src={recProduct.image || '/placeholder-product.jpg'}
+                              alt={recProduct.name}
+                              fill
+                              className="object-cover transition-transform group-hover:scale-105"
+                            />
+                          </div>
+                        </Link>
+                        <Link href={`/product/${recProduct.slug}`} className="group">
+                          <h3 className="font-medium text-sm text-zervia-900 group-hover:text-zervia-600 transition-colors truncate">
+                            {recProduct.name}
+                          </h3>
+                        </Link>
+                        <div className="flex items-center mt-1">
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star 
+                                key={i}
+                                size={12}
+                                className={i < Math.floor(recProduct.rating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+                              />
+                            ))}
+                          </div>
+                          <span className="ml-1 text-xs text-zervia-500">({recProduct.reviews})</span>
+                        </div>
+                        <div className="mt-2 font-medium text-sm text-zervia-900">
+                            <span>₦{recProduct.price.toFixed(2)}</span>
+                        </div>
+                      </div>
+                  ))
+                ) : (
+                  // Show message if no recommended products
+                  <div className="col-span-4 text-center py-8">
+                    <p className="text-zervia-600">No recommended products available at the moment.</p>
+                  </div>
+                )}
              </div>
           </div> {/* End of Recommended Products */} 
       </div> {/* End of container */}

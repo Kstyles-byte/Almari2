@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,8 @@ const formSchema = z.object({
 
 export function SignInForm() {
   const [isPending, startTransition] = useTransition();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams?.get('callbackUrl') || undefined;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -39,10 +42,11 @@ export function SignInForm() {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log('[SignInForm] Submitting form with values:', values);
+    console.log('[SignInForm] Callback URL:', callbackUrl);
     startTransition(async () => {
       console.log('[SignInForm] Starting transition...');
       console.log('[SignInForm] Calling signInWithSupabase action...');
-      await signInWithSupabase(values);
+      await signInWithSupabase(values, callbackUrl);
       console.log('[SignInForm] Transition function finished (may have redirected).');
     });
   }

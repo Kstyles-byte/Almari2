@@ -77,7 +77,7 @@ const ProductCard = ({ product }: { product: ShowcaseProduct }) => {
       <CardFooter className="flex items-center justify-between pt-0">
         <div>
           <div className="flex items-center">
-            <p className="font-semibold text-lg text-zervia-900">${product.price.toFixed(2)}</p>
+            <p className="font-semibold text-lg text-zervia-900">₦{product.price.toFixed(2)}</p>
           </div>
         </div>
         <Button size="sm" variant="ghost" className="p-0 h-8 w-8 rounded-full hover:bg-zervia-100">

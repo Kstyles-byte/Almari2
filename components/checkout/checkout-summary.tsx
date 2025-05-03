@@ -41,7 +41,7 @@ export function CheckoutSummary({ items, subtotal, discount, shipping, tax, tota
                 <h3 className="font-medium text-sm">{item.name}</h3>
                 <div className="flex justify-between mt-1">
                   <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
-                  <p className="text-sm font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                  <p className="text-sm font-medium">₦{(item.price * item.quantity).toFixed(2)}</p>
                 </div>
                 <p className="text-xs text-gray-500">Sold by: {item.vendor}</p>
               </div>
@@ -53,25 +53,25 @@ export function CheckoutSummary({ items, subtotal, discount, shipping, tax, tota
         <div className="space-y-2 pt-2">
           <div className="flex justify-between text-sm">
             <span>Subtotal</span>
-            <span>${subtotal.toFixed(2)}</span>
+            <span>₦{subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span>Discount</span>
-            <span>${discount.toFixed(2)}</span>
+            <span>₦{discount.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span>Shipping</span>
-            <span>{shipping > 0 ? `$${shipping.toFixed(2)}` : 'Free'}</span>
+            <span>{shipping > 0 ? `₦${shipping.toFixed(2)}` : 'Free'}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span>Tax</span>
-            <span>${tax.toFixed(2)}</span>
+            <span>₦{tax.toFixed(2)}</span>
           </div>
           
           {/* Total */}
           <div className="flex justify-between text-base font-semibold pt-2 mt-2 border-t">
             <span>Total</span>
-            <span>${total.toFixed(2)}</span>
+            <span>₦{total.toFixed(2)}</span>
           </div>
         </div>
       </CardContent>

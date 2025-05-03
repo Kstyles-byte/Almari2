@@ -1,29 +1,84 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Notification, Order, Customer, Vendor, Agent } from '../../types/supabase';
+import type { Database } from '../../types/supabase';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// Define types locally to avoid dependency issues
+interface Notification {
+  id: string;
+  userId: string; // Corresponds to user_id
+  title: string;
+  message: string;
+  type: string; // Corresponds to NotificationType enum
+  orderId?: string | null; // Corresponds to order_id
+  returnId?: string | null; // Corresponds to return_id
+  isRead: boolean; // Corresponds to is_read
+  createdAt: string; // Corresponds to created_at
+  // No updatedAt needed, assuming DB handles it or not required here
+}
+
+// Simplified placeholder types - rely on generated types where possible
+interface Order {
+  id: string;
+  customer_id: string;
+  agent_id: string | null;
+  pickup_code: string | null;
+  // Add other relevant snake_case fields
+}
+
+interface OrderItem {
+    vendor_id: string; // snake_case
+    order_id: string;
+    // Add other relevant snake_case fields
+}
+
+interface Customer {
+  user_id: string;
+  id: string;
+  // Add other relevant snake_case fields
+}
+
+interface Vendor {
+  user_id: string;
+  id: string;
+  // Add other relevant snake_case fields
+}
+
+interface Agent {
+  user_id: string;
+  id: string;
+  // Add other relevant snake_case fields
+}
+
+interface Return {
+    id: string;
+    customer_id: string;
+    order_id: string | null;
+    vendor_id: string; // Might need to fetch this separately or via relation
+    // Add other relevant snake_case fields
+}
+
+
+// Define NotificationType type based on the database schema
+type NotificationType = Database['public']['Enums']['NotificationType'];
+
+// Helper function to get Supabase client
+const getSupabaseClient = () => {
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // Log at the time of client creation attempt
+  console.log('Attempting to create Supabase client (Notification Service):');
+console.log('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'defined' : 'undefined');
+  console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'defined' : 'undefined'); // Check both possible URL vars
+  console.log('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceRoleKey ? 'defined' : 'undefined');
 
 if (!supabaseUrl || !supabaseServiceRoleKey) {
-  console.error("Supabase URL or Service Role Key is missing in environment variables for notification service.");
-}
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    console.error("Supabase URL or Service Role Key is missing in environment variables when creating client for notification service.");
+    throw new Error("Supabase environment variables missing for notification service.");
+  }
 
-// Define NotificationType enum (adjust values based on your actual needs/enums)
-type NotificationType = 
-  | "ORDER_STATUS_CHANGE"
-  | "PICKUP_READY"
-  | "ORDER_PICKED_UP"
-  | "RETURN_REQUESTED"
-  | "RETURN_APPROVED"
-  | "RETURN_REJECTED"
-  | "REFUND_PROCESSED"
-  | "PRODUCT_APPROVED" // Added based on other actions
-  | "PRODUCT_REJECTED" // Added based on other actions
-  | "PRODUCT_STATUS_UPDATED" // Added based on other actions
-  | "PRODUCT_UPDATED" // Added based on other actions
-  | "PRODUCT_DELETED"; // Added based on other actions
+  // Remove placeholder logic
+  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
+};
 
 /**
  * Create a new notification
@@ -35,22 +90,25 @@ export async function createNotification(data: {
   type: NotificationType;
   orderId?: string | null; // Allow null
   returnId?: string | null; // Allow null
-}): Promise<{ success: boolean; notification?: Notification | null; error?: string }> {
+  referenceUrl?: string | null; // Added referenceUrl
+}): Promise<{ success: boolean; notification?: any; error?: string }> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
-    // Map NotificationType to string if needed by DB schema
+    // Map camelCase to snake_case for database fields
     const insertData = {
-      userId: data.userId,
+      user_id: data.userId,
       title: data.title,
       message: data.message,
-      type: data.type as string,
-      orderId: data.orderId || null, // Ensure null is passed if undefined
-      returnId: data.returnId || null,
-      isRead: false, // Default to unread
-      // createdAt/updatedAt handled by DB
+      type: data.type,
+      order_id: data.orderId || null, // Ensure null is passed if undefined
+      return_id: data.returnId || null,
+      reference_url: data.referenceUrl || null, // Added reference_url
+      is_read: false, // Default to unread
+      // created_at handled by DB
     };
 
     const { data: notification, error } = await supabase
-      .from('Notification') // Ensure table name matches
+      .from('Notification')
       .insert(insertData)
       .select()
       .single();
@@ -75,46 +133,37 @@ export async function getUserNotifications(userId: string, options?: {
   limit?: number;
   unreadOnly?: boolean;
 }) {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const page = options?.page || 1;
     const limit = options?.limit || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { userId };
-
-    if (options?.unreadOnly) {
-      where.isRead = false;
-    }
-
-    // Fetch notifications with relations
-    const { data: notifications, error: fetchError } = await supabase
+    // Build the query conditionally
+    let query = supabase
       .from('Notification')
       .select(`
         *,
-        Order:orderId (*), 
-        Return:returnId (*)
-      `)
-      .eq('userId', userId)
-      .eq('isRead', options?.unreadOnly === true) // Use strict boolean check
-      .order('createdAt', { ascending: false })
+        Order:order_id (*), 
+        Return:return_id (*)
+      `, { count: 'exact' })
+      .eq('user_id', userId);
+
+    if (options?.unreadOnly === true) {
+      query = query.eq('is_read', false);
+    }
+
+    query = query.order('created_at', { ascending: false })
       .range(skip, skip + limit - 1);
+
+    const { data: notifications, error: fetchError, count } = await query;
 
     if (fetchError) {
         console.error("Error fetching user notifications:", fetchError.message);
         throw fetchError;
     }
 
-    // Get total count separately
-    const { count, error: countError } = await supabase
-      .from('Notification')
-      .select('*' , { count: 'exact', head: true })
-      .eq('userId', userId)
-      .eq('isRead', options?.unreadOnly === true);
-
-    if (countError) {
-        console.error("Error fetching notification count:", countError.message);
-        throw countError;
-    }
+    // Note: The count comes from the same query now due to { count: 'exact' }
 
     return {
       data: notifications || [],
@@ -127,7 +176,6 @@ export async function getUserNotifications(userId: string, options?: {
     };
   } catch (error) {
     console.error("Error in getUserNotifications service:", error);
-    // Return default structure on error
     return {
       data: [],
       meta: {
@@ -144,12 +192,13 @@ export async function getUserNotifications(userId: string, options?: {
  * Get unread notification count for a user
  */
 export async function getUnreadNotificationCount(userId: string): Promise<{ success: boolean; count?: number | null; error?: string }> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const { count, error } = await supabase
       .from('Notification')
       .select('*' , { count: 'exact', head: true })
-      .eq('userId', userId)
-      .eq('isRead', false);
+      .eq('user_id', userId)
+      .eq('is_read', false);
 
     if (error) {
         console.error("Error getting unread notification count:", error.message);
@@ -167,10 +216,11 @@ export async function getUnreadNotificationCount(userId: string): Promise<{ succ
  * Mark notification as read
  */
 export async function markNotificationAsRead(notificationId: string) {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
     const { data: notification, error } = await supabase
       .from('Notification')
-      .update({ isRead: true })
+      .update({ is_read: true })
       .eq('id', notificationId)
       .select()
       .single();
@@ -191,12 +241,18 @@ export async function markNotificationAsRead(notificationId: string) {
  * Mark all notifications as read for a user
  */
 export async function markAllNotificationsAsRead(userId: string) {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
-    await supabase
+    const { error } = await supabase // Destructure only error if data is not needed
       .from('Notification')
-      .update({ isRead: true })
-      .eq('userId', userId)
-      .eq('isRead', false);
+      .update({ is_read: true })
+      .eq('user_id', userId)
+      .eq('is_read', false);
+    
+     if (error) {
+       console.error("Error marking all notifications as read:", error.message);
+       throw new Error(`Failed to mark all notifications as read: ${error.message}`);
+     }
     
     return { success: true };
   } catch (error) {
@@ -209,11 +265,17 @@ export async function markAllNotificationsAsRead(userId: string) {
  * Delete a notification
  */
 export async function deleteNotification(notificationId: string) {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
-    await supabase
+    const { error } = await supabase
       .from('Notification')
       .delete()
       .eq('id', notificationId);
+    
+    if (error) {
+      console.error("Error deleting notification:", error.message);
+      throw new Error(`Failed to delete notification: ${error.message}`);
+    }
     
     return { success: true };
   } catch (error) {
@@ -222,180 +284,246 @@ export async function deleteNotification(notificationId: string) {
   }
 }
 
-/**
- * Create order status change notification(s) for relevant users
- */
-export async function createOrderStatusNotification(orderId: string, status: string): Promise<{ success: boolean; error?: string }> {
+// --- Helper functions to create specific notification types --- //
+
+// Helper to fetch order details (customer ID, vendor ID)
+async function getOrderDetails(orderId: string): Promise<{ customerId?: string; vendorId?: string; error?: string }> {
+  const supabase = getSupabaseClient(); // Get client instance
   try {
-    // Get order details including related user IDs using Supabase
+     // Fetch the OrderItem first to get vendorId, then the Order for customerId
+     // Ensure selected columns match the actual schema (snake_case)
+     const { data: orderItem, error: itemError } = await supabase
+      .from('OrderItem')
+      .select('vendor_id, order_id') // Use snake_case
+      .eq('order_id', orderId)
+      .limit(1) // Assuming one item is enough to get vendorId
+      .maybeSingle(); // Use maybeSingle if it might not exist
+
+    if (itemError) {
+        console.error('Error fetching order item for details:', itemError?.message);
+        // Attempt to fetch Order directly as fallback
+        const { data: orderData, error: orderError } = await supabase
+            .from('Order')
+            .select('customer_id') // Use snake_case
+            .eq('id', orderId)
+            .maybeSingle();
+        if (orderError || !orderData) {
+            console.error('Error fetching order details directly:', orderError?.message);
+            return { error: 'Failed to fetch order details' };
+        }
+        // Important: Check if customer_id exists before returning
+        return { customerId: orderData.customer_id };
+    }
+
+    // If orderItem was fetched successfully
+    if (!orderItem) {
+        console.error('Order item not found for order:', orderId);
+        return { error: 'Order item details not found' };
+    }
+
+    // Now fetch the Order for customer_id using the order_id from the item
     const { data: order, error: orderError } = await supabase
       .from('Order')
-      .select(`
-        id,
-        customerId, 
-        agentId,
-        Customer:customerId ( userId ),
-        Agent:agentId ( userId ),
-        OrderItem ( vendorId, Vendor:vendorId ( userId ) )
-      `)
-      .eq('id', orderId)
-      .single();
+      .select('customer_id') // Use snake_case
+      .eq('id', orderItem.order_id) // Use snake_case from fetched item
+      .maybeSingle();
 
-    if (orderError) {
-        console.error("Error fetching order for notification:", orderError.message);
-        if (orderError.code === 'PGRST116') return { success: false, error: "Order not found" };
-        throw new Error(`Failed to fetch order details: ${orderError.message}`);
-    }
-    if (!order) {
-      return { success: false, error: "Order not found (post-fetch check)" };
+    if (orderError || !order) {
+      console.error('Error fetching order for customer ID:', orderError?.message);
+      // Return vendorId even if customer fetch fails
+      return { vendorId: orderItem.vendor_id, error: 'Failed to fetch customer ID' };
     }
 
-    // Cast to any for easier nested access, or use optional chaining
-    const orderData = order as any;
-
-    // Determine notification details based on status
-    let title = "Order Status Updated";
-    let message = `Your order #${orderData.id} has been updated to ${status}.`;
-    let type: NotificationType = "ORDER_STATUS_CHANGE";
-
-    if (status === 'PAYMENT_FAILED') {
-        title = "Payment Failed";
-        message = `Payment for your order #${orderData.id} failed. Please try again.`;
-    } else if (status === 'PROCESSING') {
-        title = "Order Processing";
-        message = `Your order #${orderData.id} is now being processed.`;
-    } // Add more cases 
-
-    // --- Create notifications --- 
-    const notificationPromises: Promise<any>[] = [];
-
-    // 1. Customer notification (Use optional chaining/safe access)
-    const customerUserId = orderData.Customer?.userId;
-    if (customerUserId) {
-        notificationPromises.push(createNotification({
-            userId: customerUserId,
-            title: title,
-            message: message,
-            type: type,
-            orderId: orderData.id,
-        }));
-    } else if (orderData.customerId) {
-        console.warn(`Could not find customer user ID for customer ${orderData.customerId} on order ${orderData.id}`);
-    }
-
-    // 2. Vendor notifications (Use optional chaining/safe access)
-    const vendorUserIds = new Set<string>();
-    orderData.OrderItem?.forEach((item: any) => { // Assert item as any or define inline type
-        if (item.Vendor?.userId) {
-            vendorUserIds.add(item.Vendor.userId);
-        }
-    });
-
-    vendorUserIds.forEach(vendorUserId => {
-        notificationPromises.push(createNotification({
-            userId: vendorUserId,
-            title: title,
-            message: `Order #${orderData.id} involving your product(s) has been updated to ${status}.`, 
-            type: type,
-            orderId: orderData.id,
-        }));
-    });
-
-    // 3. Agent notification (Use optional chaining/safe access)
-    const agentUserId = orderData.Agent?.userId;
-    if (orderData.agentId && agentUserId) {
-         notificationPromises.push(createNotification({
-            userId: agentUserId,
-            title: title,
-            message: `Order #${orderData.id} assigned to you has been updated to ${status}.`, 
-            type: type,
-            orderId: orderData.id,
-        }));
-    } else if (orderData.agentId) {
-        console.warn(`Could not find agent user ID for agent ${orderData.agentId} on order ${orderData.id}`);
-    }
-
-    // Wait for all notifications to be created
-    const results = await Promise.allSettled(notificationPromises);
-    
-    results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-            console.error(`Failed to create notification ${index}:`, result.reason);
-        } else if (result.value && !result.value.success) {
-             console.error(`Failed to create notification ${index} (service error):`, result.value.error);
-        }
-    });
-
-    return { success: true };
+    // Both IDs fetched successfully
+    return { customerId: order.customer_id, vendorId: orderItem.vendor_id };
 
   } catch (error) {
-    console.error("Error creating order status notification:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Failed to create order status notification" };
+      console.error('Unexpected error in getOrderDetails:', error);
+      return { error: 'Failed to fetch order details' };
   }
 }
 
 /**
- * Create pickup status change notification
+ * Create Order Status Notification (for Customer & Vendor)
  */
-export async function createPickupStatusNotification(orderId: string, status: string): Promise<{ success: boolean; error?: string }> {
+export async function createOrderStatusNotification(orderId: string, status: string): Promise<{ success: boolean; error?: string }> {
+   const supabase = getSupabaseClient(); // Get client instance
   try {
-    // Get order with customer and agent
-    const { data: order, error: orderError } = await supabase
-      .from('Order')
-      .select(`
-        id, 
-        customerId, 
-        agentId, 
-        Customer:customerId ( userId ), 
-        Agent:agentId ( userId, name, location )
-      `)
-      .eq('id', orderId)
-      .single();
-
-    if (orderError || !order) {
-        console.error("Error fetching order for pickup notification:", orderError?.message);
-        return { success: false, error: "Order not found" };
+    const details = await getOrderDetails(orderId);
+    // Check if BOTH IDs are present
+    if (details.error || !details.customerId || !details.vendorId) {
+      console.error(`Missing details for order ${orderId}:`, details);
+      return { success: false, error: details.error || "Missing customer/vendor ID for notification." };
     }
 
-    // Use optional chaining for safe access
-    const orderData = order as any; // Cast for easier access or use explicit checks
-    const customerUserId = orderData.Customer?.userId;
-    const agentUserId = orderData.Agent?.userId;
-    const agentName = orderData.Agent?.name || 'the agent location';
-    const agentLocation = orderData.Agent?.location || 'specified location';
+    const { customerId, vendorId } = details;
 
-    if (status === "READY_FOR_PICKUP") {
-      // Notify customer
-      if (customerUserId) {
+    // Customize messages based on status
+    let customerMessage = '';
+    let vendorMessage = '';
+    // Use the correct NotificationType values based on your ENUM definition
+    let notificationType: NotificationType;
+
+    switch (status.toUpperCase()) { // Convert status to uppercase for case-insensitivity
+      case 'PLACED': // Assuming PLACED corresponds to ORDER_STATUS_CHANGE or a specific type
+        customerMessage = `Your order #${orderId.substring(0, 6)} has been placed.`;
+        vendorMessage = `New order #${orderId.substring(0, 6)} received.`;
+        notificationType = 'ORDER_STATUS_CHANGE'; // Example: Use a general type
+        break;
+      case 'PROCESSING':
+        customerMessage = `Your order #${orderId.substring(0, 6)} is being processed.`;
+        vendorMessage = `Order #${orderId.substring(0, 6)} is now processing.`;
+        notificationType = 'ORDER_STATUS_CHANGE';
+        break;
+      case 'SHIPPED': // Assuming 'SHIPPED' means ready for pickup agent
+        customerMessage = `Your order #${orderId.substring(0, 6)} is ready for pickup.`; // Changed message slightly
+        vendorMessage = `Order #${orderId.substring(0, 6)} is marked as ready for agent pickup.`;
+        notificationType = 'PICKUP_READY'; // This seems more appropriate if SHIPPED means ready for pickup
+        break;
+      case 'DELIVERED': // Assuming 'DELIVERED' means picked up by customer
+        customerMessage = `Your order #${orderId.substring(0, 6)} has been picked up.`;
+        vendorMessage = `Order #${orderId.substring(0, 6)} has been picked up by the customer.`;
+        notificationType = 'ORDER_PICKED_UP'; // Use the specific type
+        break;
+      case 'CANCELLED':
+        customerMessage = `Your order #${orderId.substring(0, 6)} has been cancelled.`;
+        vendorMessage = `Order #${orderId.substring(0, 6)} has been cancelled.`;
+        notificationType = 'ORDER_STATUS_CHANGE';
+        break;
+       case 'PAYMENT_FAILED':
+        customerMessage = `Payment for order #${orderId.substring(0, 6)} failed. Please update payment.`;
+        vendorMessage = `Payment failed for order #${orderId.substring(0, 6)}.`;
+        notificationType = 'ORDER_STATUS_CHANGE'; // Use a general type, or create specific one
+        break;
+      default:
+        console.warn(`Unknown order status for notification: ${status}`);
+        return { success: true }; // Don't create notification for unknown status
+    }
+
+    // Create notification for Customer
+    await createNotification({
+      userId: customerId,
+      title: `Order Update`, // Simplified title
+      message: customerMessage,
+      type: notificationType,
+      orderId: orderId,
+      referenceUrl: `/orders/${orderId}` // Example reference URL
+    });
+
+    // Fetch Vendor's user_id
+    const { data: vendorUser, error: vendorUserError } = await supabase
+      .from('Vendor')
+      .select('user_id')
+      .eq('id', vendorId)
+      .single();
+
+    if (vendorUserError || !vendorUser) {
+        console.error(`Could not fetch user ID for vendor ${vendorId}`);
+        // Proceed without vendor notification or return error?
+    } else {
+        await createNotification({
+          userId: vendorUser.user_id, // Send to Vendor's user_id
+          title: `Order Update`, // Simplified title
+          message: vendorMessage,
+          type: notificationType,
+          orderId: orderId,
+          referenceUrl: `/vendor/orders/${orderId}` // Example reference URL
+        });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error creating order status notification:", error);
+    return { success: false, error: "Failed to create order status notification" };
+  }
+}
+
+/**
+ * Create Pickup Status Notification (for Customer & Agent)
+ */
+export async function createPickupStatusNotification(orderId: string, status: 'PICKUP_READY' | 'ORDER_PICKED_UP'): Promise<{ success: boolean; error?: string }> {
+   const supabase = getSupabaseClient(); // Get client instance
+  try {
+     // Need Customer ID and Agent ID for the order
+     // Use snake_case for column names
+    const { data: order, error: orderError } = await supabase
+      .from('Order')
+      .select('customer_id, agent_id, pickup_code') // Fetch necessary IDs and code (snake_case)
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (orderError || !order) {
+        console.error("Error fetching order for pickup notification or missing data:", orderError?.message);
+        return { success: false, error: "Failed to get order details for pickup notification." };
+    }
+
+    // Check for null/undefined IDs
+    if (!order.customer_id || !order.agent_id) {
+        console.error(`Missing customer_id (${order.customer_id}) or agent_id (${order.agent_id}) for order ${orderId}`);
+        return { success: false, error: "Order is missing customer or agent assignment." };
+    }
+
+    const { customer_id, agent_id, pickup_code } = order; // Use snake_case variables
+
+    let customerMessage = '';
+    let agentMessage = '';
+    const notificationType: NotificationType = status; // Type is directly the status here
+
+    switch (status) {
+      case 'PICKUP_READY':
+        customerMessage = `Your order #${orderId.substring(0, 6)} is ready for pickup! Your code is ${pickup_code || 'N/A'}.`;
+        agentMessage = `Order #${orderId.substring(0, 6)} is ready for customer pickup.`;
+        break;
+      case 'ORDER_PICKED_UP':
+        customerMessage = `Your order #${orderId.substring(0, 6)} has been successfully picked up.`;
+        agentMessage = `Order #${orderId.substring(0, 6)} was successfully picked up by the customer.`;
+        break;
+      default:
+        // Should not happen with the explicit type in the function signature
+        console.warn(`Unknown pickup status for notification: ${status}`);
+        return { success: true };
+    }
+
+    // Fetch Customer's user_id
+    const { data: customerUser, error: customerUserError } = await supabase
+      .from('Customer')
+      .select('user_id')
+      .eq('id', customer_id)
+      .single();
+
+    if (customerUserError || !customerUser) {
+        console.error(`Could not fetch user ID for customer ${customer_id}`);
+        // Decide how to handle - maybe skip customer notification?
+    } else {
           await createNotification({
-            userId: customerUserId,
-            title: "Order Ready for Pickup",
-            message: `Your order #${orderData.id} is ready for pickup at ${agentName} (${agentLocation})`,
-            type: "PICKUP_READY",
-            orderId,
-          });
-      }
-    } else if (status === "COMPLETED") { // Assuming status matches enum/logic
-      // Notify customer
-      if (customerUserId) {
+            userId: customerUser.user_id,
+            title: 'Pickup Update',
+            message: customerMessage,
+            type: notificationType,
+            orderId: orderId,
+            referenceUrl: `/orders/${orderId}`
+        });
+    }
+
+    // Fetch Agent's user_id
+    const { data: agentUser, error: agentUserError } = await supabase
+      .from('Agent')
+      .select('user_id')
+      .eq('id', agent_id)
+      .single();
+
+    if (agentUserError || !agentUser) {
+        console.error(`Could not fetch user ID for agent ${agent_id}`);
+        // Decide how to handle - maybe skip agent notification?
+    } else {
           await createNotification({
-            userId: customerUserId,
-            title: "Order Picked Up",
-            message: `Your order #${orderData.id} has been picked up`,
-            type: "ORDER_PICKED_UP",
-            orderId,
-          });
-      }
-      // Notify agent
-      if (agentUserId) {
-          await createNotification({
-            userId: agentUserId,
-            title: "Order Picked Up",
-            message: `Order #${orderData.id} has been picked up by the customer`,
-            type: "ORDER_PICKED_UP",
-            orderId,
-          });
-      }
+            userId: agentUser.user_id, // Send to Agent's user_id
+            title: 'Pickup Update',
+            message: agentMessage,
+            type: notificationType,
+            orderId: orderId,
+            referenceUrl: `/agent/orders/${orderId}`
+        });
     }
 
     return { success: true };
@@ -406,115 +534,110 @@ export async function createPickupStatusNotification(orderId: string, status: st
 }
 
 /**
- * Create return status change notification
+ * Create Return Status Notification (for Customer, Vendor)
+ * Requires fetching multiple related user IDs.
  */
-export async function createReturnStatusNotification(returnId: string, status: string): Promise<{ success: boolean; error?: string }> {
+export async function createReturnStatusNotification(returnId: string, status: 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'COMPLETED'): Promise<{ success: boolean; error?: string }> {
+   const supabase = getSupabaseClient(); // Get client instance
   try {
-    // Get return with related entities
+    // Fetch Return details along with related IDs (using snake_case)
     const { data: returnData, error: returnError } = await supabase
-      .from('Return') // Assuming table name is 'Return'
+      .from('Return')
       .select(`
         id,
-        customerId,
-        vendorId,
-        agentId,
-        orderId,
-        productId,
-        Customer:customerId ( userId ),
-        Vendor:vendorId ( userId ),
-        Agent:agentId ( userId ),
-        Product:productId ( name )
+        customer_id,
+        order_id,
+        vendor_id
       `)
       .eq('id', returnId)
-      .single();
+      .maybeSingle();
 
     if (returnError || !returnData) {
-        console.error("Error fetching return for notification:", returnError?.message);
-        return { success: false, error: "Return request not found" };
+        console.error("Error fetching return details or return not found:", returnError?.message);
+        return { success: false, error: "Failed to get return details for notification." };
+     }
+
+     // Ensure necessary IDs exist
+     if (!returnData.customer_id || !returnData.vendor_id || !returnData.order_id) {
+         console.error(`Missing IDs in return data for return ${returnId}:`, returnData);
+         return { success: false, error: "Return data incomplete." };
+     }
+
+    const { customer_id, vendor_id, order_id } = returnData;
+
+    let customerMessage = '';
+    let vendorMessage = '';
+    // Map the incoming status to the correct NotificationType ENUM
+    let notificationType: NotificationType;
+
+    switch (status) {
+      case 'REQUESTED':
+        customerMessage = `Your return request for order #${order_id.substring(0, 6)} has been received.`;
+        vendorMessage = `Return requested for order #${order_id.substring(0, 6)}.`;
+        notificationType = 'RETURN_REQUESTED';
+        break;
+      case 'APPROVED':
+        customerMessage = `Your return request for order #${order_id.substring(0, 6)} has been approved. Please drop off the item.`;
+        vendorMessage = `Return approved for order #${order_id.substring(0, 6)}.`;
+        notificationType = 'RETURN_APPROVED';
+        break;
+      case 'REJECTED':
+        customerMessage = `Your return request for order #${order_id.substring(0, 6)} has been rejected.`;
+        vendorMessage = `Return rejected for order #${order_id.substring(0, 6)}.`;
+        notificationType = 'RETURN_REJECTED';
+        break;
+      // Assuming REFUND_PROCESSED covers the 'COMPLETED' state
+      case 'COMPLETED':
+        customerMessage = `Your return for order #${order_id.substring(0, 6)} is complete and refund has been processed.`;
+        vendorMessage = `Return process completed for order #${order_id.substring(0, 6)}.`;
+        notificationType = 'REFUND_PROCESSED'; // Use REFUND_PROCESSED from ENUM
+        break;
+      default:
+        console.warn(`Unknown return status for notification: ${status}`);
+        return { success: true };
     }
 
-    // Use optional chaining for safe access
-    const returnInfo = returnData as any; // Cast for easier access or use explicit checks
-    const customerUserId = returnInfo.Customer?.userId;
-    const vendorUserId = returnInfo.Vendor?.userId;
-    const agentUserId = returnInfo.Agent?.userId;
-    const productName = returnInfo.Product?.name || 'the product';
+    // Fetch Customer's user_id
+    const { data: customerUser, error: customerUserError } = await supabase
+      .from('Customer')
+      .select('user_id')
+      .eq('id', customer_id)
+      .single();
 
-    if (status === "REQUESTED") {
-      // Notify vendor
-      if(vendorUserId) {
+    if (!customerUserError && customerUser) {
           await createNotification({
-            userId: vendorUserId,
-            title: "Return Requested",
-            message: `A return has been requested for product ${productName} from order #${returnInfo.orderId}`,
-            type: "RETURN_REQUESTED",
-            returnId,
-          });
-      }
-      // Notify agent (if applicable to your return flow)
-      if(agentUserId) {
+          userId: customerUser.user_id,
+          title: 'Return Update',
+          message: customerMessage,
+          type: notificationType,
+          orderId: order_id,
+          returnId: returnId,
+          referenceUrl: `/returns/${returnId}`
+        });
+    } else {
+         console.error(`Could not fetch user ID for customer ${customer_id}`);
+    }
+
+    // Fetch Vendor's user_id
+    const { data: vendorUser, error: vendorUserError } = await supabase
+      .from('Vendor')
+      .select('user_id')
+      .eq('id', vendor_id)
+      .single();
+
+     if (!vendorUserError && vendorUser) {
           await createNotification({
-            userId: agentUserId,
-            title: "Return Requested",
-            message: `A return has been requested for product ${productName} from order #${returnInfo.orderId}`,
-            type: "RETURN_REQUESTED",
-            returnId,
-          });
-      }
-    } else if (status === "APPROVED") {
-      // Notify customer
-      if (customerUserId) {
-          await createNotification({
-            userId: customerUserId,
-            title: "Return Approved",
-            message: `Your return request for product ${productName} has been approved`,
-            type: "RETURN_APPROVED",
-            returnId,
-          });
-      }
-      // Notify agent (if applicable)
-      if (agentUserId) {
-          await createNotification({
-            userId: agentUserId,
-            title: "Return Approved",
-            message: `Return for product ${productName} from order #${returnInfo.orderId} has been approved`,
-            type: "RETURN_APPROVED",
-            returnId,
-          });
-      }
-    } else if (status === "REJECTED") {
-      // Notify customer
-      if (customerUserId) {
-          await createNotification({
-            userId: customerUserId,
-            title: "Return Rejected",
-            message: `Your return request for product ${productName} has been rejected`,
-            type: "RETURN_REJECTED",
-            returnId,
-          });
-      }
-    } else if (status === "REFUND_PROCESSED") {
-      // Notify customer
-      if (customerUserId) {
-          await createNotification({
-            userId: customerUserId,
-            title: "Refund Processed",
-            message: `Your refund for product ${productName} has been processed`,
-            type: "REFUND_PROCESSED",
-            returnId,
-          });
-      }
-      // Notify vendor
-      if (vendorUserId) {
-          await createNotification({
-            userId: vendorUserId,
-            title: "Refund Processed",
-            message: `Refund for product ${productName} from order #${returnInfo.orderId} has been processed`,
-            type: "REFUND_PROCESSED",
-            returnId,
-          });
-      }
-    } // Add more statuses as needed
+          userId: vendorUser.user_id,
+          title: 'Return Update',
+          message: vendorMessage,
+          type: notificationType,
+          orderId: order_id,
+          returnId: returnId,
+          referenceUrl: `/vendor/returns/${returnId}`
+        });
+     } else {
+         console.error(`Could not fetch user ID for vendor ${vendor_id}`);
+     }
 
     return { success: true };
   } catch (error) {

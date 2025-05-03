@@ -5,6 +5,8 @@ import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Toaster } from "sonner";
 import AuthProvider from "@/components/providers/AuthProvider";
+import { LoadingProvider } from "@/components/providers/LoadingProvider";
+import PageWrapper from "@/components/layout/page-wrapper";
 
 // Initialize the Inter font with Latin subset
 const inter = Inter({
@@ -33,12 +35,14 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${montserrat.variable} font-sans`}>
       <body className="min-h-screen bg-zervia-50 antialiased flex flex-col">
         <AuthProvider>
-          <div className="flex flex-col min-h-screen">
-            <Header />
-            <main className="flex-grow">{children}</main>
-            <Footer />
-          </div>
-          <Toaster />
+          <LoadingProvider>
+            <div className="flex flex-col min-h-screen">
+              <Header />
+              <PageWrapper>{children}</PageWrapper>
+              <Footer />
+            </div>
+            <Toaster />
+          </LoadingProvider>
         </AuthProvider>
       </body>
     </html>

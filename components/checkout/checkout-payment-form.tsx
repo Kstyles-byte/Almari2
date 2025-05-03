@@ -41,7 +41,7 @@ export function CheckoutPaymentForm({
         setError(result.error);
         setIsLoading(false);
       } else if ('success' in result && result.success && result.payment?.authorizationUrl) {
-        window.location.href = result.authorizationUrl;
+        window.location.href = result.payment.authorizationUrl;
       } else if ('error' in result && result.error) {
         setError(result.error);
         setIsLoading(false);
@@ -139,7 +139,7 @@ export function CheckoutPaymentForm({
         )}
         
         <div className="pt-2 text-sm text-gray-500">
-          <p>Amount to be charged: <span className="font-medium text-gray-900">${amount.toFixed(2)}</span></p>
+          <p>Amount to be charged: <span className="font-medium text-gray-900">₦{amount.toFixed(2)}</span></p>
           <p>Receipt will be sent to: <span className="font-medium text-gray-900">{email}</span></p>
         </div>
         
@@ -151,10 +151,10 @@ export function CheckoutPaymentForm({
           <Button
             className="w-full bg-zervia-600 hover:bg-zervia-700 text-white"
             onClick={handlePayment}
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Processing..."
           >
-            Pay ${amount.toFixed(2)}
-            {isLoading ? "Processing..." : `Pay NGN ${amount.toFixed(2)}`}
+            Pay NGN {amount.toFixed(2)}
           </Button>
           
           <Button

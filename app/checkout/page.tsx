@@ -1,25 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
+
+// UI Components
 import { CheckoutStepper } from '@/components/checkout/checkout-stepper';
 import { CheckoutInformationForm } from '@/components/checkout/checkout-information-form';
 import { AgentLocationSelector } from '@/components/checkout/agent-location-selector';
-import { CheckoutPaymentForm } from '@/components/checkout/checkout-payment-form';
-import { CheckoutConfirmation } from '@/components/checkout/checkout-confirmation';
 import { CheckoutSummary } from '@/components/checkout/checkout-summary';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { getCart } from '@/actions/cart'; // Assuming getCart is needed for summary
-import { getUserAddresses } from '@/actions/profile'; // Import address action
-import { getActiveAgents } from '@/lib/services/agent'; // Import agent service function
-import type { Tables } from '@/types/supabase'; // Add import for Supabase types
+import { PageTransitionLoader } from '@/components/ui/loader';
 
-// Define Address type locally using 'any' until regenerated types confirm it
-// REMINDER: Run npx supabase gen types... after adding Address table!
-type AddressType = any; // Use 'any' temporarily
-type Address = Tables<'Address'>; // Use the specific Supabase table type
+// Actions and Types
+import { getCart } from '@/actions/cart';
+import { getUserAddresses } from '@/actions/profile';
+import { getActiveAgents } from '@/actions/agent-actions';
+import type { Tables } from '@/types/supabase';
 
-// Define CartItem type locally 
+// Define types
+type Address = Tables<'Address'>;
+
+// Define CartItem type locally
 type CartItemType = {
   id: string;
   quantity: number;
@@ -34,266 +36,353 @@ type CartItemType = {
   };
 };
 
-// Mock agent locations - replace with API call later
-const mockAgents = [
-    {
-    id: '1',
-    name: 'Campus Hub',
-    location: 'Main Building',
-    address: 'Room 101, First Floor, Main Campus Building',
-    timing: 'Mon-Fri: 9am-5pm, Sat: 10am-2pm',
-  },
-  {
-    id: '2',
-    name: 'Student Center',
-    location: 'Student Union',
-    address: 'Student Union Building, Ground Floor, Near Cafeteria',
-    timing: 'Mon-Fri: 8am-8pm, Sat-Sun: 10am-4pm',
-  },
-  {
-    id: '3',
-    name: 'Engineering Block',
-    location: 'Engineering Department',
-    address: 'Engineering Building, Room E204, Second Floor',
-    timing: 'Mon-Fri: 9am-6pm',
-  },
-];
+// Information form data type
+type CheckoutFormData = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  deliveryMethod: 'pickup' | 'delivery';
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  stateProvince?: string;
+  postalCode?: string;
+  country?: string;
+  saveAddress: 'true' | 'false';
+  selectedAddressId?: string;
+};
 
 // Checkout steps
-const CHECKOUT_STEPS = ['Information', 'Pickup Location', 'Payment']; // Remove Confirmation step
+const CHECKOUT_STEPS = ['Information', 'Pickup Location', 'Payment'];
 
 export default function CheckoutPage() {
-  const sessionResult = useSession();
-  const session = sessionResult?.data;
-  const status = sessionResult?.status;
+  // Router and session
   const router = useRouter();
+  const { data: session, status } = useSession();
   
+  // Step state
   const [currentStep, setCurrentStep] = useState(0);
-  const [contactInfo, setContactInfo] = useState<FormData | null>(null);
-  const [checkoutEmail, setCheckoutEmail] = useState<string>('');
-  const [selectedAgentId, setSelectedAgentId] = useState('');
-  const [paymentReference, setPaymentReference] = useState('');
-  const [orderNumber, setOrderNumber] = useState('');
-  const [pickupCode, setPickupCode] = useState('');
+  
+  // Form data state
+  const [checkoutInfo, setCheckoutInfo] = useState<CheckoutFormData | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  
+  // Data loading state
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Loading your cart...');
+  
+  // Cart data
   const [cartItems, setCartItems] = useState<CartItemType[]>([]);
   const [cartError, setCartError] = useState<string | null>(null);
-  const [addresses, setAddresses] = useState<Address[]>([]); // Use the imported Address type
-  const [addressError, setAddressError] = useState<string | null>(null);
-  const [agents, setAgents] = useState<Tables<'Agent'>[]>([]); // State for fetched agents
-  const [agentError, setAgentError] = useState<string | null>(null); // State for agent fetch error
   
-  // Fetch cart and addresses
+  // Address data
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addressError, setAddressError] = useState<string | null>(null);
+  
+  // Agent data
+  const [agents, setAgents] = useState<Tables<'Agent'>[]>([]);
+  const [agentError, setAgentError] = useState<string | null>(null);
+  
+  // Check authentication and load initial data
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login?callbackUrl=/checkout');
+    // If loading, show appropriate message
+    if (status === 'loading') {
+      setLoadingMessage('Checking your login status...');
       return;
     }
-
+    
+    // If not authenticated and not already checking
+    if (status === 'unauthenticated') {
+      console.log('User is not authenticated, will redirect to login');
+      
+      // Give a slight delay to allow for potential silent auth refresh
+      setTimeout(() => {
+        if (status === 'unauthenticated') {
+          toast.error('Please log in to access checkout');
+          router.push('/login?callbackUrl=/checkout');
+        }
+      }, 1000);
+      
+      return;
+    }
+    
+    // If authenticated, load data
     if (status === 'authenticated') {
-      let isMounted = true; // Flag to prevent state updates on unmounted component
-      const fetchData = async () => {
-        setIsLoading(true);
-        setCartError(null);
-        setAddressError(null);
-        setAgentError(null); // Reset agent error
-        
+      setIsLoading(true);
+      setLoadingMessage('Loading your checkout data...');
+      
+      // Flag to prevent state updates if component unmounts
+      let isMounted = true;
+      
+      // Function to load all required data
+      const loadCheckoutData = async () => {
         try {
-          // Fetch cart
-          const cartData = await getCart();
-          if (isMounted) {
-              if (cartData.success && cartData.cart?.items) {
-                setCartItems(cartData.cart.items);
-                 if (cartData.cart.items.length === 0) {
-                    // Redirect to cart if it's empty
-                    router.push('/cart?message=Cannot checkout with an empty cart');
-                    return; 
-                 }
-              } else {
-                setCartError(cartData.message || "Failed to load cart.");
-                setCartItems([]);
-              }
+          console.log('Loading checkout data for authenticated user');
+          
+          // 1. Load cart
+          setLoadingMessage('Loading your cart...');
+          const cartResult = await getCart();
+          
+          if (!isMounted) return;
+          
+          if (!cartResult.success || !cartResult.cart?.items?.length) {
+            console.log('Cart is empty or error occurred:', cartResult);
+            toast.error(cartResult.message || 'Your cart is empty');
+            router.push('/cart');
+            return;
           }
           
-          // Fetch addresses
-          const addressData = await getUserAddresses();
-          if (isMounted) {
-              if (addressData.success) {
-                  setAddresses(addressData.addresses || []);
-              } else {
-                  setAddressError(addressData.error || "Failed to load addresses.");
-                  setAddresses([]);
-              }
+          // Process cart items
+          const processedItems = cartResult.cart.items.map((item: any) => ({
+            id: item.id || 'unknown',
+            quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+            product: {
+              id: item.productId || item.id || 'unknown',
+              name: item.name || 'Unknown Product',
+              slug: item.slug || 'unknown-slug',
+              price: typeof item.price === 'number' ? item.price : 0,
+              inventory: typeof item.inventory === 'number' ? item.inventory : 0,
+              image: item.image || '/placeholder-product.jpg',
+              vendor: item.vendorName || null
+            }
+          }));
+          
+          setCartItems(processedItems);
+          
+          // 2. Load addresses
+          setLoadingMessage('Loading your saved addresses...');
+          const addressResult = await getUserAddresses();
+          
+          if (!isMounted) return;
+          
+          if (addressResult.success) {
+            setAddresses(addressResult.addresses || []);
+          } else {
+            console.warn('Failed to load addresses:', addressResult.error);
+            setAddressError(addressResult.error || 'Failed to load addresses');
+            // Don't block checkout for address errors
           }
           
-          // Fetch active agents
-          const agentData = await getActiveAgents();
-          if (isMounted) {
-              if (agentData.success) {
-                  setAgents(agentData.agents || []);
-              } else {
-                  setAgentError(agentData.error || "Failed to load pickup locations.");
-                  setAgents([]);
-              }
+          // 3. Load agents (pickup locations)
+          setLoadingMessage('Loading pickup locations...');
+          const agentResult = await getActiveAgents();
+          
+          if (!isMounted) return;
+          
+          if (agentResult.success) {
+            setAgents(agentResult.agents || []);
+          } else {
+            console.warn('Failed to load agents:', agentResult.error);
+            setAgentError(agentResult.error || 'Failed to load pickup locations');
+            // Don't block checkout for agent errors
           }
-
-        } catch (err: any) {
-          console.error("Error fetching checkout data:", err);
-           if (isMounted) {
-               setCartError(err.message || "An error occurred loading cart.");
-               setAddressError(err.message || "An error occurred loading addresses.");
-           }
-        } finally {
-          if (isMounted) setIsLoading(false);
+          
+          // Data loading complete - clear any auth errors since we've successfully loaded data
+          setIsLoading(false);
+          setCartError(null);
+          
+        } catch (error) {
+          console.error('Error loading checkout data:', error);
+          
+          if (isMounted) {
+            setCartError('Failed to load checkout data. Please try again.');
+            setIsLoading(false);
+            toast.error('Error loading checkout data');
+          }
         }
       };
       
-      fetchData();
+      // Load all data
+      loadCheckoutData();
       
-      // Cleanup function
-      return () => { isMounted = false; };
+      // Cleanup on unmount
+      return () => {
+        isMounted = false;
+      };
     }
   }, [status, router]);
   
   // Calculate totals from cart state
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
-  // TODO: Add discount, shipping, tax logic later
-  const discount = 0; // Placeholder
+  const subtotal = cartItems.reduce((acc, item) => {
+    if (!item.product || typeof item.product.price !== 'number') {
+      return acc;
+    }
+    return acc + (item.product.price * item.quantity);
+  }, 0);
+  
+  // For now these are placeholders
+  const discount = 0;
   const shipping = 0.00; // Pickup is free
   const tax = subtotal * 0.0; // Placeholder tax rate
   const total = Math.max(0, subtotal + shipping + tax - discount);
   
-  // Map cart items for the summary component
-  const summaryItems = cartItems.map(item => ({
+  // Convert cart items to summary format
+  const summaryItems = cartItems.map(item => {
+    if (!item.product) {
+      return {
+        id: item.id || 'unknown',
+        name: 'Unknown Product',
+        price: 0,
+        quantity: item.quantity || 1,
+        image: '/placeholder-product.jpg',
+        vendor: 'N/A'
+      };
+    }
+    
+    return {
       id: item.id,
-      name: item.product.name,
-      price: item.product.price,
+      name: item.product.name || 'Unnamed Product',
+      price: typeof item.product.price === 'number' ? item.product.price : 0,
       quantity: item.quantity,
-      image: item.product.image || '/placeholder-product.jpg', // Provide fallback
-      vendor: item.product.vendor || 'N/A' // Provide fallback
-  })); 
-
-  // Get the selected agent details
-  const selectedAgent = agents.find(agent => agent.id === selectedAgentId);
+      image: item.product.image || '/placeholder-product.jpg',
+      vendor: item.product.vendor || 'N/A'
+    };
+  });
   
-  // Handlers (keep existing logic for now)
-  const handleAgentSelect = (agentId: string) => {
+  // Handle information form submission
+  const handleSaveInformation = async (data: CheckoutFormData) => {
+    try {
+      console.log('Saving checkout information:', data);
+      
+      // Here you would normally call an API to save this data
+      // For now, we'll just simulate a successful save
+      setCheckoutInfo(data);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving checkout information:', error);
+      return { 
+        success: false, 
+        error: 'Failed to save information. Please try again.' 
+      };
+    }
+  };
+  
+  // Advance to the next step
+  const handleNext = useCallback(() => {
+    setCurrentStep(prev => Math.min(prev + 1, CHECKOUT_STEPS.length - 1));
+  }, []);
+  
+  // Go back to the previous step
+  const handleBack = useCallback(() => {
+    setCurrentStep(prev => Math.max(prev - 1, 0));
+  }, []);
+  
+  // Select an agent
+  const handleSelectAgent = useCallback((agentId: string) => {
+    console.log('Selected agent:', agentId);
     setSelectedAgentId(agentId);
-  };
+  }, []);
   
-  const handlePaymentInit = () => {
-    setIsLoading(true); // Show loading during payment processing
-  };
+  // Show loading state
+  if (isLoading) {
+    return <PageTransitionLoader text={loadingMessage} />;
+  }
   
-  const handlePaymentComplete = (reference: string) => {
-    // TODO: Replace mock order/pickup code generation with real API call
-    // This should likely happen in a server action called by CheckoutPaymentForm
-    setPaymentReference(reference);
-    setOrderNumber(`ORD-${Math.floor(Math.random() * 10000)}`);
-    setPickupCode(`${Math.floor(1000 + Math.random() * 9000)}`);
-    setIsLoading(false);
-    setCurrentStep(3); // Move to confirmation step
-  };
-  
-  const handleNext = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, CHECKOUT_STEPS.length - 1));
-  };
-  
-  const handleBack = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0));
-  };
-
-  // Loading state
-  if (status === 'loading' || (status === 'authenticated' && isLoading)) {
-     return (
-      <div className="container mx-auto p-4 py-8 text-center">
-         <p>Loading checkout...</p>
-         {/* Add Spinner component */} 
+  // Show cart empty state
+  if (cartItems.length === 0) {
+    return (
+      <div className="container mx-auto p-4 py-16">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Your Cart is Empty</h2>
+          <p className="mb-8">Add some items to your cart before proceeding to checkout.</p>
+          <button 
+            onClick={() => router.push('/products')}
+            className="bg-zervia-600 hover:bg-zervia-700 text-white px-6 py-2 rounded-md"
+          >
+            Browse Products
+          </button>
+        </div>
       </div>
     );
   }
   
-  // Handle case where cart is empty after loading
-   if (status === 'authenticated' && !isLoading && cartItems.length === 0 && !cartError) {
-     // Redirect might have already happened, but double-check
-      router.push('/cart?message=Your cart is empty');
-      return (
-           <div className="container mx-auto p-4 py-8 text-center">
-             <p>Your cart is empty. Redirecting...</p>
-           </div>
-        );
-   }
-  
+  // Main checkout UI
   return (
     <div className="container mx-auto p-4 py-8">
       <h1 className="text-2xl font-bold text-zervia-900 mb-8 text-center">Checkout</h1>
       
       <CheckoutStepper steps={CHECKOUT_STEPS} currentStep={currentStep} />
       
-      {(cartError || addressError || agentError) && (
-           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative my-4" role="alert">
-            <strong className="font-bold">Error:</strong>
-            {cartError && <span className="block sm:inline"> {cartError}</span>}
-            {addressError && <span className="block sm:inline"> {addressError}</span>}
-            {agentError && <span className="block sm:inline"> {agentError}</span>}
-          </div>
+      {/* Error Notifications */}
+      {cartItems.length > 0 && cartError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative my-4" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{cartError}</span>
+        </div>
       )}
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
         <div className="lg:col-span-2">
-          {/* Step 1: Information - Pass onSuccess={handleNext} and addresses */}
+          {/* Step 1: Information */}
           {currentStep === 0 && (
             <CheckoutInformationForm
-              onSuccess={(emailFromForm) => {
-                  setCheckoutEmail(emailFromForm);
-                  handleNext(); 
+              onSave={handleSaveInformation}
+              onSuccess={(email) => {
+                toast.success("Information saved!");
+                handleNext();
               }}
               addresses={addresses}
+              initialData={checkoutInfo || undefined}
             />
           )}
           
           {/* Step 2: Agent Location */}
           {currentStep === 1 && (
             <AgentLocationSelector
-              agents={agents} // Pass fetched agents
+              agents={agents}
               selectedAgentId={selectedAgentId}
-              onSelectAgent={handleAgentSelect}
-              onNext={handleNext} // Use the same handleNext
+              onSelectAgent={handleSelectAgent}
+              onNext={handleNext}
               onBack={handleBack}
-              error={agentError} // Pass agent fetch error
+              error={agentError}
             />
           )}
           
-          {/* Step 3: Payment - Add check for contactInfo !== null */}
-          {currentStep === 2 && contactInfo && checkoutEmail && (
-            <CheckoutPaymentForm
-              amount={total}
-              email={checkoutEmail}
-              contactInfo={contactInfo}
-              onPaymentInit={handlePaymentInit}
-              onPaymentComplete={handlePaymentComplete}
-              onBack={handleBack}
-            />
-          )}
-          {/* Optional: Add message if contactInfo is missing at step 2 */} 
-          {currentStep === 2 && (!contactInfo || !checkoutEmail) && (
-             <p className="text-center text-red-500">Cannot proceed to payment. Please go back and complete your information.</p>
+          {/* Step 3: Payment (placeholder) */}
+          {currentStep === 2 && (
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold mb-4">Payment</h2>
+              <p className="text-gray-600 mb-8">
+                This is a placeholder for the payment step. In a real application, you would integrate
+                with a payment processor here.
+              </p>
+              
+              <div className="flex justify-between">
+                <button
+                  onClick={handleBack}
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Back
+                </button>
+                
+                <button
+                  onClick={() => toast.success("Order placed successfully!")}
+                  className="px-4 py-2 bg-zervia-600 text-white rounded-md hover:bg-zervia-700"
+                >
+                  Place Order
+                </button>
+              </div>
+            </div>
           )}
         </div>
         
         {/* Order Summary (always visible) */}
         <div className="lg:col-span-1">
-           {/* Pass mapped items and calculated totals, including shipping */}
-          <CheckoutSummary 
-            items={summaryItems} 
-            subtotal={subtotal} 
-            discount={discount} 
-            shipping={shipping} // Pass the shipping prop
-            tax={tax} 
-            total={total} 
-           />
+          <CheckoutSummary
+            items={summaryItems}
+            subtotal={subtotal}
+            discount={discount}
+            shipping={shipping}
+            tax={tax}
+            total={total}
+          />
         </div>
       </div>
     </div>
-  )
-}
+  );
+} 

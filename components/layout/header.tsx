@@ -2,12 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation'; // Add this import
 import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Icons } from '../icons';
 import { getCart } from '@/actions/cart'; // Import the getCart action
 
 const Header = () => {
+  const pathname = usePathname(); // Get current pathname
+  const isHomePage = pathname === '/'; // Check if we're on home page
+  
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [cartItemCount, setCartItemCount] = useState(0); // State for cart item count
@@ -53,6 +57,13 @@ const Header = () => {
   
   // Handle scroll effect
   useEffect(() => {
+    // Set initial scroll state based on current window position
+    if (window.scrollY > 50) {
+      setIsScrolled(true);
+    } else {
+      setIsScrolled(false);
+    }
+    
     const handleScroll = () => {
       if (window.scrollY > 50) {
         setIsScrolled(true);
@@ -68,9 +79,12 @@ const Header = () => {
   return (
     <header 
       className={`fixed top-0 left-0 w-full z-40 transition-all duration-300 ${
-        isScrolled 
-          ? "bg-white shadow-md py-3" 
-          : "bg-transparent py-5"
+        // Different header styling logic based on page and scroll position
+        isHomePage 
+          ? isScrolled 
+            ? "bg-white shadow-md py-3" 
+            : "bg-transparent py-5"
+          : "bg-white shadow-md py-3" // Non-home pages always have white bg
       }`}
     >
       <div className="container mx-auto px-4">
@@ -79,7 +93,10 @@ const Header = () => {
           <Link href="/" className="flex items-center relative z-50">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">
               <span className="text-zervia-500">Z</span>
-              <span className={isScrolled ? "text-zervia-900" : "text-white"}>ervia</span>
+              <span className={
+                // Text color based on page and scroll position
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
+              }>ervia</span>
             </h1>
           </Link>
 
@@ -88,7 +105,7 @@ const Header = () => {
             <Link 
               href="/products" 
               className={`relative text-sm font-medium ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               } hover:text-zervia-500 transition-colors`}
             >
               Products
@@ -96,7 +113,7 @@ const Header = () => {
             <Link 
               href="/category/women" 
               className={`relative text-sm font-medium ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               } hover:text-zervia-500 transition-colors`}
             >
               Women
@@ -104,7 +121,7 @@ const Header = () => {
             <Link 
               href="/category/men" 
               className={`relative text-sm font-medium ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               } hover:text-zervia-500 transition-colors`}
             >
               Men
@@ -112,7 +129,7 @@ const Header = () => {
             <Link 
               href="/category/kids" 
               className={`relative text-sm font-medium ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               } hover:text-zervia-500 transition-colors`}
             >
               Kids
@@ -120,7 +137,7 @@ const Header = () => {
             <Link 
               href="/category/accessories" 
               className={`relative text-sm font-medium ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               } hover:text-zervia-500 transition-colors`}
             >
               Accessories
@@ -128,7 +145,7 @@ const Header = () => {
             <Link 
               href="/category/home" 
               className={`relative text-sm font-medium ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               } hover:text-zervia-500 transition-colors`}
             >
               Home
@@ -139,7 +156,7 @@ const Header = () => {
           <div className="flex items-center space-x-4">
             <button 
               className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               }`}
             >
               <Search className="h-5 w-5" />
@@ -147,7 +164,7 @@ const Header = () => {
             <Link 
               href="/account" 
               className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               }`}
             >
               <User className="h-5 w-5" />
@@ -157,7 +174,7 @@ const Header = () => {
               className="relative p-2"
             >
               <div className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               }`}>
                 <ShoppingCart className="h-5 w-5" />
               </div>
@@ -171,7 +188,7 @@ const Header = () => {
             <button 
               onClick={toggleMobileMenu}
               className={`md:hidden p-2 rounded-full hover:bg-zervia-50 transition-colors ${
-                isScrolled ? "text-zervia-900" : "text-white"
+                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               }`}
               aria-label="Toggle mobile menu"
             >

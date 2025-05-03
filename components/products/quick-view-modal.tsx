@@ -92,7 +92,7 @@ export function QuickViewModal({ product, isOpen, onClose, onAddToCart, onAddToW
               <span className="text-sm text-zervia-600">By {product.vendor}</span>
             </div>
             
-            <div className="text-xl font-semibold text-zervia-900">${product.price.toFixed(2)}</div>
+            <div className="text-xl font-semibold text-zervia-900">₦{product.price.toFixed(2)}</div>
             
             {product.description && (
               <p className="text-zervia-600 text-sm line-clamp-3">{product.description}</p>
