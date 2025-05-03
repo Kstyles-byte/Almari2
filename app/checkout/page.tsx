@@ -10,6 +10,7 @@ import { CheckoutStepper } from '@/components/checkout/checkout-stepper';
 import { CheckoutInformationForm } from '@/components/checkout/checkout-information-form';
 import { AgentLocationSelector } from '@/components/checkout/agent-location-selector';
 import { CheckoutSummary } from '@/components/checkout/checkout-summary';
+import { CheckoutPaymentForm } from '@/components/checkout/checkout-payment-form';
 import { PageTransitionLoader } from '@/components/ui/loader';
 
 // Actions and Types
@@ -277,6 +278,19 @@ export default function CheckoutPage() {
     console.log('Selected agent:', agentId);
     setSelectedAgentId(agentId);
   }, []);
+
+  // Handle payment initialization
+  const handlePaymentInit = useCallback(() => {
+    console.log('Payment initialization started');
+    // Any UI state changes for payment initialization
+  }, []);
+
+  // Handle payment completion
+  const handlePaymentComplete = useCallback((reference: string) => {
+    console.log('Payment completed with reference:', reference);
+    toast.success('Payment successful!');
+    // Any UI state changes for payment completion
+  }, []);
   
   // Show loading state
   if (isLoading) {
@@ -345,29 +359,14 @@ export default function CheckoutPage() {
           
           {/* Step 3: Payment (placeholder) */}
           {currentStep === 2 && (
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold mb-4">Payment</h2>
-              <p className="text-gray-600 mb-8">
-                This is a placeholder for the payment step. In a real application, you would integrate
-                with a payment processor here.
-              </p>
-              
-              <div className="flex justify-between">
-                <button
-                  onClick={handleBack}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Back
-                </button>
-                
-                <button
-                  onClick={() => toast.success("Order placed successfully!")}
-                  className="px-4 py-2 bg-zervia-600 text-white rounded-md hover:bg-zervia-700"
-                >
-                  Place Order
-                </button>
-              </div>
-            </div>
+            <CheckoutPaymentForm
+              amount={total}
+              email={checkoutInfo?.email || session?.user?.email || ''}
+              contactInfo={createContactFormData()}
+              onPaymentInit={handlePaymentInit}
+              onPaymentComplete={handlePaymentComplete}
+              onBack={handleBack}
+            />
           )}
         </div>
         
@@ -385,4 +384,40 @@ export default function CheckoutPage() {
       </div>
     </div>
   );
+  
+  // Helper function to create FormData from checkout information and selected agent
+  function createContactFormData() {
+    if (!checkoutInfo || !selectedAgentId) {
+      return new FormData();
+    }
+
+    const formData = new FormData();
+    
+    // Add checkout info
+    formData.append('email', checkoutInfo.email);
+    formData.append('firstName', checkoutInfo.firstName);
+    formData.append('lastName', checkoutInfo.lastName);
+    formData.append('phone', checkoutInfo.phone || '');
+    formData.append('deliveryMethod', checkoutInfo.deliveryMethod);
+    
+    // Add address information
+    if (checkoutInfo.deliveryMethod === 'delivery') {
+      if (checkoutInfo.selectedAddressId) {
+        formData.append('selectedAddressId', checkoutInfo.selectedAddressId);
+      } else {
+        formData.append('addressLine1', checkoutInfo.addressLine1 || '');
+        formData.append('addressLine2', checkoutInfo.addressLine2 || '');
+        formData.append('city', checkoutInfo.city || '');
+        formData.append('stateProvince', checkoutInfo.stateProvince || '');
+        formData.append('postalCode', checkoutInfo.postalCode || '');
+        formData.append('country', checkoutInfo.country || '');
+        formData.append('saveAddress', checkoutInfo.saveAddress);
+      }
+    }
+    
+    // Add selected agent
+    formData.append('agentId', selectedAgentId);
+    
+    return formData;
+  }
 } 

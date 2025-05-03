@@ -39,6 +39,11 @@ function CheckoutCompleteContent() {
         if (result.success) {
           setStatus('completed');
           setMessage("Payment successful! Your order is being processed.");
+          
+          // Redirect to thank-you page after a brief delay
+          setTimeout(() => {
+            router.push(`/checkout/thank-you?orderId=${orderIdParam}&reference=${transactionRef}`);
+          }, 2000);
         } else {
           setStatus('failed');
           setMessage(result.error || "Payment verification failed. Please contact support if payment was debited.");
@@ -51,7 +56,7 @@ function CheckoutCompleteContent() {
     };
 
     verifyPayment();
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   return (
     <div className="container mx-auto p-4 py-16 flex flex-col items-center text-center">
@@ -70,12 +75,10 @@ function CheckoutCompleteContent() {
           <p className="text-gray-600 mb-6">{message}</p>
           {/* TODO: Fetch and display order details/summary? */}
           {orderId && <p className="text-sm text-gray-500 mb-4">Order ID: {orderId}</p>}
+          <p className="text-sm text-gray-500 mb-4">Redirecting you to the confirmation page...</p>
           <div className="flex space-x-4">
             <Button asChild>
-              <Link href="/customer/orders">View My Orders</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/">Continue Shopping</Link>
+              <Link href="/checkout/thank-you">Continue</Link>
             </Button>
           </div>
         </>
