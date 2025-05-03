@@ -664,4 +664,326 @@ export async function cancelOrder(formData: FormData) {
     console.error("Error cancelling order action:", error);
     return { error: error instanceof Error ? error.message : "Failed to cancel order" };
   }
+}
+
+/**
+ * Get all orders for the current user
+ */
+export async function getUserOrders(status?: string) {
+  try {
+    // Create the Supabase client for this specific action context
+    const supabaseActionClient = await createSupabaseServerActionClient();
+    
+    // Get the user session using the Supabase client
+    const { data: { user }, error: authError } = await supabaseActionClient.auth.getUser(); 
+    
+    if (authError || !user) {
+      console.error("Authorization failed:", authError?.message || "User not found."); 
+      return { error: "Unauthorized", orders: [] };
+    }
+    
+    // Get customer profile
+    const { data: customer, error: customerError } = await supabase
+      .from('Customer')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+      
+    if (customerError || !customer) {
+      console.error("Customer profile not found:", customerError?.message);
+      return { error: "Customer profile not found", orders: [] };
+    }
+    
+    // Build the query to fetch orders
+    let query = supabase
+      .from('Order')
+      .select(`
+        id, 
+        status,
+        total_amount,
+        subtotal,
+        tax_amount,
+        shipping_amount,
+        created_at,
+        updated_at,
+        pickup_code,
+        agent_id,
+        estimated_pickup_date,
+        actual_pickup_date,
+        payment_reference,
+        OrderItem (
+          id,
+          quantity,
+          price_at_purchase,
+          Product (
+            id,
+            name,
+            description,
+            price,
+            slug,
+            vendor_id,
+            ProductImage (
+              url,
+              alt_text,
+              display_order
+            ),
+            Vendor (
+              id,
+              store_name
+            )
+          )
+        )
+      `)
+      .eq('customer_id', customer.id)
+      .order('created_at', { ascending: false });
+      
+    // Apply status filter if provided
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+    
+    // Execute the query
+    const { data: orders, error: ordersError } = await query;
+    
+    if (ordersError) {
+      console.error("Error fetching orders:", ordersError.message);
+      return { error: ordersError.message, orders: [] };
+    }
+    
+    // Transform the data structure to match what the UI expects
+    const transformedOrders = orders.map((order: any) => {
+      // Transform order items
+      const items = order.OrderItem.map((item: any) => {
+        // Get the first product image URL or use placeholder
+        const productImageUrl = item.Product?.ProductImage && 
+                               item.Product.ProductImage.length > 0 ?
+                               item.Product.ProductImage[0].url : 
+                               '/images/placeholder.jpg';
+                               
+        return {
+          id: item.id,
+          productId: item.Product?.id || '',
+          productName: item.Product?.name || 'Unknown Product',
+          productImage: productImageUrl,
+          productSlug: item.Product?.slug || '',
+          quantity: item.quantity,
+          price: item.price_at_purchase,
+          vendor: item.Product?.Vendor?.store_name || 'Unknown Vendor',
+        };
+      });
+      
+      // Generate an order number from the payment reference or ID
+      const orderNumber = order.payment_reference ? 
+                          order.payment_reference.substring(0, 8) : 
+                          order.id.substring(0, 8);
+      
+      // Return transformed order
+      return {
+        id: order.id,
+        orderNumber: orderNumber,
+        status: order.status?.toLowerCase(),
+        createdAt: order.created_at,
+        updatedAt: order.updated_at,
+        items,
+        total: order.total_amount,
+        subtotal: order.subtotal,
+        tax: order.tax_amount,
+        shippingFee: order.shipping_amount,
+        pickupCode: order.pickup_code,
+        expectedDeliveryDate: order.estimated_pickup_date,
+        deliveredDate: order.actual_pickup_date,
+        // Default return eligibility based on order status and date
+        returnEligible: order.status === 'DELIVERED' && 
+                       order.actual_pickup_date && 
+                       (new Date().getTime() - new Date(order.actual_pickup_date).getTime()) < (24 * 60 * 60 * 1000),
+        returnDeadline: order.actual_pickup_date ? 
+                       new Date(new Date(order.actual_pickup_date).getTime() + (24 * 60 * 60 * 1000)).toISOString() :
+                       undefined,
+      };
+    });
+    
+    return { orders: transformedOrders };
+  } catch (error: any) {
+    console.error("Error in getUserOrders:", error);
+    return { error: error.message || "An unexpected error occurred", orders: [] };
+  }
+}
+
+/**
+ * Get a single order by ID
+ */
+export async function getOrderById(orderId: string) {
+  try {
+    // Create the Supabase client for this specific action context
+    const supabaseActionClient = await createSupabaseServerActionClient();
+    
+    // Get the user session using the Supabase client
+    const { data: { user }, error: authError } = await supabaseActionClient.auth.getUser(); 
+    
+    if (authError || !user) {
+      console.error("Authorization failed:", authError?.message || "User not found."); 
+      return { error: "Unauthorized" };
+    }
+    
+    // Get customer profile
+    const { data: customer, error: customerError } = await supabase
+      .from('Customer')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+      
+    if (customerError) {
+      console.error("Customer profile not found:", customerError?.message);
+      return { error: "Customer profile not found" };
+    }
+    
+    // Build the query to fetch the specific order
+    const { data: order, error: orderError } = await supabase
+      .from('Order')
+      .select(`
+        id, 
+        status,
+        total_amount,
+        subtotal,
+        tax_amount,
+        shipping_amount,
+        created_at,
+        updated_at,
+        pickup_code,
+        agent_id,
+        estimated_pickup_date,
+        actual_pickup_date,
+        customer_id,
+        payment_reference,
+        OrderItem (
+          id,
+          quantity,
+          price_at_purchase,
+          Product (
+            id,
+            name,
+            description,
+            price,
+            slug,
+            vendor_id,
+            ProductImage (
+              url,
+              alt_text,
+              display_order
+            ),
+            Vendor (
+              id,
+              store_name
+            )
+          )
+        ),
+        Agent (
+          id,
+          name,
+          address_line1,
+          city
+        )
+      `)
+      .eq('id', orderId)
+      .single();
+      
+    if (orderError) {
+      console.error("Error fetching order:", orderError.message);
+      return { error: orderError.message };
+    }
+    
+    // Check if this order belongs to the user
+    // Admins can view any order, regular users can only view their own
+    const { data: userData } = await supabaseActionClient.from('User')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+      
+    const isAdmin = userData?.role === 'ADMIN';
+    
+    if (!isAdmin && order.customer_id !== customer?.id) {
+      return { error: "You don't have permission to view this order" };
+    }
+    
+    // Transform the data structure to match what the UI expects
+    const items = order.OrderItem.map((item: any) => {
+      // Get the first product image URL or use placeholder
+      const productImageUrl = item.Product?.ProductImage && 
+                             item.Product.ProductImage.length > 0 ?
+                             item.Product.ProductImage[0].url : 
+                             '/images/placeholder.jpg';
+      
+      return {
+        id: item.id,
+        productId: item.Product?.id || '',
+        productName: item.Product?.name || 'Unknown Product',
+        productImage: productImageUrl,
+        productSlug: item.Product?.slug || '',
+        quantity: item.quantity,
+        price: item.price_at_purchase,
+        vendor: item.Product?.Vendor?.store_name || 'Unknown Vendor',
+      };
+    });
+    
+    // Generate an order number from the payment reference or ID
+    const orderNumber = order.payment_reference ? 
+                        order.payment_reference.substring(0, 8) : 
+                        order.id.substring(0, 8);
+    
+    // Generate tracking events based on order status and dates
+    const trackingEvents = [
+      {
+        status: 'Order Placed',
+        timestamp: order.created_at,
+        description: 'Your order has been received and is being processed'
+      },
+      ...(order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'DELIVERED' ? [{
+        status: 'Processing',
+        timestamp: order.updated_at || new Date(new Date(order.created_at).getTime() + 3600000).toISOString(),
+        description: 'Your order is being prepared for dispatch'
+      }] : []),
+      ...(order.status === 'SHIPPED' || order.status === 'DELIVERED' ? [{
+        status: 'Ready for Pickup',
+        timestamp: order.estimated_pickup_date || new Date(new Date(order.created_at).getTime() + 86400000).toISOString(),
+        description: 'Your order is ready for pickup at the agent location'
+      }] : []),
+      ...(order.status === 'DELIVERED' ? [{
+        status: 'Delivered',
+        timestamp: order.actual_pickup_date || new Date(new Date(order.created_at).getTime() + 172800000).toISOString(),
+        description: 'Your order has been successfully delivered'
+      }] : []),
+    ];
+    
+    // Return transformed order
+    const transformedOrder = {
+      id: order.id,
+      orderNumber: orderNumber,
+      status: order.status?.toLowerCase(),
+      createdAt: order.created_at,
+      updatedAt: order.updated_at,
+      items,
+      total: order.total_amount,
+      subtotal: order.subtotal,
+      tax: order.tax_amount,
+      shippingFee: order.shipping_amount,
+      pickupCode: order.pickup_code,
+      pickupLocation: order.Agent?.name || '',
+      pickupAddress: order.Agent ? `${order.Agent.address_line1}, ${order.Agent.city}` : '',
+      expectedDeliveryDate: order.estimated_pickup_date,
+      deliveredDate: order.actual_pickup_date,
+      // Default return eligibility based on order status and date
+      returnEligible: order.status === 'DELIVERED' && 
+                     order.actual_pickup_date && 
+                     (new Date().getTime() - new Date(order.actual_pickup_date).getTime()) < (24 * 60 * 60 * 1000),
+      returnDeadline: order.actual_pickup_date ? 
+                     new Date(new Date(order.actual_pickup_date).getTime() + (24 * 60 * 60 * 1000)).toISOString() :
+                     undefined,
+      trackingEvents,
+    };
+    
+    return { order: transformedOrder };
+  } catch (error: any) {
+    console.error("Error in getOrderById:", error);
+    return { error: error.message || "An unexpected error occurred" };
+  }
 } 

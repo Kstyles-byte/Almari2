@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -14,6 +14,7 @@ import {
   Menu, 
   X 
 } from 'lucide-react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 interface CustomerLayoutProps {
   children: React.ReactNode;
@@ -22,6 +23,42 @@ interface CustomerLayoutProps {
 export default function CustomerLayout({ children }: CustomerLayoutProps) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userName, setUserName] = useState('Customer');
+  const [userEmail, setUserEmail] = useState('');
+  const supabase = createClientComponentClient();
+  
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const user = session.user;
+        setUserEmail(user.email || '');
+        
+        const { data: userData, error: userError } = await supabase
+          .from('User')
+          .select('name')
+          .eq('id', user.id)
+          .single();
+          
+        let displayName = 'Customer';
+        if (userData?.name) {
+          displayName = userData.name;
+        } else if (user.user_metadata?.name) {
+          displayName = user.user_metadata.name;
+        } else if (user.user_metadata?.full_name) {
+          displayName = user.user_metadata.full_name;
+        } else if (user.email) {
+          displayName = user.email.split('@')[0];
+        }
+        setUserName(displayName);
+      } else {
+        setUserName('Customer');
+        setUserEmail('');
+      }
+    };
+
+    fetchUserData();
+  }, [supabase]);
   
   const navItems = [
     { name: 'Dashboard', href: '/customer/dashboard', icon: Home },
@@ -76,8 +113,8 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
                 <User size={20} />
               </div>
               <div>
-                <p className="font-medium">John Doe</p>
-                <p className="text-sm text-gray-500">john.doe@example.com</p>
+                <p className="font-medium">{userName}</p>
+                <p className="text-sm text-gray-500">{userEmail}</p>
               </div>
             </div>
           </div>
@@ -120,7 +157,6 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
               <Link
                 href="/auth/signout"
                 className="group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 <LogOut className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
                 Sign Out
@@ -134,9 +170,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
       <div className="hidden md:flex">
         {/* Desktop Sidebar */}
         <div className="w-64 bg-white h-screen p-4 shadow-sm flex flex-col fixed">
-          <div className="mb-8">
-            <Link href="/" className="text-xl font-bold text-zervia-900">Zervia</Link>
-          </div>
+          <div className="mb-8 h-8"></div>
           
           <div className="mb-8">
             <div className="flex items-center space-x-3">
@@ -144,8 +178,8 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
                 <User size={20} />
               </div>
               <div>
-                <p className="font-medium">John Doe</p>
-                <p className="text-sm text-gray-500">john.doe@example.com</p>
+                <p className="font-medium">{userName}</p>
+                <p className="text-sm text-gray-500">{userEmail}</p>
               </div>
             </div>
           </div>

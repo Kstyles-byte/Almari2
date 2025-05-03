@@ -23,7 +23,9 @@ import { getProducts } from '@/actions/products';
 import { ProductGrid } from '../../components/products/product-grid';
 import { getCategoryBySlug, getRootCategories } from '@/actions/content';
 import { getAllBrands } from '@/actions/brands';
-import type { Category } from '../../types/supabase';
+import type { Tables } from '../../types/supabase';
+
+type Category = Tables<'Category'>;
 
 interface ProductListingItem {
   id: string;
@@ -39,15 +41,21 @@ interface ProductListingItem {
   category: string;
 }
 
+// Type for search params coming from the URL
+type SearchParams = {
+  category?: string;
+  sort?: string;
+  page?: string;
+  view?: 'grid' | 'list';
+  q?: string;
+  brand?: string | string[];
+  priceMin?: string;
+  priceMax?: string;
+  [key: string]: string | string[] | undefined;
+};
+
 interface ProductListingPageProps {
-  searchParams: { 
-    category?: string; 
-    sort?: string; 
-    page?: string; 
-    view?: 'grid' | 'list';
-    q?: string; 
-    [key: string]: string | string[] | undefined;
-  };
+  searchParams: SearchParams;
 }
 
 const Placeholder = ({ name }: { name: string }) => (
@@ -56,19 +64,70 @@ const Placeholder = ({ name }: { name: string }) => (
   </div>
 );
 
-export default async function ProductListingPage({ searchParams }: ProductListingPageProps) {
-  const currentPage = parseInt(searchParams.page || '1', 10);
-  const currentSort = searchParams.sort || 'featured';
-  const currentQuery = searchParams.q || '';
-  const categorySlug = searchParams.category;
+// This is the main server component - must be kept synchronous
+export default function ProductListingPage({ 
+  searchParams 
+}: ProductListingPageProps) {
+  // Extract all needed values here using bracket notation
+  // This is the ONLY place we access searchParams directly
+  const page = Object.hasOwn(searchParams, 'page') ? searchParams['page'] : '1';
+  const sort = Object.hasOwn(searchParams, 'sort') ? searchParams['sort'] : 'featured';
+  const query = Object.hasOwn(searchParams, 'q') ? searchParams['q'] : '';
+  const category = Object.hasOwn(searchParams, 'category') ? searchParams['category'] : undefined;
+  const brand = Object.hasOwn(searchParams, 'brand') ? searchParams['brand'] : undefined;
+  const priceMin = Object.hasOwn(searchParams, 'priceMin') ? searchParams['priceMin'] : undefined;
+  const priceMax = Object.hasOwn(searchParams, 'priceMax') ? searchParams['priceMax'] : undefined;
+  
+  // Pass individual parameters to async component
+  return (
+    <ProductListingContent 
+      page={page}
+      sort={sort}
+      query={query}
+      category={category}
+      brand={brand}
+      priceMin={priceMin}
+      priceMax={priceMax}
+    />
+  );
+}
+
+// Async component with individual props instead of searchParams
+async function ProductListingContent({
+  page = '1',
+  sort = 'featured',
+  query = '',
+  category,
+  brand,
+  priceMin,
+  priceMax
+}: {
+  page?: string;
+  sort?: string;
+  query?: string;
+  category?: string;
+  brand?: string | string[];
+  priceMin?: string;
+  priceMax?: string;
+}) {
+  // Parse values
+  const currentPage = parseInt(page, 10);
+  const currentSort = sort;
+  const currentQuery = query;
+  const categorySlug = category;
+  const brandParams = brand;
+  const priceMinValue = priceMin ? parseInt(priceMin, 10) : undefined;
+  const priceMaxValue = priceMax ? parseInt(priceMax, 10) : undefined;
   const itemsPerPage = 12;
 
+  // Fetch data using Promise.all
   const [categoryDetails, rootCategories, allBrands] = await Promise.all([
     categorySlug ? getCategoryBySlug(categorySlug) : Promise.resolve(null),
     getRootCategories(),
     getAllBrands()
   ]);
 
+  // Set up filter data
   const filterData = {
     categories: {
       id: 'category',
@@ -82,14 +141,15 @@ export default async function ProductListingPage({ searchParams }: ProductListin
     }
   };
 
+  // Build filters for getProducts action
   const filtersForAction: Record<string, any> = {};
-  const brandParams = searchParams['brand'];
   if (brandParams) {
     filtersForAction.brands = Array.isArray(brandParams) ? brandParams : [brandParams];
   }
-  if (searchParams.priceMin) filtersForAction.priceMin = parseInt(searchParams.priceMin as string, 10);
-  if (searchParams.priceMax) filtersForAction.priceMax = parseInt(searchParams.priceMax as string, 10);
+  if (priceMinValue !== undefined) filtersForAction.priceMin = priceMinValue;
+  if (priceMaxValue !== undefined) filtersForAction.priceMax = priceMaxValue;
 
+  // Fetch products
   const { products, count, totalPages } = await getProducts({
     categorySlug: categorySlug,
     query: currentQuery,
@@ -99,14 +159,15 @@ export default async function ProductListingPage({ searchParams }: ProductListin
     filters: filtersForAction
   });
 
+  // Build breadcrumbs
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
     { label: 'Products', href: '/products' }
   ];
   if (categoryDetails) {
     breadcrumbItems.push({ label: categoryDetails.name, href: `/products?category=${categoryDetails.slug}` });
-  } else if (searchParams.q) {
-    breadcrumbItems.push({ label: `Search results for "${searchParams.q}"`, href: `/products?q=${searchParams.q}` });
+  } else if (currentQuery) {
+    breadcrumbItems.push({ label: `Search results for "${currentQuery}"`, href: `/products?q=${currentQuery}` });
   }
 
   return (
@@ -156,7 +217,7 @@ export default async function ProductListingPage({ searchParams }: ProductListin
 
             {products.length > 0 ? (
               <>
-                <ProductGrid products={products as ProductListingItem[]} />
+                <ProductGrid products={products} />
                 
                 {totalPages > 1 && (
                   <PaginationControls 
@@ -169,7 +230,7 @@ export default async function ProductListingPage({ searchParams }: ProductListin
               <EmptyState 
                 title="No Products Found"
                 description={currentQuery 
-                  ? `We couldn\'t find any products matching "${currentQuery}". Try adjusting your search or filters.`
+                  ? `We couldn't find any products matching "${currentQuery}". Try adjusting your search or filters.`
                   : "Try adjusting your filters or check back later."
                 }
               />
@@ -179,4 +240,4 @@ export default async function ProductListingPage({ searchParams }: ProductListin
       </div>
     </div>
   );
-} 
+}

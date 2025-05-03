@@ -7,6 +7,7 @@ import { createCustomerProfile, updateCustomerProfile } from "../lib/services/cu
 import { createVendorProfile, updateVendorProfile } from "../lib/services/vendor";
 import type { Database, Tables } from '../types/supabase'; // Import Supabase types
 import { createClient } from '@supabase/supabase-js';
+import { createSupabaseServerActionClient } from '../lib/supabase/action';
 
 // Initialize Supabase client (if not already done at top level)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -195,8 +196,13 @@ export async function updateUserInfo(formData: FormData) {
  */
 export async function getUserAddresses() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    // Use Supabase client for auth instead of auth()
+    const supabaseActionClient = await createSupabaseServerActionClient();
+    
+    // Get user session
+    const { data: { user }, error: authError } = await supabaseActionClient.auth.getUser();
+    
+    if (authError || !user) {
       console.error("getUserAddresses: Unauthorized - No session found.");
       return { success: false, error: "Unauthorized", addresses: [] };
     }
@@ -205,7 +211,7 @@ export async function getUserAddresses() {
     const { data: customer, error: customerError } = await supabase
       .from('Customer')
       .select('id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single();
 
     if (customerError || !customer) {
@@ -240,8 +246,13 @@ export async function getUserAddresses() {
  */
 export async function addAddress(formData: FormData) {
    try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    // Use Supabase client for auth instead of auth()
+    const supabaseActionClient = await createSupabaseServerActionClient();
+    
+    // Get user session
+    const { data: { user }, error: authError } = await supabaseActionClient.auth.getUser();
+    
+    if (authError || !user) {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -249,7 +260,7 @@ export async function addAddress(formData: FormData) {
     const { data: customer, error: customerError } = await supabase
       .from('Customer')
       .select('id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single();
       
     if (customerError || !customer) {
@@ -325,8 +336,13 @@ export async function addAddress(formData: FormData) {
  */
 export async function updateAddress(formData: FormData) {
    try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    // Use Supabase client for auth instead of auth()
+    const supabaseActionClient = await createSupabaseServerActionClient();
+    
+    // Get user session
+    const { data: { user }, error: authError } = await supabaseActionClient.auth.getUser();
+    
+    if (authError || !user) {
       return { success: false, error: "Unauthorized" };
     }
     
@@ -366,7 +382,7 @@ export async function updateAddress(formData: FormData) {
      const { data: customer, error: customerError } = await supabase
       .from('Customer')
       .select('id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single();
       
     if (customerError || !customer) {
@@ -420,8 +436,13 @@ export async function updateAddress(formData: FormData) {
  */
 export async function deleteAddress(formData: FormData) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    // Use Supabase client for auth instead of auth()
+    const supabaseActionClient = await createSupabaseServerActionClient();
+    
+    // Get user session
+    const { data: { user }, error: authError } = await supabaseActionClient.auth.getUser();
+    
+    if (authError || !user) {
       return { success: false, error: "Unauthorized" };
     }
     
@@ -434,7 +455,7 @@ export async function deleteAddress(formData: FormData) {
      const { data: customer, error: customerError } = await supabase
       .from('Customer')
       .select('id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single();
       
     if (customerError || !customer) {
@@ -474,8 +495,13 @@ export async function deleteAddress(formData: FormData) {
  */
 export async function setDefaultAddress(formData: FormData) {
     try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    // Use Supabase client for auth instead of auth()
+    const supabaseActionClient = await createSupabaseServerActionClient();
+    
+    // Get user session
+    const { data: { user }, error: authError } = await supabaseActionClient.auth.getUser();
+    
+    if (authError || !user) {
       return { success: false, error: "Unauthorized" };
     }
     
@@ -488,7 +514,7 @@ export async function setDefaultAddress(formData: FormData) {
      const { data: customer, error: customerError } = await supabase
       .from('Customer')
       .select('id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single();
       
     if (customerError || !customer) {
@@ -529,5 +555,53 @@ export async function setDefaultAddress(formData: FormData) {
   } catch (error: any) {
     console.error("setDefaultAddress: Unexpected error:", error);
     return { success: false, error: error.message || "An unexpected error occurred." };
+  }
+}
+
+/**
+ * Get the user's profile data
+ */
+export async function getUserProfile() {
+  try {
+    const supabaseActionClient = await createSupabaseServerActionClient();
+    
+    // Get user session
+    const { data: { user }, error: authError } = await supabaseActionClient.auth.getUser();
+    
+    if (authError || !user) {
+      return { error: "Unauthorized" };
+    }
+    
+    // Get user profile data
+    const { data: profile, error: profileError } = await supabase
+      .from('User')
+      .select('id, name, email, role, avatar_url, created_at')
+      .eq('id', user.id)
+      .single();
+      
+    if (profileError) {
+      console.error("Error fetching user profile:", profileError.message);
+      return { error: "Failed to fetch user profile" };
+    }
+    
+    // Get customer profile data if available
+    const { data: customerProfile, error: customerError } = await supabase
+      .from('Customer')
+      .select('id, phone, address, hostel, room, college, created_at')
+      .eq('user_id', user.id)
+      .single();
+    
+    // Not finding a customer profile is not an error - user might not have one yet
+    if (customerError && customerError.code !== 'PGRST116') { // PGRST116 is "no rows returned" in PostgREST
+      console.error("Error fetching customer profile:", customerError.message);
+    }
+    
+    return { 
+      profile, 
+      customerProfile: customerError ? null : customerProfile 
+    };
+  } catch (error: any) {
+    console.error("Error in getUserProfile:", error);
+    return { error: error.message || "An unexpected error occurred" };
   }
 } 

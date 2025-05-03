@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation'; // Add this import
-import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
+import { ShoppingCart, User, Menu, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Icons } from '../icons';
 import { getCart } from '@/actions/cart'; // Import the getCart action
+import { SearchBox } from '../ui/search-box'; // Import the SearchBox component
 
 const Header = () => {
   const pathname = usePathname(); // Get current pathname
@@ -78,7 +79,7 @@ const Header = () => {
 
   return (
     <header 
-      className={`fixed top-0 left-0 w-full z-40 transition-all duration-300 ${
+      className={`fixed top-0 left-0 w-full z-30 transition-all duration-300 ${
         // Different header styling logic based on page and scroll position
         isHomePage 
           ? isScrolled 
@@ -154,13 +155,13 @@ const Header = () => {
 
           {/* Search and Actions */}
           <div className="flex items-center space-x-4">
-            <button 
-              className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
-                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
-              }`}
-            >
-              <Search className="h-5 w-5" />
-            </button>
+            {/* SearchBox component replaces the search button */}
+            <div className="hidden md:block w-48 lg:w-64">
+              <SearchBox 
+                placeholder="Search..."
+                className={isHomePage && !isScrolled ? "search-light" : ""}
+              />
+            </div>
             <Link 
               href="/account" 
               className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
@@ -198,12 +199,39 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={toggleMobileMenu} 
+        />
+      )}
+
+      {/* Mobile Menu Panel */}
       <div className={`
-        fixed inset-0 bg-white z-40 transform transition-transform duration-300 ease-in-out md:hidden
+        fixed top-0 right-0 h-full w-4/5 max-w-sm bg-white z-50 transform transition-transform duration-300 ease-in-out md:hidden shadow-lg
         ${mobileMenuOpen ? "translate-x-0" : "translate-x-full"}
-      `}>
-        <div className="container mx-auto px-4 py-20">
+      `}
+        // Add onClick stopPropagation to prevent clicks inside the menu from closing it via the overlay
+        onClick={(e) => e.stopPropagation()} 
+      >
+        {/* Add explicit top bar for close button */}
+        <div className="flex justify-end p-4 border-b border-gray-200">
+           <button 
+              onClick={toggleMobileMenu}
+              className={`p-2 rounded-full text-gray-600 hover:bg-gray-100`}
+              aria-label="Close mobile menu"
+            >
+              <X className="h-6 w-6" />
+            </button>
+        </div>
+        
+        {/* Adjust padding-top to account for the new close button bar */}
+        <div className="container mx-auto px-4 py-8 overflow-y-auto h-[calc(100%-65px)]"> {/* Adjust height calculation */}
+          {/* Mobile Search */}
+          <div className="mb-6">
+            <SearchBox placeholder="Search products..." />
+          </div>
           <div className="flex flex-col space-y-6">
             <Link 
               href="/products" 
