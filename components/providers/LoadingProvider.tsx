@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PageTransitionLoader } from '../ui/loader';
 
@@ -20,9 +20,14 @@ const LoadingContext = createContext<LoadingContextType>({
 
 export const useLoading = () => useContext(LoadingContext);
 
-export function LoadingProvider({ children }: { children: React.ReactNode }) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingText, setLoadingText] = useState('Loading');
+// Create an inner component to handle the navigation-aware loading logic
+function NavigationAwareLoading({ 
+  setIsLoading, 
+  setLoadingText 
+}: { 
+  setIsLoading: (value: boolean) => void;
+  setLoadingText: (value: string) => void;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -51,7 +56,14 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
     }, 800);
     
     return () => clearTimeout(timer);
-  }, [pathname, searchParams]);
+  }, [pathname, searchParams, setIsLoading, setLoadingText]);
+
+  return null; // This component doesn't render anything itself
+}
+
+export function LoadingProvider({ children }: { children: React.ReactNode }) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState('Loading');
 
   const startLoading = (text = 'Loading') => {
     setLoadingText(text);
@@ -65,6 +77,15 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
   return (
     <LoadingContext.Provider value={{ isLoading, startLoading, stopLoading, loadingText }}>
       {isLoading && <PageTransitionLoader text={loadingText} />}
+      
+      {/* Wrap the navigation-aware component in Suspense */}
+      <Suspense fallback={null}>
+        <NavigationAwareLoading 
+          setIsLoading={setIsLoading}
+          setLoadingText={setLoadingText}
+        />
+      </Suspense>
+      
       {children}
     </LoadingContext.Provider>
   );
