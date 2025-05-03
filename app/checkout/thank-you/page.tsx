@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { CheckCircle, ShoppingBag, Clock, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default function ThankYouPage() {
+// Define the inner component that uses the hook
+function ThankYouContent() {
   const searchParams = useSearchParams();
   const [orderId, setOrderId] = useState<string | null>(null);
   const [reference, setReference] = useState<string | null>(null);
@@ -97,5 +98,14 @@ export default function ThankYouPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+// Export the main component that wraps the content with Suspense
+export default function ThankYouPage() {
+  return (
+    <Suspense fallback={<div>Loading order details...</div>}> 
+      <ThankYouContent />
+    </Suspense>
   );
 } 
