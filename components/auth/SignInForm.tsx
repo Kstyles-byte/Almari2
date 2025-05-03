@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { signInWithSupabase } from '../../actions/auth';
+import { Loader2 } from 'lucide-react';
 
 // Basic schema, can be expanded later
 const formSchema = z.object({
@@ -27,7 +28,8 @@ const formSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
-export function SignInForm() {
+// Inner component that uses the hook
+function SignInFormContent() {
   const [isPending, startTransition] = useTransition();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams?.get('callbackUrl') || undefined;
@@ -106,7 +108,7 @@ export function SignInForm() {
           </CardContent>
           <CardFooter className="flex flex-col">
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? 'Signing In...' : 'Sign In'}
+              {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...</> : 'Sign In'}
             </Button>
             <div className="mt-4 text-center text-sm">
               Don&apos;t have an account?{" "}
@@ -124,5 +126,14 @@ export function SignInForm() {
         </form>
       </Form>
     </Card>
+  );
+}
+
+// Exported component that wraps the form content with Suspense
+export function SignInForm() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-sm"><Card><CardHeader><CardTitle>Loading...</CardTitle></CardHeader><CardContent><Loader2 className="h-8 w-8 animate-spin text-center" /></CardContent></Card></div>}> 
+      <SignInFormContent />
+    </Suspense>
   );
 } 

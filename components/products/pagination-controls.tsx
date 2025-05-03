@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '../ui/button';
 import {
@@ -19,7 +19,8 @@ interface PaginationControlsProps {
   totalPages: number;
 }
 
-export function PaginationControls({ currentPage, totalPages }: PaginationControlsProps) {
+// Inner component that uses the hook
+function PaginationControlsContent({ currentPage, totalPages }: PaginationControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -120,5 +121,21 @@ export function PaginationControls({ currentPage, totalPages }: PaginationContro
         </PaginationContent>
       </Pagination>
     </div>
+  );
+}
+
+// Export the wrapper component with Suspense
+export function PaginationControls(props: PaginationControlsProps) {
+  const { totalPages } = props;
+  
+  // Don't render anything if there's only one page
+  if (totalPages <= 1) {
+    return null;
+  }
+  
+  return (
+    <Suspense fallback={<div className="mt-8 h-10 w-full max-w-[400px] mx-auto bg-gray-100 animate-pulse rounded-md"></div>}>
+      <PaginationControlsContent {...props} />
+    </Suspense>
   );
 } 

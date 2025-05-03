@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { Suspense } from "react"
 import { Slider } from "../ui/slider"
 import { Checkbox } from "../ui/checkbox"
 import { Button } from "../ui/button"
@@ -34,7 +35,8 @@ interface ProductFiltersProps {
   className?: string;
 }
 
-export function ProductFilters({
+// Inner component that uses the hook
+function ProductFiltersContent({
   filterData,
   className
 }: ProductFiltersProps) {
@@ -223,4 +225,13 @@ export function ProductFilters({
       </Accordion>
     </div>
   )
+}
+
+// Export the wrapper component with Suspense
+export function ProductFilters(props: ProductFiltersProps) {
+  return (
+    <Suspense fallback={<div className="animate-pulse bg-gray-100 h-[400px] rounded-md"></div>}>
+      <ProductFiltersContent {...props} />
+    </Suspense>
+  );
 } 

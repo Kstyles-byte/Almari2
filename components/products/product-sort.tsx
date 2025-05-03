@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'; // Assuming shadcn/ui
 
@@ -16,7 +16,8 @@ interface ProductSortProps {
   // currentSort is derived from searchParams now
 }
 
-export function ProductSort({}: ProductSortProps) {
+// Inner component that uses the hook
+function ProductSortContent({}: ProductSortProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -46,5 +47,14 @@ export function ProductSort({}: ProductSortProps) {
         </SelectContent>
       </Select>
     </div>
+  );
+}
+
+// Export the wrapper component with Suspense
+export function ProductSort(props: ProductSortProps) {
+  return (
+    <Suspense fallback={<div className="flex items-center space-x-2"><span className="text-sm text-gray-600">Sort by:</span><div className="w-[180px] h-9 bg-gray-100 animate-pulse rounded-md"></div></div>}>
+      <ProductSortContent {...props} />
+    </Suspense>
   );
 } 
