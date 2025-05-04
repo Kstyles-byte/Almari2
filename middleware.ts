@@ -9,8 +9,16 @@ const protectedPaths = ['/admin', '/vendor', '/agent', '/cart', '/checkout', '/a
 // Define paths that are explicitly public (like auth pages) even if logic changes
 // const publicAuthPaths = ['/login', '/signup', '/auth/confirm', '/error']; // We might not strictly need this if logic below works
 
+// Define paths that should be exempted from authentication even though they start with a protected path
+const exemptPaths = ['/checkout/complete', '/checkout/thank-you'];
+
 // Function to check if a path is protected (simple startsWith check)
 function isProtectedRoute(pathname: string): boolean {
+  // First check if it's in the exempt list
+  if (exemptPaths.some(path => pathname.startsWith(path))) {
+    return false;
+  }
+  // Then check if it's in the protected list
   return protectedPaths.some(path => pathname.startsWith(path));
 }
 

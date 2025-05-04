@@ -315,12 +315,12 @@ export async function createOrder(formData: FormData) {
     
     // Determine the base URL dynamically for the callback
     const protocol = process.env.NODE_ENV === 'production' ? 'https://' : 'http://';
-    // Use VERCEL_URL if available (set by Vercel, defaults to localhost:3000 in `vercel dev`), otherwise fallback
-    const host = process.env.VERCEL_URL || 'localhost:3000'; 
+    // Use the primary domain in production, or VERCEL_URL if set, or localhost for development
+    const host = process.env.PRIMARY_DOMAIN || process.env.VERCEL_URL || 'localhost:3000'; 
     const baseUrl = `${protocol}${host}`;
     
     const callback_url = `${baseUrl}/checkout/complete?orderId=${newOrder.id}`;
-    console.log("Using Paystack Callback URL:", callback_url); // Log the generated URL
+    console.log("Using Paystack Callback URL:", callback_url);
     
     try {
       const paymentResponse = await initializePayment({
