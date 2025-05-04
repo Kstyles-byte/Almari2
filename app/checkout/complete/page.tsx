@@ -3,9 +3,10 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { verifyOrderPayment } from '@/actions/orders';
-import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { Loader, PageTransitionLoader } from '@/components/ui/loader';
 
 function CheckoutCompleteContent() {
   const searchParams = useSearchParams();
@@ -62,8 +63,8 @@ function CheckoutCompleteContent() {
     <div className="container mx-auto p-4 py-16 flex flex-col items-center text-center">
       {status === 'loading' && (
         <>
-          <Loader2 className="h-16 w-16 text-zervia-600 animate-spin mb-4" />
-          <h1 className="text-2xl font-semibold mb-2">Verifying Payment...</h1>
+          <Loader size="lg" variant="primary" showText text="Verifying Payment" />
+          <h1 className="text-2xl font-semibold mb-2 mt-4">Verifying Payment...</h1>
           <p className="text-gray-600">Please wait while we confirm your transaction.</p>
         </>
       )}
@@ -114,7 +115,9 @@ function CheckoutCompleteContent() {
 // Use Suspense for client components that use searchParams
 export default function CheckoutCompletePage() {
     return (
-        <Suspense fallback={<div className="container mx-auto p-4 py-16 flex flex-col items-center text-center"><Loader2 className="h-16 w-16 text-zervia-600 animate-spin"/></div>}>
+        <Suspense fallback={<div className="container mx-auto p-4 py-16 flex flex-col items-center text-center">
+          <Loader size="lg" variant="primary" />
+        </div>}>
             <CheckoutCompleteContent />
         </Suspense>
     );

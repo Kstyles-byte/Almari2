@@ -26,9 +26,11 @@ export interface Product {
 
 interface ProductGridProps {
   products: Product[];
+  className?: string; // Add className prop to allow customization
+  columnsOverride?: string; // Allow overriding the default grid columns
 }
 
-export function ProductGrid({ products }: ProductGridProps) {
+export function ProductGrid({ products, className, columnsOverride }: ProductGridProps) {
   const [isAdding, setIsAdding] = useState<string | null>(null);
 
   const handleAddToCart = async (productId: string, productName: string) => {
@@ -61,8 +63,11 @@ export function ProductGrid({ products }: ProductGridProps) {
     );
   }
 
+  // Default grid columns configuration with responsive breakpoints
+  const defaultGridColumns = "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+    <div className={`grid gap-4 ${columnsOverride || defaultGridColumns} ${className || ''}`}>
       {products.map((product) => (
         <Card key={product.id} className="overflow-hidden flex flex-col h-full group relative">
           <Link href={`/product/${product.slug}`} className="block aspect-square relative">

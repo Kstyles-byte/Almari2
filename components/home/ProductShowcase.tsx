@@ -164,14 +164,20 @@ const ProductShowcase = () => {
             <>
               <TabsContent value="new-arrivals">
                 {newArrivals.length > 0 ? (
-                  <ProductGrid products={newArrivals} />
+                  <ProductGrid 
+                    products={newArrivals} 
+                    columnsOverride="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5" 
+                  />
                 ) : (
                    <p className="text-center text-gray-500 py-8">No new arrivals found.</p>
                 )}
               </TabsContent>
               <TabsContent value="bestsellers">
                  {bestsellers.length > 0 ? (
-                    <ProductGrid products={bestsellers} />
+                    <ProductGrid 
+                      products={bestsellers} 
+                      columnsOverride="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5" 
+                    />
                  ) : (
                     <p className="text-center text-gray-500 py-8">No bestsellers found.</p>
                  )}

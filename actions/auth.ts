@@ -187,10 +187,48 @@ export async function signInWithSupabase(
   }
 
   console.log('[Action] Supabase sign-in successful.');
-  // Redirect to the callback URL if provided, otherwise to dashboard
-  const redirectUrl = callbackUrl || '/dashboard';
-  console.log(`[Action] Redirecting to ${redirectUrl}...`);
-  return redirect(redirectUrl);
+  
+  // Get the user role to determine where to redirect
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    // This shouldn't happen as we just signed in, but just in case
+    return redirect('/login?message=Authentication error: User not found after login');
+  }
+  
+  // Get the user role from the User table
+  const { data: userData, error: userError } = await supabase
+    .from('User')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+    
+  if (userError) {
+    console.error("[Action] Error fetching user role:", userError);
+    // Default to customer dashboard if role can't be determined
+    return redirect(callbackUrl || '/customer');
+  }
+  
+  // Determine redirect based on user role
+  const role = userData?.role?.toLowerCase() || 'customer';
+  console.log(`[Action] User ${user.email} has role ${role}, redirecting...`);
+  
+  // If a callback URL was provided, use that instead of role-based redirect
+  if (callbackUrl) {
+    return redirect(callbackUrl);
+  }
+  
+  // Otherwise redirect based on role
+  if (role === 'admin') {
+    return redirect('/admin');
+  } else if (role === 'vendor') {
+    return redirect('/vendor');
+  } else if (role === 'agent') {
+    return redirect('/agent');
+  } else {
+    // Default to customer dashboard
+    return redirect('/customer/dashboard');
+  }
 }
 
 // New function for Supabase sign-up
@@ -223,21 +261,17 @@ export async function signUpWithSupabase(values: z.infer<typeof SignUpSchema>) {
     return redirect(`/signup?message=Could not register user: ${error.message}`);
   }
 
-  // Since email confirmation is disabled, the user is active immediately.
-  // Redirect directly to the dashboard or a logged-in area.
-  // Note: The session might take a moment to propagate fully.
-  // Consider adding a small delay or a loading indicator on the target page
-  // if the user initially appears logged out.
-  console.log('Sign up successful, redirecting to dashboard.');
-  return redirect('/dashboard'); // Redirect to dashboard after sign up
-
-  /* 
-  // Old logic for when email confirmation was enabled:
-  if (data.user && !data.user.email_confirmed_at) {
-    return redirect('/login?message=Registration successful! Please check your email to verify your account.');
-  } 
-  return redirect('/login?message=Registration successful! You can now log in.');
-  */
+  // Since email confirmation is disabled, the user should be active immediately
+  // Get the user role - for new signups this should be 'customer' by default
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    // This shouldn't happen as we just signed up, but just in case
+    return redirect('/login?message=Registration successful! Please sign in to continue.');
+  }
+  
+  // Redirect to the customer dashboard after signup
+  return redirect('/customer/dashboard');
 }
 
 // New function for Supabase sign-out
@@ -364,13 +398,13 @@ export async function signUpAsVendor(values: z.infer<typeof VendorSignUpSchema>)
 
   const vendorData: Database['public']['Tables']['Vendor']['Insert'] = {
     id: vendorId, // Assign the generated UUID
-    userId: userId,
-    storeName,
+    user_id: userId, // Corrected field name
+    store_name: storeName, // Corrected field name
     description: description || null,
-    isApproved: false, // Vendor starts as not approved
-    commissionRate: 10, // Default commission rate
-    bankName,
-    accountNumber,
+    is_approved: false, // Corrected field name
+    commission_rate: 10, // Corrected field name
+    bank_name: bankName, // Corrected field name
+    account_number: accountNumber, // Corrected field name
   };
 
   console.log(`[Action] Inserting Vendor profile for user ${userId}...`);
