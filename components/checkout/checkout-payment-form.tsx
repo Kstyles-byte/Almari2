@@ -9,7 +9,6 @@ interface CheckoutPaymentFormProps {
   email: string;
   contactInfo: FormData;
   onPaymentInit: () => void;
-  onPaymentComplete: (reference: string) => void;
   onBack: () => void;
 }
 
@@ -18,7 +17,6 @@ export function CheckoutPaymentForm({
   email,
   contactInfo,
   onPaymentInit,
-  onPaymentComplete,
   onBack
 }: CheckoutPaymentFormProps) {
   const [isLoading, setIsLoading] = useState(false);
