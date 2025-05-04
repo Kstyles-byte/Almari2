@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AccountRedirectPage() {
   try {
     // Create Supabase client using SSR helper

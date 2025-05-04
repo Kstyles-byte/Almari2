@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 
+export const dynamic = 'force-dynamic';
+
 // UI Components
 import { CheckoutStepper } from '@/components/checkout/checkout-stepper';
 import { CheckoutInformationForm } from '@/components/checkout/checkout-information-form';
