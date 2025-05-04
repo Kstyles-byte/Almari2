@@ -7,6 +7,9 @@ import { getUserOrders } from '@/actions/orders';
 import { getUserAddresses } from '@/actions/profile';
 import { redirect } from 'next/navigation';
 
+// Add dynamic export
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Dashboard | My Account | Zervia',
   description: 'View your account dashboard and recent activity',

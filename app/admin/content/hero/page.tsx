@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { AlertCircle, Plus, RefreshCw, ArrowRight } from 'lucide-react';
 import { DeleteBannerForm } from '@/components/admin/content/HeroClientComponents';
 
+// Add dynamic export
+export const dynamic = 'force-dynamic';
+
 // Helper function for authorization - runs on server
 async function checkAdminAuth() {
     const supabase = await createServerActionClient();

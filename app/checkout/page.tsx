@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 
+// Add dynamic export config
 export const dynamic = 'force-dynamic';
 
 // UI Components

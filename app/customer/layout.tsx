@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+// Add dynamic export
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'My Account | Zervia',
   description: 'Manage your Zervia account, orders, and profile',
