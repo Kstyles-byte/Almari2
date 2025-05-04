@@ -11,6 +11,20 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Don't attempt to statically optimize the checkout page and related routes
+  // This ensures these pages are rendered dynamically at request time
+  unstable_excludeDefaultMomentLocales: true,
+  experimental: {
+    // Force dynamic rendering for specific pages that need it
+    serverComponentsExternalPackages: [],
+  },
+  // Skip static generation for certain pages
+  exportPathMap: async function (defaultPathMap) {
+    // Remove checkout routes from static generation
+    delete defaultPathMap['/checkout'];
+    delete defaultPathMap['/checkout/[...params]'];
+    return defaultPathMap;
+  },
   images: {
     remotePatterns: [
       {
@@ -53,11 +67,6 @@ const nextConfig = {
     }
     
     return config
-  },
-  // Updated experimental features section
-  experimental: {
-    // Removed serverExternalPackages as it's no longer supported
-    // If bcrypt functionality is needed, use a client-side alternative or API route
   },
 }
 
