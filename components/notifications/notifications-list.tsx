@@ -232,15 +232,16 @@ export function NotificationsList() {
           </TabsList>
         </Tabs>
         
-        <div className="flex gap-2">
+        <div className="flex flex-col xs:flex-row gap-2">
           {/* Mark All as Read button */}
           <Button 
             variant="outline" 
             size="sm"
             onClick={handleMarkAllAsRead}
             disabled={isPending || notifications.every(n => n.is_read)}
+            className="text-xs sm:text-sm whitespace-nowrap"
           >
-            <Check className="mr-2 h-4 w-4" />
+            <Check className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
             Mark All as Read
           </Button>
           
@@ -250,8 +251,9 @@ export function NotificationsList() {
             size="sm"
             onClick={handleRefresh}
             disabled={isPending || loading}
+            className="text-xs sm:text-sm whitespace-nowrap"
           >
-            <RefreshCcw className="mr-2 h-4 w-4" />
+            <RefreshCcw className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
             Refresh
           </Button>
         </div>
@@ -274,22 +276,22 @@ export function NotificationsList() {
               key={notification.id}
               className={notification.is_read ? "" : "border-l-4 border-primary"}
             >
-              <CardHeader className="p-4 pb-2 flex flex-row justify-between items-start">
-                <div>
-                  <div className="font-semibold">{notification.title}</div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-2">
-                    <span>{getTypeLabel(notification.type)}</span>
-                    <span>•</span>
-                    <span>{formatTime(notification.created_at)}</span>
+              <CardHeader className="p-4 pb-2 flex flex-row justify-between items-start flex-wrap gap-2">
+                <div className="max-w-full overflow-hidden">
+                  <div className="font-semibold text-sm md:text-base truncate">{notification.title}</div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                    <span className="whitespace-nowrap">{getTypeLabel(notification.type)}</span>
+                    <span className="hidden xs:inline">•</span>
+                    <span className="whitespace-nowrap">{formatTime(notification.created_at)}</span>
                     {!notification.is_read && (
                       <>
-                        <span>•</span>
+                        <span className="hidden xs:inline">•</span>
                         <Badge variant="secondary" className="px-2 py-0 h-5">New</Badge>
                       </>
                     )}
                   </div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 shrink-0">
                   {!notification.is_read && (
                     <Button 
                       variant="ghost" 
@@ -316,17 +318,17 @@ export function NotificationsList() {
               </CardHeader>
               
               <CardContent className="p-4 pt-2">
-                <p className="text-sm">{notification.message}</p>
+                <p className="text-sm break-words">{notification.message}</p>
               </CardContent>
               
               {notification.reference_url && (
                 <CardFooter className="p-4 pt-0">
                   <Button 
                     variant="link" 
-                    className="p-0 h-auto" 
+                    className="p-0 h-auto text-sm" 
                     asChild
                   >
-                    <a href={notification.reference_url}>View details</a>
+                    <a href={notification.reference_url} className="truncate max-w-full">View details</a>
                   </Button>
                 </CardFooter>
               )}

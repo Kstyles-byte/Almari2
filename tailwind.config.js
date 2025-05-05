@@ -21,6 +21,9 @@ module.exports = {
       }
     },
     extend: {
+      screens: {
+        'xs': '480px',
+      },
       fontFamily: {
         sans: ['Outfit', 'sans-serif'],
         heading: ['Playfair Display', 'serif'],
