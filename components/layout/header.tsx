@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { Icons } from '../icons';
 import { getCart } from '@/actions/cart'; // Import the getCart action
 import { SearchBox } from '../ui/search-box'; // Import the SearchBox component
+import { NotificationCenter } from '../notifications/notification-center';
 
 const Header = () => {
   const pathname = usePathname(); // Get current pathname
@@ -162,6 +163,14 @@ const Header = () => {
                 className={isHomePage && !isScrolled ? "search-light" : ""}
               />
             </div>
+            
+            {/* Notification Center */}
+            <div className="hidden md:block">
+              <NotificationCenter 
+                className={isHomePage && !isScrolled ? "text-white" : "text-zervia-900"}
+              />
+            </div>
+            
             <Link 
               href="/account" 
               className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
@@ -186,6 +195,14 @@ const Header = () => {
                 </span>
               )}
             </Link>
+
+            {/* Notification Center for Mobile */}
+            <div className="block md:hidden">
+              <NotificationCenter 
+                className={isHomePage && !isScrolled ? "text-white" : "text-zervia-900"}
+              />
+            </div>
+
             <button 
               onClick={toggleMobileMenu}
               className={`md:hidden p-2 rounded-full hover:bg-zervia-50 transition-colors ${

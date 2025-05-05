@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { 
   Menu, 
   Search, 
@@ -19,7 +20,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { signOut } from 'next-auth/react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { toast } from 'sonner';
 
 const getInitials = (name?: string | null): string => {
   if (!name) return '';
@@ -33,11 +35,34 @@ const getInitials = (name?: string | null): string => {
 
 export function DashboardHeader() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const supabase = createClientComponentClient();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const userName = session?.user?.name;
   const userImage = session?.user?.image;
   const userEmail = session?.user?.email;
   const userInitials = getInitials(userName);
+
+  const handleSignOut = async () => {
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear any local storage items
+      localStorage.removeItem("user");
+      
+      toast.success("You have been signed out successfully");
+      
+      // Redirect to home page
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast.error("Error signing out. Please try again.");
+      
+      // If there's an error, still try to redirect to home
+      router.push('/');
+    }
+  };
 
   return (
     <header className="sticky top-0 z-10 border-b border-gray-200 bg-white">
@@ -91,7 +116,7 @@ export function DashboardHeader() {
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/' })}>
+              <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>

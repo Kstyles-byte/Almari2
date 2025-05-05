@@ -1,18 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import { cn } from "../../lib/utils";
 
 interface PageWrapperProps {
-  children: React.ReactNode;
+  children: ReactNode;
+  className?: string;
 }
 
-export default function PageWrapper({ children }: PageWrapperProps) {
+export function PageWrapper({ children, className }: PageWrapperProps) {
   const pathname = usePathname();
   const isHomePage = pathname === '/';
   
   return (
-    <main className={`flex-grow ${isHomePage ? '' : 'pt-20'}`}>
+    <main className={cn(
+      isHomePage 
+        ? "" // No container or padding for homepage
+        : "container py-6 md:py-10 pt-20", // Keep container and padding for other pages
+      className
+    )}>
       {children}
     </main>
   );

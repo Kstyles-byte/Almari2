@@ -16,6 +16,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // Function to handle session refresh
   const handleSessionRefresh = async () => {
     try {
+      // First, check if a session exists client-side
+      const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
+      
+      if (getSessionError) {
+        console.error('Error checking session before refresh:', getSessionError.message);
+        return; // Don't proceed if checking session failed
+      }
+      
+      if (!session) {
+        console.log('No active session found client-side. Skipping refresh attempt.');
+        return; // Don't attempt refresh if no session exists
+      }
+
+      // If session exists, proceed with the refresh attempt
+      console.log('Attempting to refresh session client-side...');
       const success = await refreshClient.refreshSession();
       
       if (!success) {

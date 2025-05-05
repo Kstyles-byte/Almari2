@@ -2,6 +2,7 @@
 
 import React, { ReactNode, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 import {
   Users,
@@ -16,6 +17,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { toast } from 'sonner';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -24,6 +27,8 @@ interface AdminLayoutProps {
 const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClientComponentClient();
 
   const navItems = [
     {
@@ -57,6 +62,27 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       icon: <Settings className="h-5 w-5" />
     },
   ];
+
+  const handleSignOut = async () => {
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear any local storage items
+      localStorage.removeItem("user");
+      
+      toast.success("You have been signed out successfully");
+      
+      // Redirect to home page
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast.error("Error signing out. Please try again.");
+      
+      // If there's an error, still try to redirect to home
+      router.push('/');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -100,7 +126,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             </nav>
           </div>
           <div className="mt-6 px-3">
-            <Button variant="outline" className="w-full flex items-center text-gray-700">
+            <Button 
+              variant="outline" 
+              className="w-full flex items-center text-gray-700"
+              onClick={handleSignOut}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out
             </Button>

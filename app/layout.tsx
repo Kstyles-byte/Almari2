@@ -6,7 +6,7 @@ import Footer from "@/components/layout/footer";
 import { Toaster } from "sonner";
 import AuthProvider from "@/components/providers/AuthProvider";
 import { LoadingProvider } from "@/components/providers/LoadingProvider";
-import PageWrapper from "@/components/layout/page-wrapper";
+import { PageWrapper } from "../components/layout/page-wrapper";
 
 // Initialize the Inter font with Latin subset
 const inter = Inter({

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   Home, 
   Package, 
@@ -15,6 +15,7 @@ import {
   X 
 } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { toast } from 'sonner';
 
 interface CustomerLayoutProps {
   children: React.ReactNode;
@@ -22,6 +23,7 @@ interface CustomerLayoutProps {
 
 export default function CustomerLayout({ children }: CustomerLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userName, setUserName] = useState('Customer');
   const [userEmail, setUserEmail] = useState('');
@@ -70,6 +72,27 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
   
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+  
+  const handleSignOut = async () => {
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear any local storage items
+      localStorage.removeItem("user");
+      
+      toast.success("You have been signed out successfully");
+      
+      // Redirect to home page
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast.error("Error signing out. Please try again.");
+      
+      // If there's an error, still try to redirect to home
+      router.push('/');
+    }
   };
   
   return (
@@ -154,13 +177,13 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
                 Back to Shop
               </Link>
               
-              <Link
-                href="/auth/signout"
-                className="group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              <button
+                onClick={handleSignOut}
+                className="w-full group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               >
                 <LogOut className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
                 Sign Out
-              </Link>
+              </button>
             </div>
           </nav>
         </div>
@@ -218,13 +241,13 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
               Back to Shop
             </Link>
             
-            <Link
-              href="/auth/signout"
-              className="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+            <button
+              onClick={handleSignOut}
+              className="w-full text-left group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
             >
               <LogOut className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
               Sign Out
-            </Link>
+            </button>
           </div>
         </div>
         
