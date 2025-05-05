@@ -17,7 +17,7 @@ export function PageWrapper({ children, className }: PageWrapperProps) {
     <main className={cn(
       isHomePage 
         ? "" // No container or padding for homepage
-        : "container py-6 md:py-10 pt-20", // Keep container and padding for other pages
+        : "container px-4 sm:px-6 lg:px-8 py-6 md:py-10 pt-20", // Keep container and padding for other pages
       className
     )}>
       {children}
