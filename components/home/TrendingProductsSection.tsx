@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { ArrowRight, Star, ShoppingCart } from 'lucide-react'; // Added ShoppingCart
 import { Button } from '../ui/button';
 import { getProducts } from '@/actions/products'; // Import getProducts
-import { addToCart } from '../../actions/cart'; // Import the action
+import { addToCart } from '../../actions/cart-client'; // Updated import
 import { toast } from 'sonner'; // Import toast
 
 // Define Product type based on the actual data structure returned by getProducts
@@ -72,17 +72,25 @@ const TrendingProductsSection = () => {
     fetchProducts();
   }, []);
 
-  // Add to Cart Handler
-  const handleAddToCart = async (productId: string, productName: string, inventory: number) => {
-    if (inventory <= 0) {
+  // Update handleAddToCart to accept the full product object
+  const handleAddToCart = async (product: TrendingProduct) => {
+    if (product.inventory <= 0) {
         toast.error("This product is out of stock.");
         return;
     }
-    setIsAdding(productId);
+    setIsAdding(product.id);
     try {
-      const result = await addToCart({ productId, quantity: 1 });
+      // Call client-side addToCart with correct details
+      const result = await addToCart({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        vendorName: product.vendor // Use vendor field
+      }, 1);
+
       if (result.success) {
-        toast.success(`${productName} added to cart!`);
+        toast.success(`${product.name} added to cart!`);
         // Dispatch custom event to notify header about cart update
         window.dispatchEvent(new Event('cart-updated'));
       } else {
@@ -180,7 +188,8 @@ const TrendingProductsSection = () => {
                        <Button
                          variant="default"
                          size="sm"
-                         onClick={() => handleAddToCart(product.id, product.name, product.inventory)}
+                         // Update onClick to pass the full product object
+                         onClick={() => handleAddToCart(product)}
                          disabled={isAdding === product.id || product.inventory <= 0}
                          aria-disabled={isAdding === product.id || product.inventory <= 0}
                        >

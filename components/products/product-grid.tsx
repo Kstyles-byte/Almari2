@@ -7,7 +7,7 @@ import { Heart, ShoppingCart, Star } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { addToCart } from '../../actions/cart';
+import { addToCart } from '../../actions/cart-client';
 import { toast } from 'sonner';
 
 // Export the interface so it can be imported elsewhere
@@ -33,13 +33,19 @@ interface ProductGridProps {
 export function ProductGrid({ products, className, columnsOverride }: ProductGridProps) {
   const [isAdding, setIsAdding] = useState<string | null>(null);
 
-  const handleAddToCart = async (productId: string, productName: string) => {
-    setIsAdding(productId);
+  const handleAddToCart = async (product: Product) => {
+    setIsAdding(product.id);
     try {
-      const result = await addToCart({ productId, quantity: 1 });
+      const result = await addToCart({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        vendorName: product.vendor
+      }, 1);
+
       if (result.success) {
-        toast.success(`${productName} added to cart!`);
-        // Dispatch custom event to notify header about cart update
+        toast.success(`${product.name} added to cart!`);
         window.dispatchEvent(new Event('cart-updated'));
       } else {
         toast.error(result.error || 'Could not add item to cart.');
@@ -119,7 +125,7 @@ export function ProductGrid({ products, className, columnsOverride }: ProductGri
               variant="default" 
               size="sm" 
               className="mt-4 w-full"
-              onClick={() => handleAddToCart(product.id, product.name)}
+              onClick={() => handleAddToCart(product)}
               disabled={isAdding === product.id || product.inventory <= 0}
               aria-disabled={isAdding === product.id || product.inventory <= 0}
             >

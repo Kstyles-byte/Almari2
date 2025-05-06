@@ -11,6 +11,7 @@ import { AgentLocationSelector } from '@/components/checkout/agent-location-sele
 import { CheckoutSummary } from '@/components/checkout/checkout-summary';
 import { CheckoutPaymentForm } from '@/components/checkout/checkout-payment-form';
 import { PageTransitionLoader } from '@/components/ui/loader';
+import { Button } from '@/components/ui/button';
 
 // Types
 import type { Tables } from '@/types/supabase';
@@ -51,18 +52,20 @@ type CheckoutFormData = {
 const CHECKOUT_STEPS = ['Information', 'Pickup Location', 'Payment'];
 
 // Props for the client component
-type CheckoutClientProps = {
+interface CheckoutClientProps {
   initialCart: any;
   initialAddresses: Tables<'Address'>[];
   initialAgents: Tables<'Agent'>[];
   userEmail: string;
-};
+  isAuthenticated?: boolean;
+}
 
 export function CheckoutClient({ 
   initialCart, 
   initialAddresses, 
   initialAgents,
-  userEmail
+  userEmail,
+  isAuthenticated = false
 }: CheckoutClientProps) {
   // Router
   const router = useRouter();
@@ -194,6 +197,57 @@ export function CheckoutClient({
     );
   }
   
+  // Add this after the component's state declarations
+  const [showLoginModal, setShowLoginModal] = useState(!isAuthenticated);
+
+  // Create a new function to handle the authentication flow
+  const handleAuthAction = () => {
+    router.push(`/login?callbackUrl=${encodeURIComponent('/checkout')}`);
+  };
+
+  // Add a new function to save guest cart data and proceed as guest
+  const handleContinueAsGuest = () => {
+    setShowLoginModal(false);
+    // Current step will continue as normal, but we'll need authentication before payment
+  };
+
+  // Before the existing return statement, add this login modal check:
+  // If user is not authenticated and we're showing the login modal:
+  if (showLoginModal) {
+    return (
+      <div className="container mx-auto p-4 py-16">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
+          <h2 className="text-2xl font-bold mb-6 text-center">Sign in to Complete Checkout</h2>
+          
+          <p className="mb-6 text-gray-600">
+            Please sign in to your account to complete your purchase. If you don't have an account, you can create one in just a few steps.
+          </p>
+          
+          <div className="space-y-4">
+            <Button 
+              onClick={handleAuthAction}
+              className="w-full bg-zervia-600 hover:bg-zervia-700 text-white"
+            >
+              Sign In or Create Account
+            </Button>
+            
+            <Button 
+              onClick={handleContinueAsGuest}
+              variant="outline"
+              className="w-full"
+            >
+              Continue as Guest
+            </Button>
+          </div>
+          
+          <p className="mt-6 text-sm text-gray-500 text-center">
+            You'll need to sign in before completing your purchase, but you can browse through checkout options as a guest.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
   // Main checkout UI
   return (
     <div className="container mx-auto p-4 py-8">
@@ -230,13 +284,31 @@ export function CheckoutClient({
           
           {/* Step 3: Payment (placeholder) */}
           {currentStep === 2 && (
-            <CheckoutPaymentForm
-              amount={total}
-              email={checkoutInfo?.email || userEmail}
-              contactInfo={createContactFormData()}
-              onPaymentInit={handlePaymentInit}
-              onBack={handleBack}
-            />
+            <>
+              {isAuthenticated ? (
+                <CheckoutPaymentForm
+                  amount={total}
+                  email={checkoutInfo?.email || userEmail}
+                  contactInfo={createContactFormData()}
+                  onPaymentInit={handlePaymentInit}
+                  onBack={handleBack}
+                />
+              ) : (
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <h2 className="text-lg font-semibold mb-4">Please Sign In to Continue</h2>
+                  <p className="mb-6">You need to be signed in to complete your purchase.</p>
+                  <Button
+                    onClick={handleAuthAction}
+                    className="w-full bg-zervia-600 hover:bg-zervia-700 text-white mb-4"
+                  >
+                    Sign In or Create Account
+                  </Button>
+                  <Button variant="outline" onClick={handleBack} className="w-full">
+                    Go Back
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
         

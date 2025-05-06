@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Trash2, Plus, Minus } from 'lucide-react';
 import { Button } from '../ui/button';
-import { updateCartItem, removeFromCart } from '../../actions/cart'; // Import actions
+import { updateCartItemClient, removeCartItemClient } from '../../actions/cart-client'; // Import client actions
 import { toast } from 'sonner';
 
 // Define the type for a single cart item passed as a prop
@@ -21,8 +21,8 @@ type CartItemProps = {
     inventory: number;
     image: string | null;
     imageAlt?: string | null;
-    vendorId: string;
-    vendorName: string | null;
+    vendorId?: string;
+    vendorName?: string | null;
   };
   // Update prop type to accept a function returning Promise<void>
   onUpdate?: () => Promise<void>; 
@@ -38,39 +38,45 @@ export function CartItem({ item, onUpdate }: CartItemProps) {
     }
 
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('cartItemId', item.id);
-      formData.append('quantity', newQuantity.toString());
-      
-      const result = await updateCartItem(formData);
-      if (result?.error) {
-        toast.error(result.error);
-      } else {
-        toast.success('Quantity updated.');
-        // Dispatch custom event to notify header about cart update
-        window.dispatchEvent(new Event('cart-updated'));
-        // Call the passed-in onUpdate function (which is fetchCart)
-        onUpdate?.(); 
+      try {
+        // Use client actions that work for both authenticated and guest users
+        const result = await updateCartItemClient(item.id, newQuantity);
+        
+        if (result?.error) {
+          toast.error(result.error);
+        } else {
+          toast.success('Quantity updated.');
+          // Dispatch custom event to notify header about cart update
+          window.dispatchEvent(new Event('cart-updated'));
+          // Call the passed-in onUpdate function (which is fetchCart)
+          onUpdate?.(); 
+        }
+      } catch (error) {
+        console.error('Error updating cart item:', error);
+        toast.error('Failed to update quantity');
       }
     });
   };
 
   const handleRemoveItem = () => {
     startTransition(async () => {
-        const formData = new FormData();
-        formData.append('cartItemId', item.id);
-
-        // Pass null as prevState if your action doesn't use it
-        const result = await removeFromCart(null, formData); 
+      try {
+        // Use client actions that work for both authenticated and guest users
+        const result = await removeCartItemClient(item.id);
+        
         if (result?.error) {
-            toast.error(result.error);
+          toast.error(result.error);
         } else {
-            toast.success('Item removed from cart.');
-            // Dispatch custom event to notify header about cart update
-            window.dispatchEvent(new Event('cart-updated'));
-            // Call the passed-in onUpdate function (which is fetchCart)
-            onUpdate?.();
+          toast.success('Item removed from cart.');
+          // Dispatch custom event to notify header about cart update
+          window.dispatchEvent(new Event('cart-updated'));
+          // Call the passed-in onUpdate function (which is fetchCart)
+          onUpdate?.();
         }
+      } catch (error) {
+        console.error('Error removing cart item:', error);
+        toast.error('Failed to remove item');
+      }
     });
   };
 

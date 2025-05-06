@@ -1,62 +1,31 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import React, { useState, useTransition } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ShoppingCart } from 'lucide-react';
-import { addToCart } from '../../actions/cart'; // Assuming addToCart is correctly set up
-import { toast } from 'sonner'; // Assuming sonner for notifications
+import { addToCart } from '../../actions/cart-client'; // Import client-side action
+import { toast } from 'sonner'; 
 
 interface ProductActionsProps {
   productId: string;
   productName: string;
   inventory: number;
+  price: number; // Add price prop
+  image?: string; // Add image prop
+  vendorName?: string; // Add vendorName prop
 }
 
-// Define the expected state shape returned by the action
-interface AddToCartState {
-  error?: string;
-  success?: boolean;
-}
-
-// The initial state for useFormState
-const initialState: AddToCartState = {
-  error: undefined,
-  success: false,
-};
-
-// Wrapper function to match useFormState signature
-async function addToCartActionWrapper(
-  prevState: AddToCartState, // This will be ignored by our original action
-  formData: FormData
-): Promise<AddToCartState> {
-  // Call the original server action
-  const result = await addToCart(formData);
-  return result; // Return the result which should match AddToCartState
-}
-
-export function ProductActions({ productId, productName, inventory }: ProductActionsProps) {
+export function ProductActions({ 
+  productId, 
+  productName, 
+  inventory, 
+  price, 
+  image, 
+  vendorName 
+}: ProductActionsProps) {
   const [quantity, setQuantity] = useState(1);
-  // Use the wrapper function with useFormState
-  const [state, formAction] = useFormState(addToCartActionWrapper, initialState);
-  // const { pending } = useFormStatus(); // Remove this line, useFormStatus must be used INSIDE the form component
-
-  useEffect(() => {
-    if (state.error) {
-      toast.error(state.error);
-    }
-    if (state.success) {
-      toast.success(`${productName} added to cart!`);
-      // Dispatch custom event to notify header about cart update
-      window.dispatchEvent(new Event('cart-updated'));
-      // Optionally reset quantity or form state here
-      setQuantity(1); 
-    }
-    // Reset server state message after showing toast
-    // Note: useFormState doesn't automatically reset, manual handling or key prop might be needed
-    // For simplicity, we rely on the next submission overriding the state.
-  }, [state, productName]);
+  const [isPending, startTransition] = useTransition();
 
   const handleQuantityChange = (change: number) => {
     setQuantity((prev) => {
@@ -68,17 +37,73 @@ export function ProductActions({ productId, productName, inventory }: ProductAct
     });
   };
 
-  const AddToCartButton = () => {
-    const { pending } = useFormStatus();
-    return (
-      <Button 
-        type="submit" 
+  const handleAddToCart = () => {
+    startTransition(async () => {
+      try {
+        const result = await addToCart({ 
+          id: productId,
+          name: productName,
+          price: price,
+          image: image,
+          vendorName: vendorName
+        }, quantity);
+
+        if (result?.error) {
+          toast.error(result.error);
+        } else if (result?.success) {
+          toast.success(`${productName} added to cart!`);
+          // Dispatch custom event to notify header about cart update
+          window.dispatchEvent(new Event('cart-updated'));
+          // Reset quantity after adding to cart
+          setQuantity(1); 
+        }
+      } catch (error) {
+        console.error("Failed to add to cart:", error);
+        toast.error("Could not add item to cart.");
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+       {/* Quantity Selector */}
+       <div className="flex items-center border border-gray-300 rounded-md w-32">
+          <button
+              type="button" 
+              onClick={() => handleQuantityChange(-1)}
+              className="w-10 h-10 flex items-center justify-center text-zervia-600 hover:bg-zervia-50 disabled:opacity-50"
+              aria-label="Decrease quantity"
+              disabled={quantity <= 1 || inventory <= 0 || isPending}
+          >
+              -
+          </button>
+          <input
+              type="text"
+              className="w-full h-10 text-center border-0 focus:outline-none focus:ring-0 bg-transparent"
+              value={quantity}
+              readOnly 
+              aria-label="Current quantity"
+          />
+           <button
+              type="button" 
+              onClick={() => handleQuantityChange(1)}
+              className="w-10 h-10 flex items-center justify-center text-zervia-600 hover:bg-zervia-50 disabled:opacity-50"
+              aria-label="Increase quantity"
+              disabled={quantity >= inventory || inventory <= 0 || isPending}
+           >
+              +
+           </button>
+       </div>
+
+       {/* Add to Cart Button */}
+       <Button 
+        onClick={handleAddToCart} 
         size="lg" 
-        className="flex-1" 
-        disabled={pending || inventory <= 0} 
-        aria-disabled={pending || inventory <= 0}
+        className="flex-1 w-full" // Make button full width
+        disabled={isPending || inventory <= 0} 
+        aria-disabled={isPending || inventory <= 0}
       >
-        {pending ? (
+        {isPending ? (
           <>
             <span className="animate-spin mr-2">...</span> Adding...
           </>
@@ -90,49 +115,6 @@ export function ProductActions({ productId, productName, inventory }: ProductAct
           'Out of Stock'
         )}
       </Button>
-    );
-  };
-
-  return (
-    <form action={formAction} className="space-y-4">
-       <input type="hidden" name="productId" value={productId} />
-       {/* Quantity Selector */}
-       <div className="flex items-center border border-gray-300 rounded-md w-32">
-          <button
-              type="button" // Important: Prevent form submission
-              onClick={() => handleQuantityChange(-1)}
-              className="w-10 h-10 flex items-center justify-center text-zervia-600 hover:bg-zervia-50 disabled:opacity-50"
-              aria-label="Decrease quantity"
-              disabled={quantity <= 1 || inventory <= 0}
-          >
-              -
-          </button>
-          {/* Hidden input for quantity to be submitted with the form */}
-          <input type="hidden" name="quantity" value={quantity} />
-          {/* Display input */}
-          <input
-              type="text"
-              className="w-full h-10 text-center border-0 focus:outline-none focus:ring-0 bg-transparent"
-              value={quantity}
-              readOnly // Display only, actual value submitted via hidden input
-              aria-label="Current quantity"
-          />
-           <button
-              type="button" // Important: Prevent form submission
-              onClick={() => handleQuantityChange(1)}
-              className="w-10 h-10 flex items-center justify-center text-zervia-600 hover:bg-zervia-50 disabled:opacity-50"
-              aria-label="Increase quantity"
-              disabled={quantity >= inventory || inventory <= 0}
-           >
-              +
-           </button>
-       </div>
-
-       {/* Add to Cart Button */}
-       <AddToCartButton />
-
-       {/* Optional: Display server error message directly (alternative to toast) */}
-       {/* {state.error && <p className="text-sm text-red-500">{state.error}</p>} */}
-    </form>
+    </div>
   );
 } 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../../auth";
 import { createClient } from '@supabase/supabase-js';
 import { getCustomerByUserId, getCustomerCart } from "../../../../lib/services/customer";
-import type { Product, Customer } from '../../../../types/supabase';
+import type { Product, Customer } from '@/types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -101,6 +101,101 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// Handle PATCH requests (update cart item quantity)
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    
+    const customer = await getCustomerByUserId(session.user.id);
+    
+    if (!customer) {
+      return NextResponse.json({ error: "Customer profile not found" }, { status: 404 });
+    }
+    
+    const formData = await req.formData();
+    const cartItemId = formData.get('cartItemId') as string;
+    const quantityStr = formData.get('quantity') as string;
+    
+    if (!cartItemId) {
+      return NextResponse.json({ error: "Cart item ID is required" }, { status: 400 });
+    }
+    
+    const quantity = parseInt(quantityStr);
+    if (isNaN(quantity) || quantity <= 0) {
+      return NextResponse.json({ error: "Quantity must be a positive number" }, { status: 400 });
+    }
+    
+    // Get customer's cart
+    const cartResult = await getCustomerCart(customer.id);
+    if (!cartResult) {
+      return NextResponse.json({ error: "Failed to retrieve cart" }, { status: 500 });
+    }
+    const cartId = cartResult.cart.id;
+    
+    // Fetch the cart item to verify ownership and check product inventory
+    const { data: cartItemData, error: fetchError } = await supabase
+      .from('CartItem')
+      .select(`
+        id,
+        cart_id,
+        product_id,
+        quantity,
+        Product(id, name, inventory)
+      `)
+      .eq('id', cartItemId)
+      .eq('cart_id', cartId)
+      .single();
+    
+    if (fetchError) {
+      console.error("Error fetching cart item:", fetchError.message);
+      return NextResponse.json({ error: "Failed to find cart item" }, { status: 500 });
+    }
+    
+    if (!cartItemData) {
+      return NextResponse.json({ error: "Cart item not found" }, { status: 404 });
+    }
+    
+    // Check inventory
+    const product = cartItemData.Product as any;
+    if (product && product.inventory < quantity) {
+      return NextResponse.json({ 
+        error: `Not enough inventory. Only ${product.inventory} available.` 
+      }, { status: 400 });
+    }
+    
+    // Update cart item quantity
+    const { error: updateError } = await supabase
+      .from('CartItem')
+      .update({ quantity })
+      .eq('id', cartItemId);
+    
+    if (updateError) {
+      console.error("Error updating cart item:", updateError.message);
+      return NextResponse.json({ error: "Failed to update cart item" }, { status: 500 });
+    }
+    
+    // Get updated cart
+    const updatedCart = await getCustomerCart(customer.id);
+    
+    return NextResponse.json({
+      success: true,
+      cart: updatedCart
+    });
+    
+  } catch (error) {
+    console.error("Error updating cart item:", error);
+    return NextResponse.json(
+      { error: "Failed to update cart item" },
+      { status: 500 }
+    );
+  }
+}
+
+// Handle DELETE requests (remove cart item)
 export async function DELETE(req: NextRequest) {
   try {
     const session = await auth();
@@ -110,53 +205,63 @@ export async function DELETE(req: NextRequest) {
     }
     
     const customer = await getCustomerByUserId(session.user.id);
+    
     if (!customer) {
       return NextResponse.json({ error: "Customer profile not found" }, { status: 404 });
     }
     
+    const formData = await req.formData();
+    const cartItemId = formData.get('cartItemId') as string;
+    
+    if (!cartItemId) {
+      return NextResponse.json({ error: "Cart item ID is required" }, { status: 400 });
+    }
+    
+    // Get customer's cart
     const cartResult = await getCustomerCart(customer.id);
     if (!cartResult) {
-      return NextResponse.json({ error: "Cart not found" }, { status: 404 });
+      return NextResponse.json({ error: "Failed to retrieve cart" }, { status: 500 });
     }
     const cartId = cartResult.cart.id;
     
-    const searchParams = req.nextUrl.searchParams;
-    const itemId = searchParams.get("itemId");
-    
-    if (!itemId) {
-      return NextResponse.json({ error: "Item ID is required" }, { status: 400 });
-    }
-    
-    const { data: cartItem, error: fetchItemError } = await supabase
+    // Verify the cart item belongs to the customer
+    const { data: cartItem, error: fetchError } = await supabase
       .from('CartItem')
-      .select('id')
-      .eq('id', itemId)
-      .eq('cartId', cartId)
-      .maybeSingle();
-
-    if (fetchItemError) {
-        console.error("DELETE Cart Item - Error fetching item:", fetchItemError.message);
-        return NextResponse.json({ error: "Failed to verify item." }, { status: 500 });
+      .select('id, cart_id')
+      .eq('id', cartItemId)
+      .eq('cart_id', cartId)
+      .single();
+    
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error("Error fetching cart item:", fetchError.message);
+      return NextResponse.json({ error: "Failed to find cart item" }, { status: 500 });
     }
     
     if (!cartItem) {
-      return NextResponse.json({ error: "Item not found in cart" }, { status: 404 });
+      return NextResponse.json({ error: "Cart item not found or does not belong to user" }, { status: 404 });
     }
     
+    // Delete the cart item
     const { error: deleteError } = await supabase
       .from('CartItem')
       .delete()
-      .eq('id', itemId);
-
+      .eq('id', cartItemId);
+    
     if (deleteError) {
       console.error("Error deleting cart item:", deleteError.message);
       return NextResponse.json({ error: "Failed to remove item from cart" }, { status: 500 });
     }
-
-    return new NextResponse(null, { status: 204 });
-
+    
+    // Get updated cart
+    const updatedCart = await getCustomerCart(customer.id);
+    
+    return NextResponse.json({
+      success: true,
+      cart: updatedCart
+    });
+    
   } catch (error) {
-    console.error("Error removing item from cart API:", error);
+    console.error("Error removing cart item:", error);
     return NextResponse.json(
       { error: "Failed to remove item from cart" },
       { status: 500 }

@@ -32,21 +32,14 @@ export default async function CheckoutPage() {
 
   // Check authentication directly via Supabase client
   const { data: { user } } = await supabase.auth.getUser();
-
-  // If not authenticated, redirect to login
-  if (!user) {
-    console.log('CheckoutPage: No user session, redirecting to login.');
-    redirect('/login?callbackUrl=/checkout');
-  }
-
-  // Pre-fetch the data needed for checkout
-  let initialCart;
+  
   // Initialize with empty arrays to avoid undefined
+  let initialCart;
   let initialAddresses: any[] = [];
   let initialAgents: any[] = [];
 
   try {
-    // Fetch cart data
+    // Fetch cart data - need to get cart regardless of auth status
     const cartResult = await getCart();
     
     // If cart is empty, redirect to cart page
@@ -55,25 +48,32 @@ export default async function CheckoutPage() {
     }
     
     initialCart = cartResult.cart;
-    
-    // Fetch addresses and agents in parallel
-    const [addressesResult, agentsResult] = await Promise.all([
-      getUserAddresses(),
-      getActiveAgents()
-    ]);
-    
-    // Ensure we always have arrays, even if empty
-    initialAddresses = addressesResult.addresses || [];
-    initialAgents = agentsResult.agents || [];
-    
+
+    // If authenticated, fetch addresses and agents
+    if (user) {
+      // Fetch addresses and agents in parallel
+      const [addressesResult, agentsResult] = await Promise.all([
+        getUserAddresses(),
+        getActiveAgents()
+      ]);
+      
+      // Ensure we always have arrays, even if empty
+      initialAddresses = addressesResult.addresses || [];
+      initialAgents = agentsResult.agents || [];
+    } else {
+      // If not authenticated, redirect to login page with callback to checkout
+      // This will be handled in the updated CheckoutClient component
+      initialAgents = await getActiveAgents().then(res => res.agents || []);
+    }
   } catch (error) {
     console.error('Error loading checkout data:', error);
     // In case of error, we'll still render the page and let client-side 
     // error handling take over
   }
 
-  // Get user's email from Supabase
-  const userEmail = user.email || '';
+  // Get user's email from Supabase or empty string if not authenticated
+  const userEmail = user?.email || '';
+  const isAuthenticated = !!user;
 
   // Now render the client component with pre-fetched data
   return (
@@ -82,6 +82,7 @@ export default async function CheckoutPage() {
       initialAddresses={initialAddresses}
       initialAgents={initialAgents}
       userEmail={userEmail}
+      isAuthenticated={isAuthenticated}
     />
   );
 } 

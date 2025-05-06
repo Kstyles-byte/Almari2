@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'; // Add this import
 import { ShoppingCart, User, Menu, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Icons } from '../icons';
-import { getCart } from '@/actions/cart'; // Import the getCart action
+import { getClientCart } from '@/actions/cart-client'; // Import the getClientCart action
 import { SearchBox } from '../ui/search-box'; // Import the SearchBox component
 import { NotificationCenter } from '../notifications/notification-center';
 
@@ -22,19 +22,22 @@ const Header = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
   
-  // Function to fetch cart data
+  // Function to fetch cart data using getClientCart
   const fetchCartItemCount = async () => {
     try {
-      const cartData = await getCart();
-      if (cartData.success && cartData.cart?.items) {
+      // Use getClientCart which handles both guest and authenticated users
+      const cartData = await getClientCart(); 
+      
+      // getClientCart directly returns the cart object structure
+      if (cartData && cartData.items) {
         // Calculate total items in cart (sum of quantities)
-        const totalItems = cartData.cart.items.reduce((total: number, item: { quantity: number }) => total + item.quantity, 0);
+        const totalItems = cartData.items.reduce((total: number, item: { quantity: number }) => total + item.quantity, 0);
         setCartItemCount(totalItems);
       } else {
         setCartItemCount(0);
       }
     } catch (error) {
-      console.error("Error fetching cart count:", error);
+      console.error("Error fetching client cart count:", error);
       setCartItemCount(0);
     }
   };

@@ -8,13 +8,15 @@ import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Heart, Star } from 'lucid
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardFooter } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
-import { getCart, clearCart } from '../../actions/cart';
+import { clearCart } from '../../actions/cart';
+import { getClientCart } from '../../actions/cart-client'; // Import from client actions instead
 import { CouponInputForm } from '../../components/cart/CouponInputForm';
 import { CartItem } from '../../components/cart/CartItem';
 import { useRouter } from 'next/navigation'; // For client-side redirect
 import { toast } from 'sonner'; // Use sonner instead of react-hot-toast
 import { PageTransitionLoader } from '@/components/ui/loader';
 import { getProducts } from '@/actions/products'; // Import getProducts action
+import { clearGuestCart } from '@/lib/services/guest-cart'; // Import guest cart functions
 
 // Define type for cart items fetched from getCart
 type CartItemType = {
@@ -71,22 +73,22 @@ export default function CartPage() {
     }
     setError(null);
     try {
-      const cartData = await getCart();
-      if (cartData.success && cartData.cart?.items) {
-        setCartItems(cartData.cart.items as CartItemType[]); 
-        // Check for empty cart only on initial load maybe?
-        if (isInitialLoad && cartData.cart.items.length === 0) {
+      // Use the client cart function that works for both authenticated and non-authenticated users
+      const cartData = await getClientCart();
+      
+      if (cartData && cartData.items) {
+        // Handle items regardless of authentication status
+        setCartItems(cartData.items as CartItemType[]); 
+        
+        // Check for empty cart only on initial load
+        if (isInitialLoad && cartData.items.length === 0) {
            toast.info("Your cart is empty.");
-           router.push('/'); // Go to homepage instead of login
+           router.push('/'); // Go to homepage
            return;
         }
       } else {
-        setError(cartData.message || "Failed to load cart items.");
+        setError("Failed to load cart items.");
         setCartItems([]);
-        if (cartData.message === "User not authenticated.") {
-            router.push('/login?callbackUrl=/cart');
-            return;
-        }
       }
     } catch (err: any) {
       console.error("Error fetching cart:", err);
@@ -153,6 +155,27 @@ export default function CartPage() {
     setAppliedCouponCode(couponCode);
   };
 
+  // Handle clearing cart - works for both authenticated and non-authenticated users
+  const handleClearCart = async () => {
+    startClearTransition(async () => {
+      try {
+        // Try server-side clear cart (for authenticated users)
+        const result = await clearCart();
+        
+        // Also clear local storage cart for guest users
+        clearGuestCart();
+        
+        toast.success("Cart cleared.");
+        // Dispatch custom event to notify header about cart update
+        window.dispatchEvent(new Event('cart-updated'));
+        fetchCart(); // Refetch after clearing
+      } catch (error) {
+        console.error("Error clearing cart:", error);
+        toast.error("Failed to clear cart.");
+      }
+    });
+  };
+
   // Loading state return
   if (isLoading) {
     return <PageTransitionLoader text="Loading your cart..." />;
@@ -186,17 +209,7 @@ export default function CartPage() {
                               variant="ghost" 
                               size="sm" 
                               className="text-zervia-600 hover:text-red-600 disabled:opacity-50"
-                              onClick={() => startClearTransition(async () => {
-                                  const result = await clearCart();
-                                  if (result?.error) {
-                                      toast.error(result.error);
-                                  } else {
-                                      toast.success("Cart cleared.");
-                                      // Dispatch custom event to notify header about cart update
-                                      window.dispatchEvent(new Event('cart-updated'));
-                                      fetchCart(); // Refetch after clearing
-                                  }
-                              })}
+                              onClick={handleClearCart}
                               disabled={isClearing || cartItems.length === 0}
                             >
                               {isClearing ? "Clearing..." : "Clear All"}
@@ -250,11 +263,14 @@ export default function CartPage() {
                      <span>₦{Number(total).toFixed(2)}</span> 
                    </div>
                  </CardContent>
-                 <CardFooter className="p-6 border-t border-gray-100">
-                   <Button asChild size="lg" className="w-full">
-                     <Link href="/checkout">
-                       Proceed to Checkout <ArrowRight className="ml-2 h-4 w-4" />
-                     </Link>
+                 <CardFooter className="p-6 pt-0 flex justify-center">
+                   <Button 
+                     className="w-full bg-zervia-600 hover:bg-zervia-700 text-white"
+                     size="lg"
+                     onClick={() => router.push('/checkout')}
+                     disabled={cartItems.length === 0}
+                   >
+                     Proceed to Checkout
                    </Button>
                  </CardFooter>
               </Card>

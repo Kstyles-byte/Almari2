@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Star, ShoppingCart } from 'lucide-react';
 import { Button } from '../ui/button';
-import { addToCart } from '../../actions/cart';
+import { addToCart } from '../../actions/cart-client';
 import { toast } from 'sonner';
 
 interface RelatedProduct {
@@ -18,6 +18,7 @@ interface RelatedProduct {
   rating: number;
   reviewCount: number;
   inventory: number; // Need inventory for button state
+  vendorName?: string; // Add optional vendorName
 }
 
 interface RelatedProductCardProps {
@@ -30,15 +31,20 @@ export function RelatedProductCard({ product }: RelatedProductCardProps) {
   const handleAddToCart = async () => {
     setIsAdding(true);
     try {
-      // Need to fetch inventory before adding? Or assume getRelatedProducts returns it.
-      // For now, assume `product.inventory` is available from props.
       if (product.inventory <= 0) {
         toast.error('This product is out of stock.');
         setIsAdding(false);
         return;
       }
       
-      const result = await addToCart({ productId: product.id, quantity: 1 });
+      const result = await addToCart({
+         id: product.id,
+         name: product.name,
+         price: product.price,
+         image: product.image,
+         vendorName: product.vendorName // Pass vendor name if available
+      }, 1); // Pass quantity as the second argument
+
       if (result.success) {
         toast.success(`${product.name} added to cart!`);
         // Dispatch custom event to notify header about cart update

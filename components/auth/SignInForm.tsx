@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useTransition, Suspense } from 'react';
+import React, { useState, useTransition, Suspense, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +22,8 @@ import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { signInWithSupabase } from '../../actions/auth';
 import { Loader2 } from 'lucide-react';
+import { transferGuestCartToUserCart } from '@/utils/transfer-guest-cart';
+import { getGuestCartItems } from '@/lib/services/guest-cart';
 
 // Basic schema, can be expanded later
 const formSchema = z.object({
@@ -31,8 +34,16 @@ const formSchema = z.object({
 // Inner component that uses the hook
 function SignInFormContent() {
   const [isPending, startTransition] = useTransition();
+  const [hasGuestItems, setHasGuestItems] = useState(false);
   const searchParams = useSearchParams();
   const callbackUrl = searchParams?.get('callbackUrl') || undefined;
+
+  // Check if there are guest cart items
+  useEffect(() => {
+    // Check if there are guest cart items that would need transferring
+    const guestItems = getGuestCartItems();
+    setHasGuestItems(guestItems.length > 0);
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -42,14 +53,37 @@ function SignInFormContent() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     console.log('[SignInForm] Submitting form with values:', values);
     console.log('[SignInForm] Callback URL:', callbackUrl);
     startTransition(async () => {
-      console.log('[SignInForm] Starting transition...');
-      console.log('[SignInForm] Calling signInWithSupabase action...');
-      await signInWithSupabase(values, callbackUrl);
-      console.log('[SignInForm] Transition function finished (may have redirected).');
+      try {
+        console.log('[SignInForm] Starting transition...');
+        console.log('[SignInForm] Calling signInWithSupabase action...');
+        const result = await signInWithSupabase(values, callbackUrl);
+        
+        // If login is successful and there are guest cart items, transfer them
+        if (result?.success && hasGuestItems) {
+          console.log('[SignInForm] Transferring guest cart items...');
+          
+          // Show toast notification for user awareness
+          toast.info('Transferring your guest cart items...');
+          
+          try {
+            const transferResult = await transferGuestCartToUserCart();
+            if (transferResult.success && transferResult.transferredItems > 0) {
+              toast.success(`${transferResult.transferredItems} item(s) transferred to your cart!`);
+            }
+          } catch (transferError) {
+            console.error('Error transferring cart items:', transferError);
+            toast.error('Failed to transfer some cart items');
+          }
+        }
+        
+        console.log('[SignInForm] Transition function finished (may have redirected).');
+      } catch (error) {
+        console.error('[SignInForm] Error during login:', error);
+      }
     });
   }
 
@@ -61,6 +95,13 @@ function SignInFormContent() {
           Enter your email below to login to your account.
         </CardDescription>
       </CardHeader>
+      {hasGuestItems && (
+        <div className="px-6 -mt-4 mb-4">
+          <p className="text-sm bg-blue-50 text-blue-700 p-2 rounded">
+            Items in your guest cart will be transferred to your account after login.
+          </p>
+        </div>
+      )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <CardContent className="grid gap-4">
