@@ -24,6 +24,7 @@ import { ProductGrid } from '../../components/products/product-grid';
 import { getCategoryBySlug, getRootCategories } from '@/actions/content';
 import { getAllBrands } from '@/actions/brands';
 import type { Tables } from '../../types/supabase';
+import { isInWishlist } from '@/actions/wishlist';
 
 type Category = Tables<'Category'>;
 
@@ -121,7 +122,7 @@ async function ProductListingContent({
   const itemsPerPage = 12;
 
   // Fetch data using Promise.all
-  const [categoryDetails, rootCategories, allBrands] = await Promise.all([
+  const [categoryDetails, rootCategories, allBrandsData] = await Promise.all([
     categorySlug ? getCategoryBySlug(categorySlug) : Promise.resolve(null),
     getRootCategories(),
     getAllBrands()
@@ -137,7 +138,7 @@ async function ProductListingContent({
     brands: {
       id: 'brand',
       name: 'Brands',
-      options: allBrands.map((brand: string) => ({ id: brand, label: brand }))
+      options: allBrandsData.map((b: string) => ({ id: b, label: b }))
     }
   };
 
@@ -150,7 +151,7 @@ async function ProductListingContent({
   if (priceMaxValue !== undefined) filtersForAction.priceMax = priceMaxValue;
 
   // Fetch products
-  const { products, count, totalPages } = await getProducts({
+  const { products: rawProducts, count, totalPages } = await getProducts({
     categorySlug: categorySlug,
     query: currentQuery,
     sortBy: currentSort,
@@ -158,6 +159,14 @@ async function ProductListingContent({
     limit: itemsPerPage,
     filters: filtersForAction
   });
+
+  // Augment products with wishlist status
+  const productsWithWishlistStatus = await Promise.all(
+    rawProducts.map(async (product: any) => {
+      const { inWishlist } = await isInWishlist(product.id);
+      return { ...product, initialInWishlist: inWishlist };
+    })
+  );
 
   // Build breadcrumbs
   const breadcrumbItems = [
@@ -198,7 +207,7 @@ async function ProductListingContent({
               {categoryDetails ? categoryDetails.name : (currentQuery ? 'Search Results' : 'All Products')}
             </h1>
             <p className="text-zervia-600">
-              Showing {products.length} of {count} {count === 1 ? 'product' : 'products'} {currentQuery ? `for "${currentQuery}"` : ''}
+              Showing {productsWithWishlistStatus.length} of {count} {count === 1 ? 'product' : 'products'} {currentQuery ? `for "${currentQuery}"` : ''}
             </p>
           </div>
           <MobileFilters filterData={filterData} />
@@ -215,9 +224,9 @@ async function ProductListingContent({
               <span> {/* Placeholder */} </span>
             </div>
 
-            {products.length > 0 ? (
+            {productsWithWishlistStatus.length > 0 ? (
               <>
-                <ProductGrid products={products} />
+                <ProductGrid products={productsWithWishlistStatus} />
                 
                 {totalPages > 1 && (
                   <PaginationControls 

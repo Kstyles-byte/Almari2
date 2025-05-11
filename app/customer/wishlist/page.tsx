@@ -2,21 +2,41 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Heart, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { getWishlistItems } from '@/actions/wishlist';
+import { WishlistItem } from '@/components/customer/wishlist-item';
+import { addToCart } from '@/actions/cart';
+import { removeFromWishlist } from '@/actions/wishlist';
 
 export const metadata = {
   title: 'My Wishlist | Zervia',
   description: 'View and manage your wishlist',
 };
 
+// Server actions for the client components to use
+async function handleRemoveFromWishlist(id: string) {
+  'use server';
+  const formData = new FormData();
+  formData.append('wishlistItemId', id);
+  await removeFromWishlist(formData);
+}
+
+async function handleAddToCart(id: string) {
+  'use server';
+  const formData = new FormData();
+  formData.append('productId', id);
+  formData.append('quantity', '1');
+  await addToCart(formData);
+}
+
 export default async function CustomerWishlistPage() {
-  // For now, return an empty wishlist since it's not implemented yet
-  const wishlistItems: any[] = [];
+  // Fetch actual wishlist items
+  const { items, error } = await getWishlistItems();
   
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-zervia-900">My Wishlist</h1>
       
-      {wishlistItems.length === 0 ? (
+      {items.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center">
             <Heart className="h-12 w-12 mx-auto text-zervia-200 mb-3" />
@@ -33,8 +53,15 @@ export default async function CustomerWishlistPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Wishlist items will be displayed here when implemented */}
+        <div className="space-y-4">
+          {items.map((item) => (
+            <WishlistItem 
+              key={item.id}
+              product={item.product}
+              onRemove={handleRemoveFromWishlist}
+              onAddToCart={handleAddToCart}
+            />
+          ))}
         </div>
       )}
     </div>

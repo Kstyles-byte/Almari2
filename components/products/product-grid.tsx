@@ -9,6 +9,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { addToCart } from '../../actions/cart';
 import { toast } from 'sonner';
+import { WishlistButton } from '@/components/products/WishlistButton';
 
 // Export the interface so it can be imported elsewhere
 export interface Product { 
@@ -22,6 +23,7 @@ export interface Product {
   vendor: string;
   slug: string;
   inventory: number;
+  initialInWishlist?: boolean;
 }
 
 interface ProductGridProps {
@@ -85,14 +87,12 @@ export function ProductGrid({ products, className, columnsOverride }: ProductGri
             )}
           </Link>
           
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded-full z-10"
-            aria-label="Add to wishlist"
-          >
-            <Heart className="w-4 h-4 text-gray-600" />
-          </Button>
+          <WishlistButton
+            productId={product.id}
+            initialInWishlist={product.initialInWishlist || false}
+            variant="icon"
+            className="absolute top-3 right-3 z-10"
+          />
           
           <div className="p-4 flex flex-col flex-grow">
             <div className="mb-auto">

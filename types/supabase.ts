@@ -994,6 +994,74 @@ export type Database = {
           },
         ]
       }
+      Wishlist: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Wishlist_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "Customer"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      WishlistItem: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          updated_at: string
+          wishlist_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          updated_at?: string
+          wishlist_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          updated_at?: string
+          wishlist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "WishlistItem_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "Product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "WishlistItem_wishlist_id_fkey"
+            columns: ["wishlist_id"]
+            isOneToOne: false
+            referencedRelation: "Wishlist"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

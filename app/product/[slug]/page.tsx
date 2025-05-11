@@ -11,6 +11,8 @@ import { notFound } from 'next/navigation'; // Import notFound for handling miss
 import type { Metadata, ResolvingMetadata } from 'next';
 import { ProductActions } from '../../../components/products/ProductActions'; // Import the new component
 import { RelatedProductCard } from '../../../components/products/RelatedProductCard'; // Import the new component
+import { WishlistButton } from '@/components/products/WishlistButton';
+import { isInWishlist } from '@/actions/wishlist';
 
 // Dynamic Metadata Generation
 export async function generateMetadata(
@@ -76,6 +78,9 @@ export default async function ProductDetail({ params }: { params: { slug: string
   // Extract reviews and related products for easier access
   const reviews = product.reviews || [];
   const relatedProducts = product.relatedProducts || [];
+
+  // Check if product is in wishlist
+  const { inWishlist } = await isInWishlist(product.id);
 
   return (
     <div className="bg-white">
@@ -165,10 +170,13 @@ export default async function ProductDetail({ params }: { params: { slug: string
                   inventory={product.inventory}
                 />
 
-                {/* Wishlist Button - Requires client component and action - kept separate for now */}
-                <Button variant="outline" size="icon" className="h-12 w-12">
-                  <Heart className="h-5 w-5 text-zervia-600" />
-                </Button>
+                {/* Use the WishlistButton component */}
+                <WishlistButton 
+                  productId={product.id}
+                  initialInWishlist={inWishlist}
+                  variant="icon"
+                  className="h-12 w-12"
+                />
               </div>
             </div>
             
