@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ShoppingCart } from 'lucide-react';
@@ -38,8 +39,8 @@ async function addToCartActionWrapper(
 
 export function ProductActions({ productId, productName, inventory }: ProductActionsProps) {
   const [quantity, setQuantity] = useState(1);
-  // Use the wrapper function with useFormState
-  const [state, formAction] = useFormState(addToCartActionWrapper, initialState);
+  // Use the wrapper function with useActionState
+  const [state, formAction] = useActionState(addToCartActionWrapper, initialState);
   // const { pending } = useFormStatus(); // Remove this line, useFormStatus must be used INSIDE the form component
 
   useEffect(() => {

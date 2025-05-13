@@ -30,6 +30,10 @@ DROP TABLE IF EXISTS public."Customer" CASCADE;
 DROP TABLE IF EXISTS public."User" CASCADE;
 DROP TABLE IF EXISTS public."Coupon" CASCADE; -- Added Coupon table drop
 
+-- Drop functions and triggers that might interfere with recreation
+DROP FUNCTION IF EXISTS public.handle_new_user CASCADE;
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
 -- Ensure necessary extensions are enabled (like pgcrypto for gen_random_uuid())
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -72,6 +76,27 @@ CREATE TABLE public."User" (
     "updated_at" timestamptz NOT NULL DEFAULT timezone('utc'::text, now()),
     CONSTRAINT "User_pkey" PRIMARY KEY (id)
 );
+
+-- Create trigger function to sync auth.users with public."User"
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public."User" (id, email, name, role)
+  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'name', NEW.email), 'CUSTOMER');
+  
+  -- Auto-create a Customer record for the new user
+  INSERT INTO public."Customer" (user_id, phone_number)
+  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'phone_number', NULL));
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Add trigger to auth.users table
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 -- Trigger for User updated_at
 CREATE TRIGGER set_user_updated_at
 BEFORE UPDATE ON public."User"

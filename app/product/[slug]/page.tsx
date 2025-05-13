@@ -13,6 +13,8 @@ import { ProductActions } from '../../../components/products/ProductActions'; //
 import { RelatedProductCard } from '../../../components/products/RelatedProductCard'; // Import the new component
 import { WishlistButton } from '@/components/products/WishlistButton';
 import { isInWishlist } from '@/actions/wishlist';
+import { ReviewItem } from '../../../components/products/ReviewItem'; // Import the new component
+import { WriteReviewButton } from '@/components/products/WriteReviewButton'; // Import the WriteReviewButton
 
 // Dynamic Metadata Generation
 export async function generateMetadata(
@@ -251,8 +253,14 @@ export default async function ProductDetail({ params }: { params: { slug: string
                       </div>
                       <p className="mt-1 text-sm text-zervia-600">Based on {product.reviewCount} reviews</p>
                       
-                      {/* TODO: Implement Write Review button functionality */}
-                      <Button className="mt-4">Write a Review</Button>
+                      {/* Replace the standard Button with our WriteReviewButton */}
+                      <WriteReviewButton 
+                        productId={product.id}
+                        productName={product.name}
+                        className="mt-4"
+                      >
+                        Write a Review
+                      </WriteReviewButton>
                     </div>
                     
                     <div className="md:w-2/3">
@@ -283,40 +291,7 @@ export default async function ProductDetail({ params }: { params: { slug: string
                   {/* Individual reviews */}
                   <div className="space-y-6">
                     {reviews.map((review) => (
-                      <div key={review.id} className="border-b border-gray-200 pb-6 last:border-0">
-                        <div className="flex items-center mb-4">
-                          <div className="relative h-10 w-10 rounded-full overflow-hidden mr-3 bg-gray-100">
-                            <Image
-                              src={review.avatar || '/images/avatars/default-avatar.png'} // Use default avatar
-                              alt={review.user}
-                              fill
-                              className="object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).src = '/images/avatars/default-avatar.png'; }} // Fallback on error
-                            />
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-zervia-900">{review.user}</h4>
-                            <div className="flex items-center">
-                              <div className="flex">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star 
-                                    key={i}
-                                    size={14}
-                                    className={i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
-                                  />
-                                ))}
-                              </div>
-                              {/* Format Date */}
-                              <span className="ml-2 text-xs text-zervia-500">
-                                {new Date(review.date).toLocaleDateString('en-US', {
-                                  year: 'numeric', month: 'short', day: 'numeric'
-                                })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <p className="text-zervia-700">{review.comment}</p>
-                      </div>
+                      <ReviewItem key={review.id} review={review} /> // Use the new component
                     ))}
                      {/* TODO: Add pagination for reviews if needed */} 
                   </div>
@@ -324,8 +299,14 @@ export default async function ProductDetail({ params }: { params: { slug: string
               ) : (
                 <div className="text-center py-12">
                   <p className="text-zervia-600">No reviews yet.</p>
-                   {/* TODO: Implement Write Review button functionality */}
-                  <Button className="mt-4">Be the first to write a review</Button>
+                  {/* Replace the standard Button with our WriteReviewButton */}
+                  <WriteReviewButton 
+                    productId={product.id}
+                    productName={product.name}
+                    className="mt-4"
+                  >
+                    Be the first to write a review
+                  </WriteReviewButton>
                 </div>
               )}
             </TabsContent>

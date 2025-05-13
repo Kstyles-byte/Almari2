@@ -583,7 +583,7 @@ export async function getProductBySlug(slug: string) {
         Category!inner (id, name, slug),
         Vendor!inner (id, store_name),
         ProductImage (id, url, alt_text, display_order),
-        Review (*, UserProfile:User(id, name)) -- Changed alias, assumes RLS setup allows user read
+        Review (*, Customer(id, User(id, name)))
       `)
       .eq('slug', slug)
       .eq('is_published', true)
@@ -601,7 +601,9 @@ export async function getProductBySlug(slug: string) {
 
      // Define expected structure based on query (snake_case)
      type ReviewWithUserProfile = Review & {
-        UserProfile: UserProfile | null; // Use defined UserProfile type
+        Customer: {
+            User: UserProfile | null;
+        } | null;
      };
      type ProductImageSubset = Pick<ProductImage, 'id' | 'url' | 'alt_text' | 'display_order'>;
      type VendorSubset = Pick<Vendor, 'id' | 'store_name'>;
@@ -682,11 +684,11 @@ export async function getProductBySlug(slug: string) {
 
     const formattedReviews = reviews.map(r => ({
         id: r.id,
-        user: r.UserProfile?.name || 'Anonymous', // Access name from UserProfile alias
+        user: r.Customer?.User?.name || 'Anonymous', // Access name via Customer->User path
         rating: r.rating,
         date: r.created_at, // Use snake_case
         comment: r.comment,
-        avatar: '/images/avatars/default-avatar.png' // Assuming no avatarURL in UserProfile selection
+        avatar: '/images/avatars/default-avatar.svg' // Using SVG format instead of PNG
     }));
 
     // Format the final product data for the component (using camelCase where expected)

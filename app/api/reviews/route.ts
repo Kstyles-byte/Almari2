@@ -115,8 +115,8 @@ export async function POST(req: NextRequest) {
     
     // Create review using migrated service
     const review = await createReview({
-      customerId: customer.id, // Use Customer primary key ID
-      productId,
+      customer_id: customer.id, // Use Customer primary key ID with the correct parameter name
+      product_id: productId,
       rating,
       comment,
     });

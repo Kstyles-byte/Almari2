@@ -18,7 +18,10 @@ import {
   getAllReturns
 } from "../lib/services/return";
 import { createReturnStatusNotification } from "../lib/services/notification";
-import { type Return } from "../types/supabase";
+import { Database } from "../types/supabase";
+
+// Define Return type directly from Database type
+type Return = Database['public']['Tables']['Return']['Row'];
 
 /**
  * Create a new return request
@@ -136,23 +139,23 @@ export async function getCustomerReturnsAction(options?: {
     const session = await auth();
     
     if (!session?.user) {
-      return { error: "Unauthorized" };
+      return { error: "Unauthorized", success: false };
     }
     
     // Get customer profile
     const customer = await getCustomerByUserId(session.user.id);
     
     if (!customer) {
-      return { error: "Customer profile not found" };
+      return { error: "Customer profile not found", success: false };
     }
     
     // Get customer returns
     const returns = await getCustomerReturns(customer.id, options);
     
-    return { success: true, ...returns };
+    return { success: true, data: returns.data, meta: returns.meta };
   } catch (error) {
     console.error("Error fetching customer returns:", error);
-    return { error: "Failed to fetch returns" };
+    return { error: "Failed to fetch returns", success: false };
   }
 }
 

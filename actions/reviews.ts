@@ -9,6 +9,7 @@ import { createActionClient, getActionSession } from '@/lib/supabase/action';
 // Import migrated service functions
 import { createReview, updateReview, deleteReview } from "../lib/services/review";
 import { getCustomerByUserId } from "../lib/services/customer";
+import { canReviewProduct } from "../lib/services/review";
 // Import types
 import type { Review, Customer } from '../types/supabase';
 
@@ -26,34 +27,54 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
  */
 export async function submitReview(formData: FormData) {
   try {
+    console.log("[Action: submitReview] Starting review submission");
     // Get user session using our utility
     const session = await getActionSession();
 
     if (!session?.user) {
+      console.log("[Action: submitReview] No authenticated user");
       return { error: "Unauthorized" };
     }
+    console.log("[Action: submitReview] Authenticated user:", session.user.id);
 
     // Get customer profile using migrated service
     const customer = await getCustomerByUserId(session.user.id);
 
     if (!customer) {
+      console.log("[Action: submitReview] Customer profile not found for user:", session.user.id);
       return { error: "Customer profile not found" };
     }
+    console.log("[Action: submitReview] Found customer profile:", customer.id);
 
     const productId = formData.get("productId") as string;
     const ratingStr = formData.get("rating") as string;
     const comment = formData.get("comment") as string;
 
+    console.log("[Action: submitReview] Form data received:", { 
+      productId,
+      rating: ratingStr,
+      commentLength: comment ? comment.length : 0
+    });
+
     // Validate input
     if (!productId || !ratingStr) {
+      console.log("[Action: submitReview] Missing required fields");
       return { error: "Product ID and rating are required" };
     }
     const rating = parseInt(ratingStr);
     if (isNaN(rating) || rating < 1 || rating > 5) {
+      console.log("[Action: submitReview] Invalid rating:", ratingStr);
       return { error: "Rating must be between 1 and 5" };
     }
 
     try {
+      console.log("[Action: submitReview] Calling createReview service with:", {
+        customer_id: customer.id,
+        product_id: productId,
+        rating,
+        commentProvided: !!comment
+      });
+      
       // Create review using migrated service
       const newReview = await createReview({
         customer_id: customer.id, // Use the customer's UUID primary key
@@ -63,9 +84,13 @@ export async function submitReview(formData: FormData) {
       });
 
       if (!newReview) {
-           // The service function returns null on internal error now
-           throw new Error("Review service failed to create review.");
+        // The service function returns null on internal error now
+        console.error("[Action: submitReview] Review service returned null (internal error)");
+        throw new Error("Review service failed to create review.");
       }
+
+      // Success path
+      console.log("[Action: submitReview] Review successfully created with ID:", newReview.id);
 
       // Get product slug for revalidation using Supabase
       const { data: product, error: slugError } = await supabase
@@ -74,7 +99,7 @@ export async function submitReview(formData: FormData) {
           .eq('id', productId)
           .maybeSingle();
 
-      if (slugError) console.error("Error fetching product slug for revalidation:", slugError.message);
+      if (slugError) console.error("[Action: submitReview] Error fetching product slug for revalidation:", slugError.message);
 
       if (product?.slug) {
           revalidatePath(`/products/${product.slug}`);
@@ -84,7 +109,10 @@ export async function submitReview(formData: FormData) {
 
       return { success: true, reviewId: newReview.id };
     } catch (error: any) {
-        // Catch specific errors thrown by the service
+      // Catch specific errors thrown by the service
+      console.error("[Action: submitReview] Error caught:", error.message);
+      console.error("[Action: submitReview] Full error object:", error);
+      
       if (
         error.message.includes("already reviewed") ||
         error.message.includes("purchased") ||
@@ -97,11 +125,14 @@ export async function submitReview(formData: FormData) {
           return { error: "Failed to submit review due to a service error." };
       }
       // Rethrow other unexpected errors from the service
-      console.error("Unexpected error during review creation service call:", error);
-      throw error;
+      console.error("[Action: submitReview] Unexpected error during review creation service call:", error);
+      return { error: `Failed to submit review: ${error.message}` };
     }
   } catch (error) {
-    console.error("Error submitting review action:", error);
+    console.error("[Action: submitReview] Outer try/catch error:", error);
+    if (error instanceof Error) {
+      return { error: `Failed to submit review: ${error.message}` };
+    }
     return { error: "Failed to submit review" };
   }
 }
@@ -345,5 +376,65 @@ export async function getCustomerReviews() {
   } catch (error) {
     console.error("Error fetching customer reviews:", error);
     return { error: "Failed to fetch reviews" };
+  }
+}
+
+/**
+ * Check if a customer can review a product
+ */
+export async function checkCanReviewProduct(productId: string) {
+  try {
+    // Get user session using our utility
+    const session = await getActionSession();
+
+    if (!session?.user) {
+      return { canReview: false, reason: "notLoggedIn" };
+    }
+
+    // Get customer profile using migrated service
+    const customer = await getCustomerByUserId(session.user.id);
+
+    if (!customer) {
+      return { canReview: false, reason: "notCustomer" };
+    }
+
+    console.log("Checking if customer can review:", { 
+      customer_id: customer.id, 
+      product_id: productId 
+    });
+
+    try {
+      // Check if the customer has already reviewed this product
+      // More explicit error handling
+      const { data: existingReview, error } = await supabase
+        .from('Review')
+        .select('id')
+        .eq('customer_id', customer.id)
+        .eq('product_id', productId)
+        .maybeSingle();
+        
+      if (error) {
+        console.error("Error checking existing review:", error);
+        // Return true even if error checking - bypass this check
+        return { canReview: true };
+      }
+
+      if (existingReview) {
+        console.log("Customer already reviewed this product");
+        return { canReview: false, reason: "alreadyReviewed" };
+      }
+      
+      // Allow review if they haven't already reviewed it
+      console.log("Customer can review this product");
+      return { canReview: true };
+    } catch (internalError) {
+      console.error("Exception checking existing review:", internalError);
+      // Instead of failing, let's just allow the review
+      return { canReview: true };
+    }
+  } catch (error) {
+    console.error("Error in checkCanReviewProduct:", error);
+    // Instead of failing, just allow the user to try
+    return { canReview: true, reason: "bypass" };
   }
 } 

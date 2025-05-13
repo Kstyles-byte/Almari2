@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { processAutomatedRefund } from "./refund";
 import { createClient } from '@supabase/supabase-js';
-import type { Return, Order, Product, Customer, Vendor, Agent, UserProfile as User } from '../../types/supabase'; // Import Supabase types
+import { Database } from '../../types/supabase';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -12,10 +12,18 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 }
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
+// Define types based on the Database type
+type Return = Database['public']['Tables']['Return']['Row'];
+type Order = Database['public']['Tables']['Order']['Row'];
+type Customer = Database['public']['Tables']['Customer']['Row'];
+type Product = Database['public']['Tables']['Product']['Row'];
+type Vendor = Database['public']['Tables']['Vendor']['Row'];
+type Agent = Database['public']['Tables']['Agent']['Row'];
+
 // Define ReturnStatus and RefundStatus enums based on schema.sql
 type ReturnStatus = Return['status'];
-type RefundStatus = Return['refundStatus'];
-type PickupStatus = Order['pickupStatus'];
+type RefundStatus = Return['refund_status'];
+type PickupStatus = Order['pickup_status'];
 
 /**
  * Create a new return request
@@ -33,7 +41,7 @@ export async function createReturnRequest(data: {
     // Verify that the order was picked up within the last 24 hours
     const { data: order, error: orderError } = await supabase
       .from('Order')
-      .select('pickupStatus, pickupDate')
+      .select('pickup_status, pickup_date')
       .eq('id', data.orderId)
       .maybeSingle();
     
@@ -45,15 +53,15 @@ export async function createReturnRequest(data: {
       return { error: "Order not found" };
     }
     
-    if (order.pickupStatus !== 'PICKED_UP') {
+    if (order.pickup_status !== 'PICKED_UP') {
       return { error: "Order has not been picked up yet" };
     }
     
-    if (!order.pickupDate) {
+    if (!order.pickup_date) {
       return { error: "Pickup date not recorded" };
     }
     
-    const pickupDate = new Date(order.pickupDate);
+    const pickupDate = new Date(order.pickup_date);
     const currentDate = new Date();
     const hoursSincePickup = (currentDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60);
     
@@ -144,47 +152,61 @@ export async function getCustomerReturns(customerId: string, options?: {
     const limit = options?.limit || 10;
     const skip = (page - 1) * limit;
     
-    const where: any = { customerId };
+    // Start building the query
+    let query = supabase
+      .from('Return')
+      .select(`
+        *,
+        Order:order_id (*),
+        Product:product_id (*),
+        Vendor:vendor_id (id, store_name),
+        Agent:agent_id (id, name, location)
+      `, { count: 'exact' })
+      .eq('customer_id', customerId);
     
+    // Apply status filter if provided
     if (options?.status) {
-      where.status = options.status;
+      query = query.eq('status', options.status);
     }
     
-    const returns = await db.return.findMany({
-      where,
-      include: {
-        order: true,
-        product: true,
-        vendor: {
-          select: {
-            id: true,
-            storeName: true,
-          },
-        },
-        agent: {
-          select: {
-            id: true,
-            name: true,
-            location: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      skip,
-      take: limit,
-    });
+    // Apply pagination
+    query = query.order('created_at', { ascending: false })
+                .range(skip, skip + limit - 1);
     
-    const total = await db.return.count({ where });
+    // Execute the query
+    const { data: returnsData, error, count } = await query;
+    
+    if (error) {
+      console.error("Error fetching customer returns from Supabase:", error.message);
+      throw error;
+    }
+    
+    // Format the data to match the expected structure
+    const returns = returnsData?.map((returnItem: any) => {
+      return {
+        ...returnItem,
+        orderId: returnItem.order_id,
+        productId: returnItem.product_id,
+        customerId: returnItem.customer_id,
+        vendorId: returnItem.vendor_id,
+        agentId: returnItem.agent_id,
+        createdAt: returnItem.created_at,
+        updatedAt: returnItem.updated_at,
+        // Make sure nested objects match the expected structure
+        order: returnItem.Order,
+        product: returnItem.Product,
+        vendor: returnItem.Vendor,
+        agent: returnItem.Agent
+      };
+    }) || [];
     
     return {
       data: returns,
       meta: {
-        total,
+        total: count ?? 0,
         page,
         limit,
-        pageCount: Math.ceil(total / limit),
+        pageCount: Math.ceil((count ?? 0) / limit),
       },
     };
   } catch (error) {
@@ -483,11 +505,11 @@ export async function getAllReturns(options?: {
       .from('Return')
       .select(`
         *,
-        order:Order (*),
-        product:Product (*),
-        customer:Customer (*, user:User (name, email)),
-        vendor:Vendor (*, user:User (name, email)),
-        agent:Agent (*)
+        Order:order_id (*),
+        Product:product_id (*),
+        Customer:customer_id (*, User:user_id (name, email)),
+        Vendor:vendor_id (*, User:user_id (name, email)),
+        Agent:agent_id (*)
       `, { count: 'exact' });
 
     // Apply status filter
@@ -497,7 +519,7 @@ export async function getAllReturns(options?: {
 
     // Apply ordering and pagination
     queryBuilder = queryBuilder
-      .order('createdAt', { ascending: false })
+      .order('created_at', { ascending: false })
       .range(skip, skip + limit - 1);
 
     // Execute query
@@ -508,8 +530,31 @@ export async function getAllReturns(options?: {
       throw error;
     }
 
+    // Format the data to match the expected structure
+    const formattedReturns = returns?.map((returnItem: any) => {
+      return {
+        ...returnItem,
+        orderId: returnItem.order_id,
+        productId: returnItem.product_id,
+        customerId: returnItem.customer_id,
+        vendorId: returnItem.vendor_id,
+        agentId: returnItem.agent_id,
+        createdAt: returnItem.created_at,
+        updatedAt: returnItem.updated_at,
+        refundAmount: returnItem.refund_amount,
+        refundStatus: returnItem.refund_status,
+        processDate: returnItem.process_date,
+        // Make sure nested objects match the expected structure
+        order: returnItem.Order,
+        product: returnItem.Product,
+        customer: returnItem.Customer,
+        vendor: returnItem.Vendor,
+        agent: returnItem.Agent
+      };
+    }) || [];
+
     return {
-      data: returns || [],
+      data: formattedReturns,
       meta: {
         total: count ?? 0,
         page,

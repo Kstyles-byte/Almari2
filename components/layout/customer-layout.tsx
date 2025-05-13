@@ -13,7 +13,8 @@ import {
   Settings, 
   Menu, 
   X,
-  Star 
+  Star,
+  RotateCcw
 } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'sonner';
@@ -66,6 +67,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
   const navItems = [
     { name: 'Dashboard', href: '/customer/dashboard', icon: Home },
     { name: 'Orders', href: '/customer/orders', icon: Package },
+    { name: 'Returns', href: '/customer/returns', icon: RotateCcw },
     { name: 'Wishlist', href: '/customer/wishlist', icon: Heart },
     { name: 'Reviews', href: '/customer/reviews', icon: Star },
     { name: 'Profile', href: '/customer/profile', icon: User },

@@ -18,9 +18,29 @@ export function ReviewForm({ review, onSubmit, onCancel, isEditing }: ReviewForm
   const [rating, setRating] = useState(review?.rating || 0);
   const [comment, setComment] = useState(review?.comment || '');
   const [hoverRating, setHoverRating] = useState(0);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate the form data
+    if (rating === 0) {
+      setValidationError("Please select a rating");
+      return;
+    }
+    
+    if (!comment.trim()) {
+      setValidationError("Please enter a review comment");
+      return;
+    }
+    
+    // Clear any validation errors
+    setValidationError(null);
+    
+    // Log the data being submitted
+    console.log("ReviewForm submitting data:", { rating, comment });
+    
+    // Submit the form data
     onSubmit({ rating, comment });
   };
 
@@ -39,6 +59,13 @@ export function ReviewForm({ review, onSubmit, onCancel, isEditing }: ReviewForm
           >
             {review.status.charAt(0).toUpperCase() + review.status.slice(1)}
           </span> */}
+        </div>
+      )}
+
+      {/* Display validation errors */}
+      {validationError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+          {validationError}
         </div>
       )}
 

@@ -28,6 +28,28 @@ export function formatPrice(price: number, options: {
 }
 
 /**
+ * Format a number as Naira (₦) currency
+ */
+export function formatCurrency(amount: number | string) {
+  // Convert string to number if needed
+  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  
+  // Handle NaN
+  if (isNaN(numericAmount)) {
+    return '₦0.00';
+  }
+  
+  const formatter = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2,
+  });
+  
+  // Format the number and replace the NGN symbol with ₦
+  return formatter.format(numericAmount).replace(/NGN/g, '₦');
+}
+
+/**
  * Generate a random number between min and max (inclusive)
  */
 export function getRandomNumber(min: number, max: number) {

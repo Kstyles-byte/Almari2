@@ -1,9 +1,9 @@
 import { getOrderById, cancelOrder } from '@/actions/orders';
-import { OrderDetail } from '@/components/customer/order-detail';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { CancelOrderForm } from '@/components/customer/cancel-order-form';
+import { OrderDetailWrapper } from '@/components/customer/order-detail-wrapper';
 
 export default async function CustomerOrderDetailPage({
   params,
@@ -28,17 +28,7 @@ export default async function CustomerOrderDetailPage({
         )}
       </div>
       
-      <OrderDetail
-        order={order}
-        onTrackOrder={() => {}} // Will be implemented with client-side modal
-        onRequestReturn={
-          order.returnEligible 
-            ? () => {} // Will be implemented with client-side modal
-            : undefined
-        }
-        onWriteReview={() => {}} // Will be implemented with client-side modal
-        onDownloadInvoice={() => {}} // Will be implemented with client-side functionality
-      />
+      <OrderDetailWrapper order={order} />
     </div>
   );
 } 
