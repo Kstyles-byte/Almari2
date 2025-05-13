@@ -3,10 +3,14 @@
 import { auth } from "../auth";
 import { revalidatePath } from "next/cache";
 import { createClient } from '@supabase/supabase-js'; // Import supabase client
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { createActionClient, getActionSession } from '@/lib/supabase/action';
 // Import migrated service functions
 import { createReview, updateReview, deleteReview } from "../lib/services/review";
 import { getCustomerByUserId } from "../lib/services/customer";
-import type { Review, Customer } from '../types/supabase'; // Import types
+// Import types
+import type { Review, Customer } from '../types/supabase';
 
 // Initialize Supabase client (needed for product slug lookup)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -22,7 +26,8 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
  */
 export async function submitReview(formData: FormData) {
   try {
-    const session = await auth();
+    // Get user session using our utility
+    const session = await getActionSession();
 
     if (!session?.user) {
       return { error: "Unauthorized" };
@@ -51,8 +56,8 @@ export async function submitReview(formData: FormData) {
     try {
       // Create review using migrated service
       const newReview = await createReview({
-        customerId: customer.id, // Use the customer's UUID primary key
-        productId,
+        customer_id: customer.id, // Use the customer's UUID primary key
+        product_id: productId,
         rating,
         comment,
       });
@@ -106,13 +111,16 @@ export async function submitReview(formData: FormData) {
  */
 export async function editReview(formData: FormData) {
   try {
-    const session = await auth();
+    // Get user session using our utility
+    const session = await getActionSession();
 
     if (!session?.user) {
       return { error: "Unauthorized" };
     }
 
-    const reviewId = formData.get("reviewId") as string;
+    const reviewId = (formData.get("reviewId") as string)?.trim();
+    console.log("[Action: editReview] Received reviewId from FormData:", reviewId);
+
     const ratingStr = formData.get("rating") as string;
     const comment = formData.get("comment") as string;
 
@@ -135,17 +143,24 @@ export async function editReview(formData: FormData) {
         .from('Review')
         .select(`
             id,
-            customerId,
-            Product:productId ( slug )
+            customer_id,
+            Product:product_id ( slug )
         `)
         .eq('id', reviewId)
         .maybeSingle();
 
+    console.log("[Action: editReview] Initial fetch - review object:", JSON.stringify(review));
     if (fetchReviewError) {
-        console.error("Error fetching review for edit check:", fetchReviewError.message);
+        console.error("[Action: editReview] Initial fetch - error:", fetchReviewError.message);
+    } else {
+        console.log("[Action: editReview] Initial fetch - no error. Review found status:", !!review);
+    }
+
+    if (fetchReviewError) {
         return { error: "Failed to fetch review for update." };
     }
     if (!review) {
+      console.log("[Action: editReview] Review not found during initial fetch in action with reviewId:", reviewId);
       return { error: "Review not found" };
     }
 
@@ -153,12 +168,13 @@ export async function editReview(formData: FormData) {
     const customer = await getCustomerByUserId(session.user.id);
     if (
       session.user.role !== "ADMIN" &&
-      (!customer || customer.id !== review.customerId)
+      (!customer || customer.id !== review.customer_id)
     ) {
       return { error: "Not authorized to update this review" };
     }
 
     // Update review using migrated service
+    console.log("[Action: editReview] Calling updateReview service with reviewId:", reviewId);
     const updatedReview = await updateReview(reviewId, {
       rating,
       comment: comment || undefined, // Pass comment or undefined
@@ -192,7 +208,8 @@ export async function editReview(formData: FormData) {
  */
 export async function removeReview(formData: FormData) {
   try {
-    const session = await auth();
+    // Get user session using our utility
+    const session = await getActionSession();
 
     if (!session?.user) {
       return { error: "Unauthorized" };
@@ -210,8 +227,8 @@ export async function removeReview(formData: FormData) {
         .from('Review')
         .select(`
             id,
-            customerId,
-            Product:productId ( slug )
+            customer_id,
+            Product:product_id ( slug )
         `)
         .eq('id', reviewId)
         .maybeSingle();
@@ -228,7 +245,7 @@ export async function removeReview(formData: FormData) {
     const customer = await getCustomerByUserId(session.user.id);
     if (
       session.user.role !== "ADMIN" &&
-      (!customer || customer.id !== review.customerId)
+      (!customer || customer.id !== review.customer_id)
     ) {
       return { error: "Not authorized to delete this review" };
     }
@@ -256,5 +273,77 @@ export async function removeReview(formData: FormData) {
         return { error: error.message };
     }
     return { error: "Failed to delete review" };
+  }
+}
+
+/**
+ * Fetch all reviews by a customer
+ */
+export async function getCustomerReviews() {
+  try {
+    // Get user session using our utility
+    const session = await getActionSession();
+
+    if (!session?.user) {
+      return { error: "Unauthorized" };
+    }
+
+    // Get customer ID using user ID
+    const customer = await getCustomerByUserId(session.user.id);
+    if (!customer) {
+      return { error: "Customer profile not found" };
+    }
+
+    // Use the service role client (already defined at the top) for data operations
+    // Fetch reviews using Supabase directly
+    const { data: reviewsData, error: reviewsError } = await supabase
+      .from('Review')
+      .select(`
+        id,
+        rating,
+        comment,
+        created_at,
+        updated_at,
+        Product:product_id (
+          id,
+          name,
+          slug,
+          ProductImage (
+            url
+          )
+        )
+      `)
+      .eq('customer_id', customer.id)
+      .order('created_at', { ascending: false });
+
+    if (reviewsError) {
+      console.error("Error fetching customer reviews:", reviewsError.message);
+      return { error: "Failed to fetch reviews" };
+    }
+
+    // Format the reviews for the frontend
+    const reviews = reviewsData.map((review: any) => {
+      const product = review.Product as any;
+      const productImage = product?.ProductImage && product.ProductImage.length > 0 
+        ? product.ProductImage[0].url 
+        : 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg'; // fallback image
+
+      return {
+        id: review.id,
+        productId: product?.id || '',
+        productName: product?.name || 'Unknown Product',
+        productImage: productImage,
+        productSlug: product?.slug || '',
+        rating: review.rating,
+        comment: review.comment || '',
+        createdAt: review.created_at,
+        updatedAt: review.updated_at,
+      };
+    });
+
+    return { success: true, reviews };
+  } catch (error) {
+    console.error("Error fetching customer reviews:", error);
+    return { error: "Failed to fetch reviews" };
   }
 } 

@@ -26,19 +26,19 @@ export function ReviewForm({ review, onSubmit, onCancel, isEditing }: ReviewForm
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Product info if editing */}
+      {/* Product info if editing - REMOVE STATUS DISPLAY */}
       {isEditing && review && (
-        <div className="flex items-center py-2 px-3 bg-zervia-50 rounded-md">
+        <div className="flex items-center py-2 px-3 bg-zervia-50 rounded-md mb-4">
           <div className="flex-1">
-            <h3 className="font-medium text-sm">{review.productName}</h3>
+            <h3 className="font-medium text-sm text-zervia-800">Editing review for: {review.productName}</h3>
           </div>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium
+          {/* <span className={`text-xs px-2 py-0.5 rounded-full font-medium
             ${review.status === 'published' ? 'bg-green-100 text-green-800' : 
               review.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
               'bg-red-100 text-red-800'}`}
           >
             {review.status.charAt(0).toUpperCase() + review.status.slice(1)}
-          </span>
+          </span> */}
         </div>
       )}
 

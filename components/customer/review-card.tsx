@@ -18,7 +18,6 @@ export interface Review {
   comment: string;
   createdAt: string;
   updatedAt?: string;
-  status: 'pending' | 'published' | 'rejected';
 }
 
 interface ReviewCardProps {
@@ -70,17 +69,6 @@ export function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps) {
                   {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}
                 </span>
               </div>
-            </div>
-            
-            {/* Status badge */}
-            <div className="ml-2 flex-shrink-0">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                ${review.status === 'published' ? 'bg-green-100 text-green-800' : 
-                  review.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                  'bg-red-100 text-red-800'}`}
-              >
-                {review.status.charAt(0).toUpperCase() + review.status.slice(1)}
-              </span>
             </div>
           </div>
           

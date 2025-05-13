@@ -12,7 +12,8 @@ import {
   ShoppingBag, 
   Settings, 
   Menu, 
-  X 
+  X,
+  Star 
 } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'sonner';
@@ -66,6 +67,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
     { name: 'Dashboard', href: '/customer/dashboard', icon: Home },
     { name: 'Orders', href: '/customer/orders', icon: Package },
     { name: 'Wishlist', href: '/customer/wishlist', icon: Heart },
+    { name: 'Reviews', href: '/customer/reviews', icon: Star },
     { name: 'Profile', href: '/customer/profile', icon: User },
     { name: 'Settings', href: '/customer/settings', icon: Settings },
   ];

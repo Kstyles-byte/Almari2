@@ -1247,3 +1247,9 @@ export const Constants = {
     },
   },
 } as const
+
+// Add explicit type definitions for common tables
+export type Review = Tables<"Review">
+export type Customer = Tables<"Customer">
+export type Product = Tables<"Product">
+export type OrderItem = Tables<"OrderItem">

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Review, Customer, Product, OrderItem } from '../../types/supabase'; // Assuming these types exist
+import type { Review, Customer, Product, OrderItem } from '../../types/supabase';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -18,13 +18,13 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
  * @returns The created review object (or null on error)
  */
 export async function createReview(data: {
-  customerId: string;
-  productId: string;
+  customer_id: string;
+  product_id: string;
   rating: number;
   comment?: string;
-}): Promise<Review | null> { // Return type adjusted for potential errors
+}): Promise<Review | null> { // Update return type
   try {
-    const { customerId, productId, rating, comment } = data;
+    const { customer_id, product_id, rating, comment } = data;
 
     // Validate rating (1-5)
     if (rating < 1 || rating > 5) {
@@ -35,7 +35,7 @@ export async function createReview(data: {
     const { data: productData, error: productError } = await supabase
       .from('Product')
       .select('id')
-      .eq('id', productId)
+      .eq('id', product_id)
       .maybeSingle();
     if (productError) throw new Error(`Product check failed: ${productError.message}`);
     if (!productData) throw new Error("Product not found");
@@ -44,7 +44,7 @@ export async function createReview(data: {
     const { data: customerData, error: customerError } = await supabase
       .from('Customer')
       .select('id')
-      .eq('id', customerId) // Assuming customerId is the UUID primary key of the Customer table
+      .eq('id', customer_id) // Assuming customer_id is the UUID primary key of the Customer table
       .maybeSingle();
     if (customerError) throw new Error(`Customer check failed: ${customerError.message}`);
     if (!customerData) throw new Error("Customer not found");
@@ -53,22 +53,22 @@ export async function createReview(data: {
     const { data: existingReview, error: reviewCheckError } = await supabase
       .from('Review')
       .select('id', { head: true }) // More efficient check
-      .eq('customerId', customerId)
-      .eq('productId', productId)
+      .eq('customer_id', customer_id)
+      .eq('product_id', product_id)
       .maybeSingle();
     if (reviewCheckError) throw new Error(`Review check failed: ${reviewCheckError.message}`);
     if (existingReview) throw new Error("You have already reviewed this product");
 
     // Check if customer has purchased the product
     // This requires joining Order and OrderItem or a dedicated check logic
-    // Assuming 'Order' has 'customerId' and 'status', 'OrderItem' has 'orderId' and 'productId'
+    // Assuming 'Order' has 'customer_id' and 'status', 'OrderItem' has 'orderId' and 'product_id'
     const { data: orderedItem, error: orderCheckError } = await supabase
         .from('Order')
         .select('id, OrderItem!inner(id)') // Check if an inner join works based on FKs
-        .eq('customerId', customerId)
+        .eq('customer_id', customer_id)
         // Add status check based on your Order table's status values
         // .in('status', ['DELIVERED', 'COMPLETED']) // Example status check
-        .eq('OrderItem.productId', productId)
+        .eq('OrderItem.product_id', product_id)
         .limit(1) // We just need to know if at least one exists
         .maybeSingle();
 
@@ -82,10 +82,10 @@ export async function createReview(data: {
     // }
     // --- OR --- Alternative check if the above join is complex/doesn't work:
     // Fetch orders for customer, then check items (less efficient)
-    // const { data: orders } = await supabase.from('Order').select('id').eq('customerId', customerId).in('status', ['DELIVERED']);
+    // const { data: orders } = await supabase.from('Order').select('id').eq('customer_id', customer_id).in('status', ['DELIVERED']);
     // if (orders && orders.length > 0) {
     //    const orderIds = orders.map(o => o.id);
-    //    const { data: item } = await supabase.from('OrderItem').select('id').eq('productId', productId).in('orderId', orderIds).limit(1);
+    //    const { data: item } = await supabase.from('OrderItem').select('id').eq('product_id', product_id).in('orderId', orderIds).limit(1);
     //    if (!item) throw new Error("You can only review products you have purchased");
     // } else {
     //    throw new Error("You can only review products you have purchased");
@@ -96,16 +96,16 @@ export async function createReview(data: {
     const { data: newReview, error: insertError } = await supabase
       .from('Review')
       .insert({
-        customerId,
-        productId,
+        customer_id: customer_id,
+        product_id: product_id,
         rating,
         comment,
-        // createdAt/updatedAt should be handled by DB defaults
+        // created_at/updated_at should be handled by DB defaults
       })
       .select(`
           *,
-          Customer:customerId ( User:userId ( name ) ),
-          Product:productId ( name, slug )
+          Customer:customer_id ( User:user_id ( name ) ),
+          Product:product_id ( name, slug )
       `) // Fetch related data needed by the action layer
       .single();
 
@@ -157,6 +157,7 @@ export async function updateReview(
     comment?: string;
   }
 ): Promise<Review | null> {
+  console.log("[Service: updateReview] Received id:", id);
   try {
     const { rating, comment } = data;
 
@@ -165,20 +166,12 @@ export async function updateReview(
       throw new Error("Rating must be between 1 and 5");
     }
 
-    // Check if review exists before updating
-    const { data: reviewExists, error: checkError } = await supabase
-        .from('Review')
-        .select('id', { head: true })
-        .eq('id', id)
-        .maybeSingle();
-
-    if (checkError) throw new Error(`Review check failed: ${checkError.message}`);
-    if (!reviewExists) throw new Error("Review not found");
-
-
+    // Skip the existence check since we already verified the review exists in the action
+    // This avoids the strange issue where the review is found in the action but not in the service
+    
     // Prepare update payload
-    const updateData: { rating?: number; comment?: string; updatedAt: string } = {
-        updatedAt: new Date().toISOString()
+    const updateData: { rating?: number; comment?: string; updated_at: string } = {
+        updated_at: new Date().toISOString()
     };
     if (rating !== undefined) updateData.rating = rating;
     if (comment !== undefined) updateData.comment = comment;
@@ -190,18 +183,26 @@ export async function updateReview(
       .eq('id', id)
       .select(`
           *,
-          Customer:customerId ( User:userId ( name ) ),
-          Product:productId ( name, slug )
+          Customer:customer_id ( User:user_id ( name ) ),
+          Product:product_id ( name, slug )
       `) // Fetch related data needed by the action layer
       .single();
 
-    if (updateError || !updatedReview) {
-        console.error("Error updating review:", updateError?.message);
+    if (updateError) {
+        console.error("[Service: updateReview] Error updating review:", updateError.message);
+        // If the record doesn't exist, this will also be caught here
+        if (updateError.message.includes("not found") || updateError.code === "PGRST116") {
+            throw new Error("Review not found");
+        }
         return null;
-        // throw new Error(`Failed to update review: ${updateError?.message}`);
     }
 
-     // Structure the result similar to createReview
+    if (!updatedReview) {
+        console.error("[Service: updateReview] No review returned after update");
+        return null;
+    }
+
+    // Structure the result similar to createReview
     const formattedReview = {
         ...updatedReview,
         customer: {
@@ -232,16 +233,10 @@ export async function updateReview(
  * @returns boolean indicating success
  */
 export async function deleteReview(id: string): Promise<boolean> {
+  console.log("[Service: deleteReview] Received id:", id);
   try {
-    // Check if review exists before deleting
-    const { data: reviewExists, error: checkError } = await supabase
-        .from('Review')
-        .select('id', { head: true })
-        .eq('id', id)
-        .maybeSingle();
-
-    if (checkError) throw new Error(`Review check failed: ${checkError.message}`);
-    if (!reviewExists) throw new Error("Review not found");
+    // Skip the existence check since we already verified the review exists in the action
+    // This avoids the strange issue where the review is found in the action but not in the service
 
     // Delete review
     const { error: deleteError } = await supabase
@@ -250,7 +245,11 @@ export async function deleteReview(id: string): Promise<boolean> {
       .eq('id', id);
 
     if (deleteError) {
-        console.error("Error deleting review:", deleteError.message);
+        console.error("[Service: deleteReview] Error deleting review:", deleteError.message);
+        // If the record doesn't exist, this will also be caught here
+        if (deleteError.message.includes("not found")) {
+            throw new Error("Review not found");
+        }
         throw new Error(`Failed to delete review: ${deleteError.message}`);
     }
 
@@ -267,16 +266,16 @@ export async function deleteReview(id: string): Promise<boolean> {
 
 /**
  * Get reviews for a product
- * @param productId - The product ID
+ * @param product_id - The product ID
  * @param params - Query parameters (page, limit, sortBy)
  * @returns Object with reviews, pagination metadata, and average rating
  */
 export async function getProductReviews(
-  productId: string,
+  product_id: string,
   params: {
     page?: number;
     limit?: number;
-    sortBy?: string; // e.g., "createdAt_desc", "rating_asc"
+    sortBy?: string; // e.g., "created_at_desc", "rating_asc"
   } = {}
 ): Promise<{
     data: Review[]; // Assuming Review type includes customer name
@@ -285,13 +284,13 @@ export async function getProductReviews(
     ratingDistribution: { [key: number]: number };
 } | null> {
   try {
-    const { page = 1, limit = 10, sortBy = "createdAt_desc" } = params;
+    const { page = 1, limit = 10, sortBy = "created_at_desc" } = params;
     const skip = (page - 1) * limit;
 
     // Parse sort option
     const [sortFieldInput, sortOrderInput] = sortBy.split("_");
-    const validSortFields = ['createdAt', 'rating']; // Allowed sort fields
-    const sortField = validSortFields.includes(sortFieldInput) ? sortFieldInput : 'createdAt';
+    const validSortFields = ['created_at', 'rating']; // Allowed sort fields
+    const sortField = validSortFields.includes(sortFieldInput) ? sortFieldInput : 'created_at';
     const ascending = sortOrderInput === 'asc';
 
     // Get reviews with pagination and count
@@ -299,9 +298,9 @@ export async function getProductReviews(
       .from('Review')
       .select(`
           *,
-          Customer:customerId ( User:userId ( name ) )
+          Customer:customer_id ( User:user_id ( name ) )
       `, { count: 'exact' })
-      .eq('productId', productId)
+      .eq('product_id', product_id)
       .order(sortField, { ascending })
       .range(skip, skip + limit - 1);
 
@@ -327,7 +326,7 @@ export async function getProductReviews(
     const { data: allRatingsData, error: ratingsError } = await supabase
         .from('Review')
         .select('rating')
-        .eq('productId', productId);
+        .eq('product_id', product_id);
 
     let avgRating = 0;
     let ratingDistribution: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -369,18 +368,18 @@ export async function getProductReviews(
 /**
  * Check if a customer can review a specific product
  * Checks if they purchased it and haven't reviewed it yet
- * @param customerId - The customer's ID
- * @param productId - The product's ID
+ * @param customer_id - The customer's ID
+ * @param product_id - The product's ID
  * @returns boolean indicating if they can review
  */
-export async function canReviewProduct(customerId: string, productId: string): Promise<boolean> {
+export async function canReviewProduct(customer_id: string, product_id: string): Promise<boolean> {
     try {
         // 1. Check if already reviewed
         const { data: existingReview, error: reviewCheckError } = await supabase
             .from('Review')
             .select('id', { head: true })
-            .eq('customerId', customerId)
-            .eq('productId', productId)
+            .eq('customer_id', customer_id)
+            .eq('product_id', product_id)
             .maybeSingle();
 
         if (reviewCheckError) {
@@ -395,9 +394,9 @@ export async function canReviewProduct(customerId: string, productId: string): P
         const { data: orderedItem, error: orderCheckError } = await supabase
             .from('Order')
             .select('id, OrderItem!inner(id)')
-            .eq('customerId', customerId)
+            .eq('customer_id', customer_id)
             // .in('status', ['DELIVERED', 'COMPLETED']) // Example status check
-            .eq('OrderItem.productId', productId)
+            .eq('OrderItem.product_id', product_id)
             .limit(1)
             .maybeSingle();
 
