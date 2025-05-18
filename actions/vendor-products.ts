@@ -86,14 +86,40 @@ export async function createProduct(data: {
  */
 export async function deleteProduct(productId: string) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerActionClient({ cookies: () => cookieStore });
+    // Use the async server action client for consistent auth handling
+    const supabase = await createAsyncServerActionClient();
 
-    // First get the current user and verify they are the owner of this product
-    const { data: { user } } = await supabase.auth.getUser();
+    // First get the current user with more robust error handling
+    let { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    // Log some debugging info
+    console.log('Server deleteProduct - Auth check:', 
+      user ? `User found: ${user.id}` : 'No user found');
+    
+    if (userError) {
+      console.error('Server deleteProduct - Auth error:', userError.message);
+      return { error: `Authentication error: ${userError.message}`, success: false };
+    }
     
     if (!user) {
-      return { error: 'Unauthorized', success: false };
+      // Try to refresh the session before giving up
+      console.log('Attempting to refresh the session...');
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error('Session refresh failed:', refreshError.message);
+        return { error: 'Unauthorized - Session refresh failed', success: false };
+      }
+      
+      // Check if user is now available after refresh
+      const { data: { user: refreshedUser } } = await supabase.auth.getUser();
+      if (!refreshedUser) {
+        return { error: 'Unauthorized - No active session found', success: false };
+      }
+      
+      console.log('Session refreshed successfully, continuing with request');
+      // Update the user variable with the refreshed user
+      user = refreshedUser;
     }
 
     // Get vendor ID
@@ -104,7 +130,8 @@ export async function deleteProduct(productId: string) {
       .single();
 
     if (vendorError || !vendorData) {
-      return { error: 'Vendor not found', success: false };
+      console.error('Server deleteProduct - Vendor error:', vendorError?.message);
+      return { error: 'Vendor not found for this user', success: false };
     }
 
     // Verify product ownership
@@ -116,6 +143,7 @@ export async function deleteProduct(productId: string) {
       .single();
 
     if (productError || !product) {
+      console.error('Server deleteProduct - Product ownership check:', productError?.message);
       return { error: 'Product not found or you do not have permission to delete it', success: false };
     }
 
@@ -127,7 +155,7 @@ export async function deleteProduct(productId: string) {
       .eq('product_id', productId);
 
     if (deleteImagesError) {
-      console.error('Error deleting product images:', deleteImagesError);
+      console.error('Server deleteProduct - Image deletion error:', deleteImagesError.message);
       // Continue with product deletion even if image deletion fails
     }
 
@@ -138,6 +166,7 @@ export async function deleteProduct(productId: string) {
       .eq('id', productId);
 
     if (deleteProductError) {
+      console.error('Server deleteProduct - Product deletion error:', deleteProductError.message);
       return { error: `Error deleting product: ${deleteProductError.message}`, success: false };
     }
 
@@ -145,8 +174,8 @@ export async function deleteProduct(productId: string) {
     revalidatePath('/vendor/products');
     
     return { success: true };
-  } catch (error) {
-    console.error('Error in deleteProduct:', error);
+  } catch (error: any) {
+    console.error('Server deleteProduct - Unexpected error:', error.message);
     return { 
       error: error instanceof Error ? error.message : 'An unknown error occurred', 
       success: false 
@@ -159,17 +188,43 @@ export async function deleteProduct(productId: string) {
  */
 export async function toggleProductPublishStatus(productId: string, currentStatus: boolean) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerActionClient({ cookies: () => cookieStore });
+    // Use the async server action client for consistent auth handling
+    const supabase = await createAsyncServerActionClient();
 
-    // First get the current user and verify they are the owner of this product
-    const { data: { user } } = await supabase.auth.getUser();
+    // First get the current user with more robust error handling
+    let { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    // Log some debugging info
+    console.log('Server toggleProductPublishStatus - Auth check:', 
+      user ? `User found: ${user.id}` : 'No user found');
+    
+    if (userError) {
+      console.error('Server toggleProductPublishStatus - Auth error:', userError.message);
+      return { error: `Authentication error: ${userError.message}`, success: false };
+    }
     
     if (!user) {
-      return { error: 'Unauthorized', success: false };
+      // Try to refresh the session before giving up
+      console.log('Attempting to refresh the session...');
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error('Session refresh failed:', refreshError.message);
+        return { error: 'Unauthorized - Session refresh failed', success: false };
+      }
+      
+      // Check if user is now available after refresh
+      const { data: { user: refreshedUser } } = await supabase.auth.getUser();
+      if (!refreshedUser) {
+        return { error: 'Unauthorized - No active session found', success: false };
+      }
+      
+      console.log('Session refreshed successfully, continuing with request');
+      // Update the user variable with the refreshed user
+      user = refreshedUser;
     }
 
-    // Get vendor ID
+    // After ensuring user is authenticated, get vendor ID
     const { data: vendorData, error: vendorError } = await supabase
       .from('Vendor')
       .select('id')
@@ -177,7 +232,8 @@ export async function toggleProductPublishStatus(productId: string, currentStatu
       .single();
 
     if (vendorError || !vendorData) {
-      return { error: 'Vendor not found', success: false };
+      console.error('Server toggleProductPublishStatus - Vendor error:', vendorError?.message);
+      return { error: 'Vendor not found for this user', success: false };
     }
 
     // Verify product ownership
@@ -189,6 +245,7 @@ export async function toggleProductPublishStatus(productId: string, currentStatu
       .single();
 
     if (productError || !product) {
+      console.error('Server toggleProductPublishStatus - Product ownership check:', productError?.message);
       return { 
         error: 'Product not found or you do not have permission to update it', 
         success: false 
@@ -202,6 +259,7 @@ export async function toggleProductPublishStatus(productId: string, currentStatu
       .eq('id', productId);
 
     if (updateError) {
+      console.error('Server toggleProductPublishStatus - Update error:', updateError.message);
       return { 
         error: `Error updating product status: ${updateError.message}`, 
         success: false 
@@ -215,8 +273,8 @@ export async function toggleProductPublishStatus(productId: string, currentStatu
       success: true, 
       newStatus: !currentStatus 
     };
-  } catch (error) {
-    console.error('Error in toggleProductPublishStatus:', error);
+  } catch (error: any) {
+    console.error('Server toggleProductPublishStatus - Unexpected error:', error.message);
     return { 
       error: error instanceof Error ? error.message : 'An unknown error occurred', 
       success: false 

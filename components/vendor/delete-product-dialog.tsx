@@ -27,6 +27,8 @@ export default function DeleteProductDialog({
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
+      
+      // Call the server action directly
       const result = await deleteProduct(productId);
       
       if (result.success) {
@@ -34,7 +36,14 @@ export default function DeleteProductDialog({
         router.refresh();
         onClose();
       } else {
-        toast.error(result.error || 'Failed to delete product');
+        console.error('Delete product error:', result.error);
+        
+        // Show more user-friendly error messages
+        if (result.error?.includes('Unauthorized') || result.error?.includes('session')) {
+          toast.error('Please refresh the page and try again');
+        } else {
+          toast.error('Failed to delete product');
+        }
       }
     } catch (error) {
       console.error('Error deleting product:', error);

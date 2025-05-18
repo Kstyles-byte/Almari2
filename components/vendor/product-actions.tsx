@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Edit, Eye, MoreVertical, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Edit, Eye, MoreVertical, Trash2, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { toggleProductPublishStatus } from '@/actions/vendor-products';
 import DeleteProductDialog from './delete-product-dialog';
@@ -36,13 +36,22 @@ export default function ProductActions({
   const handleTogglePublishStatus = async () => {
     try {
       setIsTogglingStatus(true);
+      
+      // Call the server action directly
       const result = await toggleProductPublishStatus(productId, currentPublishStatus);
       
       if (result.success && result.newStatus !== undefined) {
         setCurrentPublishStatus(result.newStatus);
         toast.success(`Product ${result.newStatus ? 'published' : 'unpublished'} successfully`);
       } else {
-        toast.error(result.error || 'Failed to update product status');
+        console.error('Toggle status error:', result.error);
+        
+        // Show a more user-friendly error message
+        if (result.error?.includes('Unauthorized') || result.error?.includes('session')) {
+          toast.error('Please refresh the page and try again');
+        } else {
+          toast.error('Failed to update product status');
+        }
       }
     } catch (error) {
       console.error('Error toggling product status:', error);
@@ -94,7 +103,12 @@ export default function ProductActions({
                 disabled={isTogglingStatus}
                 className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
-                {currentPublishStatus ? (
+                {isTogglingStatus ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    {currentPublishStatus ? 'Unpublishing...' : 'Publishing...'}
+                  </>
+                ) : currentPublishStatus ? (
                   <>
                     <ToggleLeft size={16} className="mr-2 text-gray-500" />
                     Unpublish

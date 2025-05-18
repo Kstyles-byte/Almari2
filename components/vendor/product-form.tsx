@@ -99,14 +99,21 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
+    console.log(`Selected ${files.length} files for upload`);
+    
     const newImages = Array.from(files).map(file => ({
         file,
         preview: URL.createObjectURL(file)
     }));
 
+    console.log('Created previews:', newImages.map(img => img.preview));
+    
     setUploadedImages(prev => [...prev, ...newImages]);
+    
+    // Reset the input value to allow selecting the same file again if needed
+    e.target.value = '';
   };
 
   const removeUploadedImage = (index: number) => {
@@ -413,7 +420,7 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Product Images
             </label>
-            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-zervia-500 transition-colors">
               <div className="space-y-1 text-center">
                 <svg
                   className="mx-auto h-12 w-12 text-gray-400"
@@ -429,12 +436,12 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
                     strokeLinejoin="round"
                   />
                 </svg>
-                <div className="flex text-sm text-gray-600">
+                <div className="flex justify-center text-sm text-gray-600">
                   <label
                     htmlFor="image-upload"
                     className="relative cursor-pointer bg-white rounded-md font-medium text-zervia-600 hover:text-zervia-500 focus-within:outline-none"
                   >
-                    <span>Upload images</span>
+                    <span className="px-2 py-1 hover:bg-zervia-50 rounded transition-colors">Upload images</span>
                     <input
                       id="image-upload"
                       name="image-upload"
@@ -454,24 +461,22 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
 
           {/* Preview of existing images */}
           {existingImages.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Current Images</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="border border-gray-200 rounded-md p-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Current Images</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {existingImages.map((image) => (
                   <div key={image.id} className="relative group">
-                    <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-md bg-gray-200">
-                      <Image 
+                    <div className="bg-gray-100 rounded-md overflow-hidden h-32">
+                      <img 
                         src={image.url}
-                        alt="Product"
-                        className="object-cover"
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
+                        alt="Current product"
+                        className="w-full h-full object-contain"
                       />
                     </div>
                     <button
                       type="button"
                       onClick={() => removeExistingImage(image.id)}
-                      className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md opacity-100 hover:bg-red-50 transition-colors"
                     >
                       <Trash2 size={16} className="text-red-500" />
                     </button>
@@ -483,24 +488,22 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
 
           {/* Preview of newly uploaded images */}
           {uploadedImages.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">New Images</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="border border-gray-200 rounded-md p-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">New Images</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {uploadedImages.map((image, index) => (
                   <div key={index} className="relative group">
-                    <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-md bg-gray-200">
-                      <Image 
+                    <div className="bg-gray-100 rounded-md overflow-hidden h-32">
+                      <img 
                         src={image.preview}
-                        alt="Product"
-                        className="object-cover"
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
+                        alt={`Product preview ${index + 1}`}
+                        className="w-full h-full object-contain"
                       />
                     </div>
                     <button
                       type="button"
                       onClick={() => removeUploadedImage(index)}
-                      className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md opacity-100 hover:bg-red-50 transition-colors"
                     >
                       <Trash2 size={16} className="text-red-500" />
                     </button>
