@@ -19,6 +19,9 @@ import {
 } from "../lib/services/return";
 import { createReturnStatusNotification } from "../lib/services/notification";
 import { Database } from "../types/supabase";
+import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
 // Define Return type directly from Database type
 type Return = Database['public']['Tables']['Return']['Row'];
@@ -136,7 +139,34 @@ export async function getCustomerReturnsAction(options?: {
   status?: string;
 }) {
   try {
-    const session = await auth();
+    // Create Supabase client with service role key for server-side use
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    
+    // Get user session from cookies directly
+    const cookieStore = await cookies();
+    const supabaseClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: "", ...options });
+          },
+        },
+      }
+    );
+    
+    // Get session from Supabase
+    const { data: { session } } = await supabaseClient.auth.getSession();
     
     if (!session?.user) {
       return { error: "Unauthorized", success: false };

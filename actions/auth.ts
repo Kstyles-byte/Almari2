@@ -220,11 +220,11 @@ export async function signInWithSupabase(
   
   // Otherwise redirect based on role
   if (role === 'admin') {
-    return redirect('/admin');
+    return redirect('/admin/dashboard');
   } else if (role === 'vendor') {
-    return redirect('/vendor');
+    return redirect('/vendor/dashboard');
   } else if (role === 'agent') {
-    return redirect('/agent');
+    return redirect('/agent/dashboard');
   } else {
     // Default to customer dashboard
     return redirect('/customer/dashboard');

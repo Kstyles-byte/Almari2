@@ -118,14 +118,19 @@ const ProductShowcase = () => {
       try {
         // Fetch newest products using getProducts
         const result = await getProducts({ sortBy: 'newest', limit: 8 }); 
-        if (result.products) {
+        
+        // Check if result exists first before accessing properties
+        if (result && result.products) {
            // Assume the structure from getProducts matches ProductGridItemType
            // If not, mapping/adjustment is needed here.
            setProducts(result.products as ProductGridItemType[]); 
         } else {
            // Handle case where products array might be missing, though action should return it
            setProducts([]);
-           // Consider setting an error if appropriate
+           // Only set error if we don't have any products
+           if (!result) {
+             setError("Could not load products. Please try again later.");
+           }
         }
       } catch (err) {
         console.error("Failed to fetch products for showcase:", err);

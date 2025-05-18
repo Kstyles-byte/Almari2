@@ -78,9 +78,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
+      console.log("JWT callback called", { hasUserId: !!user?.id, hasTokenId: !!token.id });
+      
       // If user object exists (e.g., during sign-in), fetch role from custom table
       if (user?.id) {
         token.id = user.id; // Assign user ID to token first
+        console.log(`Setting token ID to ${user.id}`);
 
         try {
           // Query your custom "User" table to get the role
@@ -95,6 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             console.error("Error fetching user role from 'User' table:", userError.message);
             token.role = UserRole.CUSTOMER; // Default role on error
           } else if (userData?.role) {
+            console.log(`Found role for user ${user.id}: ${userData.role}`);
             token.role = userData.role as UserRole; // Assign fetched role
           } else {
             // This case might occur if a user exists in Supabase Auth but not in your custom 'User' table
@@ -105,17 +109,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           console.error("Database error fetching role:", dbError);
           token.role = UserRole.CUSTOMER; // Default role on unexpected error
         }
+      } else {
+        console.log("No user object in JWT callback, using existing token data");
       }
       // For subsequent requests, the role should already be in the token
       return token;
     },
     async session({ session, token }) {
+      console.log("Session callback called", { 
+        hasUser: !!session.user, 
+        hasTokenId: !!token.id, 
+        hasTokenRole: !!token.role 
+      });
+      
       // Assign role and ID from JWT token to session object
       if (token && session.user) {
         session.user.role = token.role as UserRole; // Assign role from token
         if (token.id) {
           session.user.id = token.id as string; // Assign id from token
+          console.log(`Set session user ID to ${token.id} and role to ${token.role}`);
         }
+      } else {
+        console.log("Missing token or session.user in session callback");
       }
       return session;
     },

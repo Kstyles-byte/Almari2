@@ -5,7 +5,9 @@ import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from "next/cache";
 import { getVendorByUserId } from "../lib/services/vendor";
 import { createOrderStatusNotification } from "../lib/services/notification";
-import type { Vendor, OrderItem, Order, Payout } from "../types/supabase";
+import type { Tables } from "../types/supabase";
+import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -26,7 +28,7 @@ type PayoutStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 /**
  * Get all order items for a vendor
  */
-export async function getVendorOrderItems(): Promise<{ success: boolean; orderItems?: OrderItem[]; error?: string }> {
+export async function getVendorOrderItems(): Promise<{ success: boolean; orderItems?: Tables<'OrderItem'>[]; error?: string }> {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
@@ -55,121 +57,6 @@ export async function getVendorOrderItems(): Promise<{ success: boolean; orderIt
   } catch (error) {
     console.error("Error in getVendorOrderItems action:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to fetch order items" };
-  }
-}
-
-/**
- * Update order item status (for vendors)
- */
-export async function updateOrderItemStatus(formData: FormData): Promise<{ success: boolean; error?: string }> {
-  try {
-    const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
-
-    const orderItemId = formData.get("orderItemId") as string;
-    const status = formData.get("status") as OrderItemStatus;
-
-    if (!orderItemId || !status) {
-      return { success: false, error: "Order item ID and status are required" };
-    }
-
-    // Validate status
-    const validStatuses: OrderItemStatus[] = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
-    if (!validStatuses.includes(status)) {
-      return { success: false, error: "Invalid status" };
-    }
-
-    // Get vendor profile
-    const vendor = await getVendorByUserId(session.user.id);
-    if (!vendor) return { success: false, error: "Vendor profile not found" };
-
-    // Get order item and check if it belongs to this vendor
-    const { data: orderItem, error: fetchError } = await supabase
-        .from('OrderItem')
-        .select('id, vendorId, orderId')
-        .eq('id', orderItemId)
-        .single();
-
-    if (fetchError) {
-        console.error("Error fetching order item:", fetchError.message);
-        return { success: false, error: "Order item not found" };
-    }
-    if (!orderItem) return { success: false, error: "Order item not found (post-fetch)" };
-
-    if (orderItem.vendorId !== vendor.id) {
-      return { success: false, error: "Not authorized to update this order item" };
-    }
-
-    // --- Transaction Logic Start (Conceptual) --- 
-    // Ideally use a DB function for atomicity
-
-    // 1. Update order item status
-    const { error: itemUpdateError } = await supabase
-      .from('OrderItem')
-      .update({ status: status, updatedAt: new Date().toISOString() })
-      .eq('id', orderItemId);
-
-    if (itemUpdateError) {
-        console.error("Error updating order item status:", itemUpdateError.message);
-        throw new Error(`Failed to update order item: ${itemUpdateError.message}`);
-    }
-
-    // 2. Check if all order items for the parent order have a final status,
-    //    and update the parent Order status accordingly.
-    if (status === "DELIVERED" || status === "CANCELLED") {
-        const { data: allOrderItems, error: allItemsError } = await supabase
-            .from('OrderItem')
-            .select('status')
-            .eq('orderId', orderItem.orderId);
-
-        if (allItemsError || !allOrderItems) {
-            console.error("Error fetching all order items for status check:", allItemsError?.message);
-            // Log error but proceed with notification for the item itself
-        } else {
-            const allStatuses = allOrderItems.map(item => item.status as OrderItemStatus);
-            const allDeliveredOrCancelled = allStatuses.every(
-                itemStatus => itemStatus === "DELIVERED" || itemStatus === "CANCELLED"
-            );
-
-            if (allDeliveredOrCancelled) {
-                const allDelivered = allStatuses.every(itemStatus => itemStatus === "DELIVERED");
-                const allCancelled = allStatuses.every(itemStatus => itemStatus === "CANCELLED");
-
-                let finalOrderStatus: OrderStatus = "PARTIALLY_FULFILLED";
-                if (allDelivered) finalOrderStatus = "DELIVERED";
-                if (allCancelled) finalOrderStatus = "CANCELLED";
-
-                // Update the parent Order status
-                const { error: orderUpdateError } = await supabase
-                    .from('Order')
-                    .update({ status: finalOrderStatus, updatedAt: new Date().toISOString() })
-                    .eq('id', orderItem.orderId);
-                
-                if (orderUpdateError) {
-                     console.error("Error updating parent order status:", orderUpdateError.message);
-                     // Log error, but don't necessarily fail the whole action
-                } else {
-                    // Create notification for *final* order status change if update was successful
-                    await createOrderStatusNotification(orderItem.orderId, finalOrderStatus);
-                }
-            }
-        }
-    }
-
-    // --- Transaction Logic End --- 
-
-    // Create notification for the specific item status change (might be redundant if final order status also changed)
-    // Consider sending only the final order status notification if applicable?
-    // await createOrderStatusNotification(orderItem.orderId, `ITEM_${status}`); // Example: Use a specific notification type?
-
-    revalidatePath("/vendor/orders");
-    revalidatePath(`/vendor/orders/${orderItem.orderId}`);
-    revalidatePath(`/customer/orders/${orderItem.orderId}`);
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error updating order item status action:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Failed to update order item status" };
   }
 }
 
@@ -216,5 +103,158 @@ export async function createPayoutRequest(formData: FormData): Promise<{ success
   } catch (error) {
     console.error("Error in createPayoutRequest action:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to create payout request" };
+  }
+}
+
+/**
+ * Updates the status of a specific order item
+ */
+export async function updateOrderItemStatus(orderItemId: string, newStatus: string) {
+  const allowedStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+  
+  if (!allowedStatuses.includes(newStatus)) {
+    return { 
+      error: 'Invalid status provided', 
+      success: false 
+    };
+  }
+
+  try {
+    const cookieStore = cookies();
+    const supabase = createServerActionClient({ cookies: () => cookieStore });
+
+    // First get the current user and fetch their vendor ID
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { error: 'Unauthorized', success: false };
+    }
+
+    // Get vendor ID
+    const { data: vendorData, error: vendorError } = await supabase
+      .from('Vendor')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (vendorError || !vendorData) {
+      return { error: 'Vendor not found', success: false };
+    }
+
+    // Verify order item belongs to this vendor
+    const { data: orderItem, error: orderItemError } = await supabase
+      .from('OrderItem')
+      .select('id, order_id')
+      .eq('id', orderItemId)
+      .eq('vendor_id', vendorData.id)
+      .single();
+
+    if (orderItemError || !orderItem) {
+      return { 
+        error: 'Order item not found or you do not have permission to update it', 
+        success: false 
+      };
+    }
+
+    // Update the order item status
+    const { error: updateError } = await supabase
+      .from('OrderItem')
+      .update({ 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', orderItemId);
+
+    if (updateError) {
+      return { 
+        error: `Error updating order status: ${updateError.message}`, 
+        success: false 
+      };
+    }
+
+    // Revalidate the order pages
+    revalidatePath('/vendor/orders');
+    revalidatePath(`/vendor/orders/${orderItem.order_id}`);
+    
+    return { 
+      success: true,
+      newStatus
+    };
+  } catch (error) {
+    console.error('Error in updateOrderItemStatus:', error);
+    return { 
+      error: error instanceof Error ? error.message : 'An unknown error occurred', 
+      success: false 
+    };
+  }
+}
+
+/**
+ * Updates the status of all items in an order for this vendor
+ */
+export async function updateAllVendorOrderItems(orderId: string, newStatus: string) {
+  const allowedStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+  
+  if (!allowedStatuses.includes(newStatus)) {
+    return { 
+      error: 'Invalid status provided', 
+      success: false 
+    };
+  }
+
+  try {
+    const cookieStore = cookies();
+    const supabase = createServerActionClient({ cookies: () => cookieStore });
+
+    // First get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { error: 'Unauthorized', success: false };
+    }
+
+    // Get vendor ID
+    const { data: vendorData, error: vendorError } = await supabase
+      .from('Vendor')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (vendorError || !vendorData) {
+      return { error: 'Vendor not found', success: false };
+    }
+
+    // Update all order items for this vendor in this order
+    const { error: updateError, count } = await supabase
+      .from('OrderItem')
+      .update({ 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('order_id', orderId)
+      .eq('vendor_id', vendorData.id);
+
+    if (updateError) {
+      return { 
+        error: `Error updating order items: ${updateError.message}`, 
+        success: false 
+      };
+    }
+
+    // Revalidate the order pages
+    revalidatePath('/vendor/orders');
+    revalidatePath(`/vendor/orders/${orderId}`);
+    
+    return { 
+      success: true,
+      updatedCount: count,
+      newStatus
+    };
+  } catch (error) {
+    console.error('Error in updateAllVendorOrderItems:', error);
+    return { 
+      error: error instanceof Error ? error.message : 'An unknown error occurred', 
+      success: false 
+    };
   }
 } 

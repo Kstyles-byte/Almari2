@@ -42,7 +42,9 @@ const TrendingProductsSection = () => {
         setIsLoading(true);
         // Use getProducts sorted by newest
         const result = await getProducts({ sortBy: 'newest', limit: 3 }); 
-        if (result.products) {
+        
+        // Check if result exists first before accessing properties
+        if (result && result.products) {
             // Map the result from getProducts to TrendingProduct type
             const formattedProducts = result.products.map((p: any) => ({
                 id: p.id,
@@ -59,8 +61,11 @@ const TrendingProductsSection = () => {
            setTrendingProducts(formattedProducts as TrendingProduct[]);
         } else {
            setTrendingProducts([]);
+           // Only set error if we don't have result at all
+           if (!result) {
+             setError("Could not load trending products. Please try again later.");
+           }
         }
-        setError(null);
       } catch (err) {
         console.error("Failed to fetch trending products:", err);
         setError("Could not load trending products.");

@@ -160,7 +160,7 @@ export async function getCustomerReturns(customerId: string, options?: {
         Order:order_id (*),
         Product:product_id (*),
         Vendor:vendor_id (id, store_name),
-        Agent:agent_id (id, name, location)
+        Agent:agent_id (id, name, city, state_province)
       `, { count: 'exact' })
       .eq('customer_id', customerId);
     
@@ -509,7 +509,7 @@ export async function getAllReturns(options?: {
         Product:product_id (*),
         Customer:customer_id (*, User:user_id (name, email)),
         Vendor:vendor_id (*, User:user_id (name, email)),
-        Agent:agent_id (*)
+        Agent:agent_id (id, name, city, state_province, address_line1, postal_code, country)
       `, { count: 'exact' });
 
     // Apply status filter

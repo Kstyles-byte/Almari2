@@ -21,17 +21,41 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
  */
 export async function getCustomerByUserId(userId: string): Promise<Customer | null> {
   try {
-    const { data, error } = await supabase
+    console.log(`Fetching customer with user_id: ${userId}`);
+    
+    // First try with 'user_id' (snake_case, which is Supabase's default convention)
+    let { data, error } = await supabase
       .from('Customer')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error("Error fetching customer by user ID:", error.message);
-      throw error;
+      
+    if (error) {
+      console.error("Error fetching customer with user_id:", error.message, error.code);
+      
+      // If not found, try with 'userId' (camelCase, which might be used in some schemas)
+      const result = await supabase
+        .from('Customer')
+        .select('*')
+        .eq('userId', userId)
+        .maybeSingle();
+        
+      data = result.data;
+      error = result.error;
+      
+      if (error) {
+        console.error("Error fetching customer with userId:", error.message, error.code);
+        throw error;
+      }
     }
-    return data as Customer | null;
+    
+    if (!data) {
+      console.log(`No customer found for user_id: ${userId}`);
+      return null;
+    }
+    
+    console.log(`Customer found: ${data.id}`);
+    return data as Customer;
   } catch (error) {
     console.error("Unexpected error in getCustomerByUserId:", error);
     throw error;

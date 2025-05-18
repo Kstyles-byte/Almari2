@@ -21,9 +21,14 @@ import { NotificationCenter } from '../notifications/notification-center';
 
 interface VendorLayoutProps {
   children: React.ReactNode;
+  vendorData: {
+    email?: string;
+    storeName: string;
+    logoUrl?: string;
+  };
 }
 
-export default function VendorLayout({ children }: VendorLayoutProps) {
+export default function VendorLayout({ children, vendorData }: VendorLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponentClient();
@@ -66,12 +71,15 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
       router.push('/');
     }
   };
+
+  // Get the first letter of the store name for the avatar
+  const storeInitial = vendorData.storeName.charAt(0).toUpperCase();
   
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top Navigation Bar */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="px-4 md:px-6 py-2 flex items-center justify-between">
+        <div className="px-4 md:px-6 py-10 flex items-center justify-between">
           {/* Left: Logo & Mobile Menu Button */}
           <div className="flex items-center">
             <button 
@@ -105,10 +113,10 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
                 onClick={toggleProfileMenu}
               >
                 <div className="w-8 h-8 rounded-full bg-zervia-100 flex items-center justify-center text-zervia-600 mr-1">
-                  E
+                  {storeInitial}
                 </div>
                 <div className="hidden md:block text-left mr-1">
-                  <div className="text-sm font-medium">Emporium Elegance</div>
+                  <div className="text-sm font-medium">{vendorData.storeName}</div>
                 </div>
                 <ChevronDown size={16} className="hidden md:block text-gray-500" />
               </button>
@@ -117,8 +125,8 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
               {isProfileMenuOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white shadow-lg rounded-md overflow-hidden z-20">
                   <div className="p-4 border-b">
-                    <p className="font-medium">Emporium Elegance</p>
-                    <p className="text-sm text-gray-500">vendor@example.com</p>
+                    <p className="font-medium">{vendorData.storeName}</p>
+                    <p className="text-sm text-gray-500">{vendorData.email}</p>
                   </div>
                   <div className="py-1">
                     <Link 
@@ -181,11 +189,11 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
         <div className="p-4 border-b">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-zervia-100 flex items-center justify-center text-zervia-600">
-              E
+              {storeInitial}
             </div>
             <div>
-              <p className="font-medium">Emporium Elegance</p>
-              <p className="text-xs text-gray-500">vendor@example.com</p>
+              <p className="font-medium">{vendorData.storeName}</p>
+              <p className="text-xs text-gray-500">{vendorData.email}</p>
             </div>
           </div>
         </div>
@@ -237,11 +245,11 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
           <div className="p-6">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full bg-zervia-100 flex items-center justify-center text-zervia-600">
-                E
+                {storeInitial}
               </div>
               <div>
-                <p className="font-medium">Emporium Elegance</p>
-                <p className="text-xs text-gray-500">vendor@example.com</p>
+                <p className="font-medium">{vendorData.storeName}</p>
+                <p className="text-xs text-gray-500">{vendorData.email}</p>
               </div>
             </div>
           </div>
@@ -271,7 +279,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
             })}
           </nav>
           
-          <div className="mt-auto p-4 border-t absolute bottom-0 w-full">
+          <div className="mt-auto p-4 border-t sticky bottom-0 w-full bg-white">
             <button
               className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full"
               onClick={handleSignOut}
@@ -282,12 +290,12 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
           </div>
         </div>
         
-        {/* Main Content Area */}
-        <div className="flex-1 min-h-screen">
-          <main className="p-6">
+        {/* Main Content */}
+        <main className="flex-1 overflow-auto">
+          <div className="p-6 pt-8">
             {children}
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
     </div>
   );

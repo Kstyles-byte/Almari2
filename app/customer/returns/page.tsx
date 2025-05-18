@@ -39,14 +39,25 @@ export default async function CustomerReturnsPage() {
 
   // Get session to ensure user is authenticated
   const { data: { session } } = await supabase.auth.getSession();
+  console.log("Returns page - Auth check:", { 
+    hasSession: !!session, 
+    userId: session?.user?.id,
+  });
   
   if (!session) {
+    console.log("Returns page - No session, redirecting to login");
     // If no session, redirect to login
     return redirect("/auth/signin?returnTo=/customer/returns");
   }
 
   // Now that we know the user is authenticated, get returns data
+  console.log("Returns page - Fetching returns data for user:", session.user.id);
   const result = await getCustomerReturnsAction({ page: 1, limit: 10 });
+  console.log("Returns page - Got result:", { 
+    success: 'success' in result ? result.success : false,
+    error: 'error' in result ? result.error : null,
+    dataLength: 'data' in result ? result.data?.length : 0
+  });
 
   // Format the returns data for display
   const formattedReturns = result && 'success' in result && result.success && 'data' in result && result.data ? 
@@ -94,7 +105,7 @@ export default async function CustomerReturnsPage() {
           action={{
             href: "/products",
             label: "Browse Products"
-          } as unknown as React.ReactNode}
+          } as any}
         />
       ) : (
         <CustomerReturnsHistory returns={formattedReturns} />

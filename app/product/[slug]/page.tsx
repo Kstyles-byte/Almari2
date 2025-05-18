@@ -115,7 +115,7 @@ export default async function ProductDetail({ params }: { params: { slug: string
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Product images - Use fetched images */}
           <div>
-            <ImageGallery images={product.images.length > 0 ? product.images : [{ id: 'placeholder', url: '/placeholder-product.jpg', alt: 'Placeholder Image' }]} />
+            <ImageGallery images={product.images.length > 0 ? product.images : [{ id: 'placeholder', url: '/assets/placeholder-product.svg', alt: 'Placeholder Image' }]} />
           </div>
           
           {/* Product info - Use fetched data */}

@@ -461,21 +461,22 @@ export async function getProducts({
   page = 1,
   limit = 12
 }: GetProductsParams) {
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-  const offset = (page - 1) * limit;
-
   try {
+    // Setup Supabase client using service role key for full query capabilities
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    // Start building the query
     let queryBuilder = supabase
       .from('Product')
       .select(`
-        *,
-        ProductImage ( url ),
-        Category!inner ( id, name, slug ),
-        Vendor!inner ( store_name ),
-        Review ( rating )
-      `, { count: 'exact' })
-      .eq('is_published', true) 
-      .gt('inventory', 0);
+        id, name, slug, description, price, compare_at_price, inventory, is_published, created_at, updated_at,
+        ProductImage(*),
+        Category!inner(*),
+        Vendor(*),
+        Review(*)
+      `)
+      .eq('is_published', true)
+      .gt('inventory', 0); // Only show available products
 
     if (categorySlug) {
       queryBuilder = queryBuilder.eq('Category.slug', categorySlug);
@@ -510,6 +511,7 @@ export async function getProducts({
       // Add 'rating' case here if implemented later
     }
 
+    const offset = (page - 1) * limit;
     queryBuilder = queryBuilder.range(offset, offset + limit - 1);
 
     const { data: productsData, error, count } = await queryBuilder;
@@ -548,7 +550,7 @@ export async function getProducts({
          slug: product.slug,
          price: product.price,
          comparePrice: product.compare_at_price, // Map to camelCase
-         image: product.ProductImage?.[0]?.url || '/placeholder-product.jpg',
+         image: product.ProductImage?.[0]?.url || '/assets/placeholder-product.svg',
          rating: parseFloat(avgRating.toFixed(1)),
          reviews: reviews.length,
          isNew: !isNaN(createdAtTime) && createdAtTime > sevenDaysAgo,
@@ -564,7 +566,12 @@ export async function getProducts({
 
   } catch (error) {
     console.error("Error processing products query:", error);
-    return { products: [], count: 0, totalPages: 0 };
+    // Always return a valid structure even when errors occur
+    return { 
+      products: [], 
+      count: 0, 
+      totalPages: 0 
+    };
   }
 }
 
@@ -667,7 +674,7 @@ export async function getProductBySlug(slug: string) {
             slug: typedProd.slug,
             price: typedProd.price,
             comparePrice: typedProd.compare_at_price, // Map to camelCase
-            image: typedProd.ProductImage[0]?.url || '/placeholder-product.jpg',
+            image: typedProd.ProductImage[0]?.url || '/assets/placeholder-product.svg',
             rating: parseFloat(relatedAvgRating.toFixed(1)),
             reviewCount: relatedReviews.length,
             inventory: typedProd.inventory // Added inventory to the result object
