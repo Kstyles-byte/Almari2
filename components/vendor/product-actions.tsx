@@ -84,6 +84,7 @@ export default function ProductActions({
                 href={`/vendor/products/${productId}/edit`}
                 className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 onClick={closeDropdown}
+                prefetch={true}
               >
                 <Edit size={16} className="mr-2 text-gray-500" />
                 Edit
@@ -93,6 +94,7 @@ export default function ProductActions({
                 href={`/product/${productSlug}`}
                 className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 onClick={closeDropdown}
+                target="_blank"
               >
                 <Eye size={16} className="mr-2 text-gray-500" />
                 View

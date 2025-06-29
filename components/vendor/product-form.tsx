@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Star, StarOff, AlertTriangle } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { createProduct, saveProductImage } from '@/actions/vendor-products';
+import { createProduct, saveProductImage, updateProduct, deleteProductImage } from '@/actions/vendor-products';
 
 interface Category {
   value: string;
@@ -30,7 +30,7 @@ interface ProductFormProps {
     inventory: number;
     is_published: boolean;
     slug: string;
-    images?: { id: string; url: string }[];
+    images?: { id: string; url: string; isPrimary?: boolean }[];
   };
 }
 
@@ -55,8 +55,10 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
   const supabase = createClientComponentClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<{ file: File; preview: string }[]>([]);
-  const [existingImages, setExistingImages] = useState<{ id: string; url: string }[]>(product?.images || []);
+  const [existingImages, setExistingImages] = useState<{ id: string; url: string; isPrimary?: boolean }[]>(product?.images || []);
   const [isGeneratingSlug, setIsGeneratingSlug] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: number]: number }>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Form setup
   const { 
@@ -64,7 +66,7 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
     handleSubmit, 
     watch,
     setValue,
-    formState: { errors } 
+    formState: { errors, isDirty } 
   } = useForm<FormData>({
     defaultValues: {
       name: product?.name || '',
@@ -81,6 +83,19 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
 
   const watchName = watch('name');
 
+  // Effect to check for unsaved changes before leaving the page
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty || uploadedImages.length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty, uploadedImages.length]);
+
   const handleGenerateSlug = () => {
     if (!watchName) return;
     
@@ -93,7 +108,7 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
       .replace(/\s+/g, '-') // Replace spaces with hyphens
       .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
     
-    setValue('slug', slug);
+    setValue('slug', slug, { shouldDirty: true });
     setIsGeneratingSlug(false);
   };
 
@@ -103,7 +118,25 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
 
     console.log(`Selected ${files.length} files for upload`);
     
-    const newImages = Array.from(files).map(file => ({
+    // Validate file types and sizes
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    
+    const validFiles = Array.from(files).filter(file => {
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(`File "${file.name}" is not a supported image type`);
+        return false;
+      }
+      if (file.size > maxSize) {
+        toast.error(`File "${file.name}" exceeds the 10MB size limit`);
+        return false;
+      }
+      return true;
+    });
+    
+    if (validFiles.length === 0) return;
+    
+    const newImages = validFiles.map(file => ({
         file,
         preview: URL.createObjectURL(file)
     }));
@@ -126,13 +159,71 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
     });
   };
 
-  const removeExistingImage = (imageId: string) => {
-    setExistingImages(prev => prev.filter(img => img.id !== imageId));
+  const removeExistingImage = async (imageId: string) => {
+    try {
+      // Call the server action to delete the image
+      const result = await deleteProductImage(imageId);
+      
+      if (result.success) {
+        // Update the local state to remove the image
+        setExistingImages(prev => prev.filter(img => img.id !== imageId));
+        toast.success('Image removed successfully');
+      } else {
+        console.error('Failed to delete image:', result.error);
+        toast.error(`Failed to remove image: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error removing image:', error);
+      toast.error('An unexpected error occurred while removing the image');
+    }
+  };
+
+  // Add new function to set an image as primary
+  const setImageAsPrimary = async (imageId: string) => {
+    try {
+      // First update local state to show immediate feedback
+      setExistingImages(prev => 
+        prev.map(img => ({
+          ...img,
+          isPrimary: img.id === imageId
+        }))
+      );
+
+      // Update in database using saveProductImage with isPrimary=true
+      // This will handle updating other images to not be primary
+      const productId = product?.id;
+      if (!productId) return;
+
+      // Find the image URL from our state
+      const imageToUpdate = existingImages.find(img => img.id === imageId);
+      if (!imageToUpdate) return;
+
+      // Save the image again with primary flag
+      const result = await saveProductImage({
+        productId,
+        imageUrl: imageToUpdate.url,
+        isPrimary: true
+      });
+
+      if (!result.success) {
+        console.error('Failed to set image as primary:', result.error);
+        toast.error('Failed to set image as primary');
+        
+        // Revert the local state change on error
+        setExistingImages(prev => [...prev]);
+      } else {
+        toast.success('Primary image updated');
+      }
+    } catch (error) {
+      console.error('Error setting primary image:', error);
+      toast.error('An error occurred while setting primary image');
+    }
   };
 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
     try {
       setIsSubmitting(true);
+      setFormError(null);
 
       // Debug: Check auth status
       const { data: { session } } = await supabase.auth.getSession();
@@ -150,11 +241,12 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
       }
 
       let productId = product?.id;
+      let result;
 
       if (!productId) {
         // Create new product using server action
         console.log('Creating new product via server action');
-        const result = await createProduct({
+        result = await createProduct({
           name: data.name,
           description: data.description,
           price: parseFloat(data.price.toString()),
@@ -166,6 +258,7 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
         });
 
         if (!result.success) {
+          setFormError(`Failed to create product: ${result.error}`);
           toast.error(`Failed to create product: ${result.error}`);
           return;
         }
@@ -173,13 +266,32 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
         productId = result.productId;
         toast.success("Product created successfully!");
       } else {
-        // Handle product update logic (we'll implement this later)
-        toast.info("Product update not yet implemented");
+        // Update existing product using server action
+        console.log(`Updating product ${productId} via server action`);
+        result = await updateProduct(productId, {
+          name: data.name,
+          description: data.description,
+          price: parseFloat(data.price.toString()),
+          compare_at_price: data.compare_at_price ? parseFloat(data.compare_at_price.toString()) : null,
+          category_id: data.category_id,
+          inventory: parseInt(data.inventory.toString()),
+          is_published: data.is_published,
+          slug: data.slug
+        });
+
+        if (!result.success) {
+          setFormError(`Failed to update product: ${result.error}`);
+          toast.error(`Failed to update product: ${result.error}`);
+          return;
+        }
+        
+        toast.success("Product updated successfully!");
       }
 
       // Now handle image uploads if we have a product ID
       if (productId && uploadedImages.length > 0) {
         console.log(`Processing ${uploadedImages.length} images for product ${productId}`);
+        toast.info(`Uploading ${uploadedImages.length} image${uploadedImages.length > 1 ? 's' : ''}...`);
         
         // Upload each image to Cloudinary
         for (let i = 0; i < uploadedImages.length; i++) {
@@ -192,11 +304,13 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
           
           try {
             console.log(`Uploading image ${i+1}/${uploadedImages.length} to Cloudinary`);
+            setUploadProgress(prev => ({ ...prev, [i]: 10 }));
             
             let imageUrl = '';
             try {
               const cloudName = 'dfnjmiv3';
               console.log('Attempting Cloudinary upload with new API key...');
+              setUploadProgress(prev => ({ ...prev, [i]: 30 }));
               
               const uploadResponse = await fetch(
                 `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -205,6 +319,8 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
                   body: formData
                 }
               );
+              
+              setUploadProgress(prev => ({ ...prev, [i]: 60 }));
               
               if (!uploadResponse.ok) {
                 const errorText = await uploadResponse.text();
@@ -224,6 +340,7 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
                   const dataUrl = await dataUrlPromise;
                   console.log('Created data URL from uploaded image');
                   imageUrl = dataUrl as string;
+                  setUploadProgress(prev => ({ ...prev, [i]: 80 }));
                 } catch (dataUrlError) {
                   console.error('Failed to create data URL:', dataUrlError);
                   // If creating data URL fails, use the static SVG
@@ -235,6 +352,7 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
                   const imageData = await uploadResponse.json();
                   imageUrl = imageData.secure_url;
                   console.log(`Image ${i+1} uploaded successfully to Cloudinary:`, imageData.secure_url);
+                  setUploadProgress(prev => ({ ...prev, [i]: 80 }));
                 } catch (parseError) {
                   console.error('Error parsing Cloudinary response:', parseError);
                   imageUrl = `/assets/placeholder-product.svg`;
@@ -248,12 +366,17 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
             }
             
             // Save image URL to database using server action
-            const isPrimary = i === 0; // First image is primary
+            const isPrimary = i === 0 && existingImages.length === 0; // First image is primary if no existing images
+            
+            setUploadProgress(prev => ({ ...prev, [i]: 90 }));
+            
             const saveResult = await saveProductImage({
               productId,
               imageUrl,
               isPrimary
             });
+            
+            setUploadProgress(prev => ({ ...prev, [i]: 100 }));
             
             if (!saveResult.success) {
               console.error(`Failed to save image ${i+1} to database: ${saveResult.error}`);
@@ -269,10 +392,19 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
       }
       
       // Redirect to the product's page or back to the listing
-      router.push('/vendor/products');
+      toast.success(`Product ${mode === 'create' ? 'created' : 'updated'} successfully!`, {
+        description: 'Redirecting to products page...',
+        duration: 3000,
+      });
+      
+      setTimeout(() => {
+        router.push('/vendor/products');
+        router.refresh();
+      }, 1000);
       
     } catch (error) {
       console.error('Form submission error:', error);
+      setFormError('An unexpected error occurred while saving the product.');
       toast.error('An unexpected error occurred while saving the product.');
     } finally {
       setIsSubmitting(false);
@@ -281,6 +413,16 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      {formError && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-start">
+          <AlertTriangle size={16} className="text-red-500 mr-2 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-red-800">There was a problem submitting the form</p>
+            <p className="text-sm text-red-700 mt-1">{formError}</p>
+          </div>
+        </div>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-6">
           {/* Basic Info Section */}
@@ -466,20 +608,41 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {existingImages.map((image) => (
                   <div key={image.id} className="relative group">
-                    <div className="bg-gray-100 rounded-md overflow-hidden h-32">
+                    <div className={`bg-gray-100 rounded-md overflow-hidden h-32 ${image.isPrimary ? 'ring-2 ring-zervia-500' : ''}`}>
                       <img 
                         src={image.url}
                         alt="Current product"
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeExistingImage(image.id)}
-                      className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md opacity-100 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={16} className="text-red-500" />
-                    </button>
+                    <div className="absolute top-2 right-2 flex space-x-1">
+                      <button
+                        type="button"
+                        onClick={() => setImageAsPrimary(image.id)}
+                        disabled={image.isPrimary}
+                        className={`p-1.5 bg-white rounded-full shadow-md ${image.isPrimary ? 'bg-zervia-50' : 'hover:bg-zervia-50'} transition-colors`}
+                        title={image.isPrimary ? "Primary image" : "Set as primary image"}
+                      >
+                        {image.isPrimary ? (
+                          <Star size={16} className="text-zervia-500 fill-zervia-500" />
+                        ) : (
+                          <StarOff size={16} className="text-gray-400" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(image.id)}
+                        className="p-1.5 bg-white rounded-full shadow-md hover:bg-red-50 transition-colors"
+                        title="Remove image"
+                      >
+                        <Trash2 size={16} className="text-red-500" />
+                      </button>
+                    </div>
+                    {image.isPrimary && (
+                      <div className="absolute bottom-2 left-2 bg-zervia-100 text-zervia-700 text-xs px-1.5 py-0.5 rounded-md">
+                        Primary
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -489,24 +652,48 @@ export default function ProductForm({ categories, vendorId, mode, product }: Pro
           {/* Preview of newly uploaded images */}
           {uploadedImages.length > 0 && (
             <div className="border border-gray-200 rounded-md p-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">New Images</h4>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">
+                New Images 
+                {uploadedImages.length > 0 && existingImages.length === 0 && (
+                  <span className="text-xs ml-2 text-zervia-500">
+                    (First image will be set as primary)
+                  </span>
+                )}
+              </h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {uploadedImages.map((image, index) => (
                   <div key={index} className="relative group">
-                    <div className="bg-gray-100 rounded-md overflow-hidden h-32">
+                    <div className={`bg-gray-100 rounded-md overflow-hidden h-32 ${index === 0 && existingImages.length === 0 ? 'ring-2 ring-zervia-500' : ''}`}>
                       <img 
                         src={image.preview}
                         alt={`Product preview ${index + 1}`}
                         className="w-full h-full object-contain"
                       />
+                      {uploadProgress[index] !== undefined && uploadProgress[index] < 100 && (
+                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                          <div className="w-3/4 bg-gray-200 rounded-full h-2.5">
+                            <div 
+                              className="bg-zervia-600 h-2.5 rounded-full" 
+                              style={{ width: `${uploadProgress[index]}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <button
                       type="button"
                       onClick={() => removeUploadedImage(index)}
                       className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md opacity-100 hover:bg-red-50 transition-colors"
+                      disabled={isSubmitting}
+                      title="Remove image"
                     >
                       <Trash2 size={16} className="text-red-500" />
                     </button>
+                    {index === 0 && existingImages.length === 0 && (
+                      <div className="absolute bottom-2 left-2 bg-zervia-100 text-zervia-700 text-xs px-1.5 py-0.5 rounded-md">
+                        Primary
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

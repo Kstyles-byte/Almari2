@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Plus, Search, Filter, ChevronDown } from 'lucide-react';
+import { Plus, Search, Filter, ChevronDown, PencilIcon } from 'lucide-react';
 import ProductActions from '@/components/vendor/product-actions';
 
 export const dynamic = 'force-dynamic';
@@ -200,12 +200,21 @@ export default async function VendorProductsPage({
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <ProductActions
-                        productId={product.id}
-                        productName={product.name}
-                        productSlug={product.slug}
-                        isPublished={product.is_published}
-                      />
+                      <div className="flex items-center justify-end space-x-2">
+                        <Link
+                          href={`/vendor/products/${product.id}/edit`}
+                          className="text-zervia-600 hover:text-zervia-800 p-1 rounded-full hover:bg-zervia-50"
+                          title="Edit Product"
+                        >
+                          <PencilIcon size={16} />
+                        </Link>
+                        <ProductActions
+                          productId={product.id}
+                          productName={product.name}
+                          productSlug={product.slug}
+                          isPublished={product.is_published}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -248,13 +257,21 @@ export default async function VendorProductsPage({
                 <span className="font-medium">{formattedProducts.length}</span> results
               </p>
             </div>
-            <div className="flex-1 flex justify-end">
-              <button disabled className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed">
-                Previous
-              </button>
-              <button disabled className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed">
-                Next
-              </button>
+            <div>
+              <span className="relative z-0 inline-flex shadow-sm rounded-md">
+                <button
+                  disabled
+                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500"
+                >
+                  Previous
+                </button>
+                <button
+                  disabled
+                  className="-ml-px relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500"
+                >
+                  Next
+                </button>
+              </span>
             </div>
           </nav>
         </div>
