@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Search } from 'lucide-react';
 
@@ -15,34 +15,31 @@ export default function OrderSearchInput({ defaultValue = '' }: Props) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  // debounced update
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      // Keep other params untouched (e.g., status)
-      if (term) {
-        params.set('q', term);
-      } else {
-        params.delete('q');
-      }
-      router.replace(`${pathname}?${params.toString()}`);
-    }, 400);
-
-    return () => clearTimeout(handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [term]);
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const params = new URLSearchParams(searchParams.toString());
+    const value = term.trim();
+    if (value) {
+      params.set('q', value);
+    } else {
+      params.delete('q');
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   return (
-    <label className="relative w-full block max-w-xs">
+    <form onSubmit={handleSubmit} className="relative w-full block max-w-xs">
       <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
         <Search size={16} />
       </span>
       <input
-        className="pl-9 pr-3 py-2 border border-gray-200 rounded-md w-full text-sm"
-        placeholder="Search Drop off Id..."
+        className="pl-9 pr-10 py-2 border border-gray-200 rounded-md w-full text-sm"
+        placeholder="Search drop-off/pickup Code..."
         value={term}
         onChange={(e) => setTerm(e.target.value)}
       />
-    </label>
+      {/* Submit button (invisible but enables enter key on mobile keyboards) */}
+      <button type="submit" className="absolute right-0 top-0 h-full w-9"></button>
+    </form>
   );
 } 

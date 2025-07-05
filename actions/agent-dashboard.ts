@@ -81,17 +81,21 @@ export async function getAgentOrders(options?: {
 
     // Text search – handle dropoff_code wildcard and exact order ID
     if (options?.search) {
-      const term = options.search.trim();
+      // Remove all whitespace to make search insensitive to accidental spaces (e.g., "D- ABC123" → "D-ABC123")
+      const term = options.search.replace(/\s+/g, '').trim();
 
       if (term.startsWith('D-')) {
-        // Vendor provided drop-off code (varchar) → safe to ilike
+        // Drop-off code (prefixed) – wildcard search
         query = query.ilike('dropoff_code', `%${term}%`);
+      } else if (/^[0-9]{4,}$/.test(term)) {
+        // Likely a pickup code (numeric, typically 6 digits)
+        query = query.eq('pickup_code', term);
       } else if (/^[0-9a-fA-F-]{36}$/.test(term)) {
-        // Looks like a full UUID – use equality match (db will cast string → uuid)
+        // Full UUID Order ID
         query = query.eq('id', term);
       } else {
-        // Fallback: attempt wildcard on drop-off code only (avoid uuid ilike error)
-        query = query.ilike('dropoff_code', `%${term}%`);
+        // Fallback – attempt wildcard on both dropoff and pickup code columns
+        query = query.or(`dropoff_code.ilike.%${term}%,pickup_code.ilike.%${term}%`);
       }
     }
 

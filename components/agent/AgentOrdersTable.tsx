@@ -18,12 +18,15 @@ export default function AgentOrdersTable({ pickupStatus = '', query = '' }: Prop
     let q = supabase.from('Order').select('*').eq('agent_id', (await supabase.auth.getUser()).data.user?.id || '');
     if (pickupStatus) q = q.eq('pickup_status', pickupStatus);
     if (query) {
-      if (query.startsWith('D-')) {
-        q = q.ilike('dropoff_code', `%${query}%`);
-      } else if (/^[0-9a-fA-F-]{36}$/.test(query)) {
-        q = q.eq('id', query);
+      const term = query.replace(/\s+/g, '');
+      if (term.startsWith('D-')) {
+        q = q.ilike('dropoff_code', `%${term}%`);
+      } else if (/^[0-9]{4,}$/.test(term)) {
+        q = q.eq('pickup_code', term);
+      } else if (/^[0-9a-fA-F-]{36}$/.test(term)) {
+        q = q.eq('id', term);
       } else {
-        q = q.ilike('dropoff_code', `%${query}%`);
+        q = q.or(`dropoff_code.ilike.%${term}%,pickup_code.ilike.%${term}%`);
       }
     }
     const { data, error } = await q;

@@ -63,34 +63,59 @@ export default async function AgentOrdersPage({ searchParams }: PageProps & { se
       {!success ? (
         <p className="text-red-600">Error loading orders: {error}</p>
       ) : orders && orders.length > 0 ? (
-        <div className="bg-white shadow rounded-md overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Order ID</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Status</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Pickup Status</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Total</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 whitespace-nowrap">{order.id.substring(0, 8)}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{order.status}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{order.pickup_status}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">₦{order.total_amount}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-right">
-                    <Link href={`/agent/orders/${order.id}`} className="text-zervia-600 hover:underline">
-                      View
-                    </Link>
-                  </td>
+        <>
+          {/* Mobile (<=sm) – card/list layout */}
+          <ul className="sm:hidden divide-y bg-white rounded-md shadow">
+            {orders.map((order) => (
+              <li key={order.id} className="p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm">#{order.id.substring(0, 8)}</span>
+                  <span className="text-xs text-gray-600">₦{order.total_amount}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Status: {order.status}</span>
+                  <span>Pickup: {order.pickup_status}</span>
+                </div>
+                <Link
+                  href={`/agent/orders/${order.id}`}
+                  className="inline-block text-xs text-zervia-600 hover:underline mt-1"
+                >
+                  View details
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop/tablet table layout */}
+          <div className="hidden sm:block bg-white shadow rounded-md overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Order ID</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Status</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Pickup Status</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Total</th>
+                  <th className="px-4 py-2" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {orders.map((order) => (
+                  <tr key={order.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 whitespace-nowrap">{order.id.substring(0, 8)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{order.status}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{order.pickup_status}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">₦{order.total_amount}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right">
+                      <Link href={`/agent/orders/${order.id}`} className="text-zervia-600 hover:underline">
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : (
         <p>No orders found.</p>
       )}
