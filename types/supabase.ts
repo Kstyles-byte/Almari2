@@ -1253,3 +1253,6 @@ export type Review = Tables<"Review">
 export type Customer = Tables<"Customer">
 export type Product = Tables<"Product">
 export type OrderItem = Tables<"OrderItem">
+export type Order = Tables<"Order">
+export type Vendor = Tables<"Vendor">
+export type UserProfile = Tables<"User">

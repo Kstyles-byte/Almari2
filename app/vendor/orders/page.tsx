@@ -72,6 +72,7 @@ export default async function VendorOrdersPage({
         total_amount, 
         payment_status, 
         created_at,
+        dropoff_code,
         Customer:customer_id(
           User:user_id(name, email)
         )
@@ -95,6 +96,7 @@ export default async function VendorOrdersPage({
         paymentStatus: item.Order?.[0]?.payment_status, // Corrected access
         createdAt: item.Order?.[0]?.created_at, // Corrected access
         totalAmount: item.Order?.[0]?.total_amount, // Corrected access
+        dropoffCode: item.Order?.[0]?.dropoff_code,
         customerName: item.Order?.[0]?.Customer?.[0]?.User?.[0]?.name || 'Unknown', // Corrected access
         customerEmail: item.Order?.[0]?.Customer?.[0]?.User?.[0]?.email || 'Unknown', // Corrected access
         items: []
@@ -176,6 +178,9 @@ export default async function VendorOrdersPage({
                   <div className="text-sm text-gray-500 mt-1">
                     Placed on {new Date(order.createdAt).toLocaleDateString()}
                   </div>
+                  {order.dropoffCode && (
+                    <div className="text-xs text-gray-500 mt-1">Drop-off Code: <span className="font-mono">{order.dropoffCode}</span></div>
+                  )}
                 </div>
                 <div className="flex items-center space-x-4">
                   <div className="text-right">

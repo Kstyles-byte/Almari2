@@ -11,13 +11,15 @@ export async function createServerActionClient() {
   const cookieStore = await cookies();
 
   const supabaseUrl = process.env.SUPABASE_URL!;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  // Use the public anon key for user-scoped auth flows; the service role key
+  // results in cookies that the browser client cannot parse ("base64-" prefix).
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   if (!supabaseUrl) {
     throw new Error('Missing env.SUPABASE_URL');
   }
   if (!supabaseKey) {
-    throw new Error('Missing env.SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
   }
 
   return createServerClient<Database>(

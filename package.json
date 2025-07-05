@@ -11,7 +11,8 @@
     "vercel-build": "prisma generate && next build",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:seed-sql": "npx tsx prisma/seed-export.ts",
-    "db:schema-sql": "npx tsx prisma/export-schema.ts"
+    "db:schema-sql": "npx tsx prisma/export-schema.ts",
+    "printer:start": "tsx scripts/printer-service.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.0",
@@ -60,18 +61,23 @@
     "react-hook-form": "^7.56.1",
     "slugify": "^1.6.6",
     "sonner": "^2.0.3",
+    "swr": "^2.3.4",
     "tailwind-merge": "^3.2.0",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.24.3"
+    "zod": "^3.24.3",
+    "express": "^4.19.2",
+    "qrcode": "^1.5.3",
+    "node-thermal-printer": "^4.5.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/aspect-ratio": "^0.4.2",
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^5.0.2",
-    "@types/node": "^20",
+    "@types/node": "20.11.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/qrcode": "^1.5.2",
     "autoprefixer": "^10.4.16",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",

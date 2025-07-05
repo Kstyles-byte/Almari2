@@ -19,30 +19,25 @@ type OrderItemStatus = OrderItem['status'];
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: orderId } = await params; // await params as required in Next.js 15
+
+    // Retrieve the NextAuth session (may be undefined in the print-tab context).
     const session = await auth();
     
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-    
-    const orderId = context.params.id;
     if (!orderId) return NextResponse.json({ error: "Order ID required" }, { status: 400 });
     
     const { data: orderData, error: orderError } = await supabase
       .from('Order')
       .select(`
         *,
-        Customer:customerId ( id, phone, address, User:userId ( name, email ) ),
+        Customer:customer_id ( id, phone_number, User:user_id ( name, email ) ),
         OrderItem ( 
           *, 
-          Product:productId ( id, name, slug, price, ProductImage!ProductImage_productId_fkey ( url, alt, order ) ), 
-          Vendor:vendorId ( id, storeName )
+          Product:product_id ( id, name, slug, price, ProductImage!ProductImage_product_id_fkey ( url, alt_text, display_order ) ), 
+          Vendor:vendor_id ( id, store_name )
         )
       `)
       .eq('id', orderId)
@@ -62,16 +57,16 @@ export async function GET(
     
     let order = orderData as any;
 
-    if (session.user.role === "CUSTOMER") {
+    if (session?.user?.role === "CUSTOMER") {
       const customer = await getCustomerByUserId(session.user.id);
       
-      if (!customer || customer.id !== order.customerId) {
+      if (!customer || customer.id !== order.customer_id) {
         return NextResponse.json(
           { error: "Unauthorized" },
           { status: 401 }
         );
       }
-    } else if (session.user.role === "VENDOR") {
+    } else if (session?.user?.role === "VENDOR") {
       const vendor = await getVendorByUserId(session.user.id);
       
       if (!vendor) {
@@ -104,7 +99,7 @@ export async function GET(
             ...item,
             product: {
                 ...item.Product,
-                images: (item.Product?.ProductImage || []).sort((a: any, b: any) => a.order - b.order).slice(0,1),
+                images: (item.Product?.ProductImage || []).sort((a: any, b: any) => a.display_order - b.display_order).slice(0,1),
                 ProductImage: undefined,
             },
             vendor: item.Vendor,
@@ -128,9 +123,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: orderId } = await params; // await params first per Next.js 15
+
     const session = await auth();
     
     if (!session?.user) {
@@ -140,13 +137,17 @@ export async function PUT(
       );
     }
     
-    const orderId = context.params.id;
+    // Agents (e.g., at drop-off counter) are allowed full access to order
+    if (session.user.role === "AGENT") {
+      // continue without additional restrictions
+    }
+    
     if (!orderId) return NextResponse.json({ error: "Order ID required" }, { status: 400 });
     const body = await request.json();
     
     const { data: order, error: fetchError } = await supabase
         .from('Order')
-        .select('id, customerId, status, OrderItem(id, orderId, vendorId, status)')
+        .select('id, customer_id, status, OrderItem(id, order_id, vendor_id, status)')
         .eq('id', orderId)
         .maybeSingle();
 
@@ -165,10 +166,10 @@ export async function PUT(
     let updatedOrderData: Order | null = null;
     let updatePerformed = false;
 
-    if (session.user.role === "CUSTOMER") {
+    if (session?.user?.role === "CUSTOMER") {
       const customer = await getCustomerByUserId(session.user.id);
       
-      if (!customer || customer.id !== order.customerId) {
+      if (!customer || customer.id !== order.customer_id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       
@@ -181,7 +182,7 @@ export async function PUT(
 
       const { data: cancelledOrder, error: cancelError } = await supabase
         .from('Order')
-        .update({ status: 'CANCELLED', updatedAt: new Date().toISOString() })
+        .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
         .eq('id', orderId)
         .select()
         .single();
@@ -193,12 +194,12 @@ export async function PUT(
       updatedOrderData = cancelledOrder;
       updatePerformed = true;
 
-    } else if (session.user.role === "VENDOR") {
+    } else if (session?.user?.role === "VENDOR") {
       const vendor = await getVendorByUserId(session.user.id);
       if (!vendor) return NextResponse.json({ error: "Vendor profile not found" }, { status: 404 });
       
       if (body.itemId && body.status) {
-        const itemToUpdate = order.OrderItem?.find((item: any) => item.id === body.itemId && item.vendorId === vendor.id);
+        const itemToUpdate = order.OrderItem?.find((item: any) => item.id === body.itemId && item.vendor_id === vendor.id);
 
         if (!itemToUpdate) {
           return NextResponse.json({ error: "Order item not found or not authorized for this vendor" }, { status: 404 });
@@ -206,7 +207,7 @@ export async function PUT(
         
         const { error: itemUpdateError } = await supabase
           .from('OrderItem')
-          .update({ status: body.status as OrderItemStatus, updatedAt: new Date().toISOString() })
+          .update({ status: body.status as OrderItemStatus, updated_at: new Date().toISOString() })
           .eq('id', body.itemId);
 
         if (itemUpdateError) {
@@ -218,7 +219,7 @@ export async function PUT(
         const { data: allItems, error: allItemsError } = await supabase
             .from('OrderItem')
             .select('status')
-            .eq('orderId', orderId);
+            .eq('order_id', orderId);
 
         if (allItemsError) {
             console.error("API PUT Order - Fetching all items error:", allItemsError.message);
@@ -230,7 +231,7 @@ export async function PUT(
             if (areAllSame) {
                  const { error: orderStatusUpdateError } = await supabase
                     .from('Order')
-                    .update({ status: firstStatus as OrderStatus, updatedAt: new Date().toISOString() })
+                    .update({ status: firstStatus as OrderStatus, updated_at: new Date().toISOString() })
                     .eq('id', orderId);
                 if (orderStatusUpdateError) {
                      console.error("API PUT Order - Order Status Sync Error:", orderStatusUpdateError.message);
@@ -244,12 +245,12 @@ export async function PUT(
       }
 
     } else if (session.user.role === "ADMIN") {
-      const adminUpdateData: Partial<Order> & { updatedAt?: string } = {};
+      const adminUpdateData: Partial<Order> & { updated_at?: string } = {};
        if (body.status) adminUpdateData.status = body.status as OrderStatus;
-       if (body.agentId !== undefined) adminUpdateData.agentId = body.agentId;
+       if (body.agentId !== undefined) adminUpdateData.agent_id = body.agentId;
 
        if (Object.keys(adminUpdateData).length > 0) {
-           adminUpdateData.updatedAt = new Date().toISOString();
+           adminUpdateData.updated_at = new Date().toISOString();
            const { data: adminUpdatedOrder, error: adminUpdateError } = await supabase
                 .from('Order')
                 .update(adminUpdateData)
@@ -289,7 +290,7 @@ export async function PUT(
                 ...item,
                 product: {
                     ...item.Product,
-                    images: (item.Product?.ProductImage || []).sort((a: any, b: any) => a.order - b.order).slice(0,1),
+                    images: (item.Product?.ProductImage || []).sort((a: any, b: any) => a.display_order - b.display_order).slice(0,1),
                     ProductImage: undefined,
                 },
                 vendor: item.Vendor,

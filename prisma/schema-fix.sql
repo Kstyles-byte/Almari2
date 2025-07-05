@@ -559,6 +559,28 @@ GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO postgres, service_role
 
 GRANT EXECUTE ON FUNCTION public.trigger_set_timestamp() TO anon, authenticated; -- Allow roles to execute trigger function
 
+
+-- 1) New column on Order
+ALTER TABLE public."Order"
+  ADD COLUMN IF NOT EXISTS dropoff_code text UNIQUE;
+
+-- 2) Helper to autogenerate D-XXXXXX style codes
+CREATE OR REPLACE FUNCTION public.generate_dropoff_code()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.dropoff_code IS NULL THEN
+     NEW.dropoff_code := 'D-' || substring(gen_random_uuid()::text from 1 for 6);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 3) Trigger to call the helper before each INSERT
+DROP TRIGGER IF EXISTS set_dropoff_code ON public."Order";
+
+CREATE TRIGGER set_dropoff_code
+  BEFORE INSERT ON public."Order"
+  FOR EACH ROW EXECUTE FUNCTION public.generate_dropoff_code();
 -- Note: Review grants based on specific needs. These are broad examples.
 -- RLS policies are the primary mechanism for controlling access for 'anon' and 'authenticated' roles.
 

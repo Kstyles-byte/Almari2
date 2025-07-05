@@ -110,6 +110,10 @@ INSERT INTO public."Coupon" (id, code, description, discount_type, discount_valu
     (gen_random_uuid(), 'WELCOME10', '10% off first order', 'PERCENTAGE', 10, NULL, 0, 1, TRUE, NOW(), NOW()),
     (gen_random_uuid(), 'SAVE500', '₦500 off orders over ₦5000', 'FIXED_AMOUNT', 500, NOW() + INTERVAL '30 DAYS', 5000, NULL, TRUE, NOW(), NOW());
 
+-- Generate drop-off tokens for rows that don’t have one yet
+UPDATE public."Order"
+SET    dropoff_code = 'D-' || substring(gen_random_uuid()::text FROM 1 FOR 6)
+WHERE  dropoff_code IS NULL;
 -- ========================================================================
 -- End of Seed Script
 -- ========================================================================

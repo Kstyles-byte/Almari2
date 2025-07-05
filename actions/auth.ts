@@ -40,6 +40,15 @@ const VendorSignUpSchema = SignUpSchema.extend({
   accountNumber: z.string().regex(/^[0-9]{10}$/, "Enter a valid 10-digit account number"),
 });
 
+// Schema for Agent SignUp (Agent accounts manage pickup locations)
+const AgentSignUpSchema = SignUpSchema.extend({
+  phoneNumber: z.string().min(10, "Enter a valid phone number"),
+  addressLine1: z.string().min(3, "Address is required"),
+  city: z.string().min(2, "City is required"),
+  stateProvince: z.string().min(2, "State/Province is required"),
+  postalCode: z.string().min(3, "Postal code is required"),
+});
+
 /**
  * Sign in a user with email and password
  */
@@ -431,4 +440,88 @@ export async function signUpAsVendor(values: z.infer<typeof VendorSignUpSchema>)
   // 4. Redirect user (e.g., to login page with success/pending message)
   console.log('[Action] Vendor signup process complete.');
   return redirect('/login?message=Signup successful! Your vendor application is pending review.');
+}
+
+/**
+ * Sign up a new Agent user and create the associated Agent profile.
+ * The function:
+ * 1. Registers a new Supabase Auth user with email/password.
+ * 2. Updates the role in public.User to 'AGENT'.
+ * 3. Inserts a row into public.Agent with provided profile details.
+ * 4. Redirects the user to the agent dashboard on success.
+ */
+export async function signUpAsAgent(values: z.infer<typeof AgentSignUpSchema>) {
+  console.log('[Action] signUpAsAgent called with:', values);
+  const supabase = await createServerActionClient();
+
+  // 1. Validate combined input data
+  const validatedFields = AgentSignUpSchema.safeParse(values);
+  if (!validatedFields.success) {
+    console.error('[Action] Agent Sign Up Validation Failed:', validatedFields.error.flatten());
+    return redirect('/signup/agent?message=Invalid+details+provided');
+  }
+
+  const { name, email, password, phoneNumber, addressLine1, city, stateProvince, postalCode } = validatedFields.data;
+
+  // 2. Sign up the user via Supabase Auth
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: name,
+      },
+    },
+  });
+
+  if (signUpError) {
+    console.error('[Action] Supabase Auth Sign Up Error (Agent):', signUpError);
+    return redirect(`/signup/agent?message=Signup+failed:+${encodeURIComponent(signUpError.message)}`);
+  }
+
+  if (!signUpData.user) {
+    console.error('[Action] No user returned from Supabase after agent signup.');
+    return redirect('/signup/agent?message=Signup+failed:+User+not+created');
+  }
+
+  const userId = signUpData.user.id;
+
+  // 3. Update role in public.User to AGENT
+  const { error: roleUpdateError } = await supabase
+    .from('User')
+    .update({ role: 'AGENT' })
+    .eq('id', userId);
+
+  if (roleUpdateError) {
+    console.error('[Action] Error updating user role to AGENT:', roleUpdateError);
+    // Continue, but log error; user might still access dashboard if role not propagated immediately
+  }
+
+  // 4. Insert Agent profile
+  const agentId = crypto.randomUUID();
+  const agentData: Database['public']['Tables']['Agent']['Insert'] = {
+    id: agentId,
+    user_id: userId,
+    name,
+    email,
+    phone_number: phoneNumber,
+    address_line1: addressLine1,
+    city,
+    state_province: stateProvince,
+    postal_code: postalCode,
+    country: 'Nigeria',
+    operating_hours: '9am - 5pm',
+    capacity: 50,
+    is_active: true,
+  } as any; // Casting to any to satisfy potential missing optional fields
+
+  const { error: insertAgentError } = await supabase.from('Agent').insert(agentData);
+
+  if (insertAgentError) {
+    console.error('[Action] Error inserting Agent profile:', insertAgentError);
+    return redirect('/login?message=Signup+complete,+but+agent+profile+creation+failed.+Please+contact+support');
+  }
+
+  console.log('[Action] Agent signup process complete. Redirecting to dashboard.');
+  return redirect('/agent/dashboard');
 } 

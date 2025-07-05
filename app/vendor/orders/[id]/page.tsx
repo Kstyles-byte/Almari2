@@ -77,7 +77,8 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             email,
             phone
           )
-        )
+        ),
+        dropoff_code
       )
     `)
     .eq('order_id', id)
@@ -194,6 +195,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 )}
               </div>
               <p className="text-sm text-gray-500">Placed on {formatDate(orderData.created_at)}</p>
+              {orderData.dropoff_code && (
+                <p className="text-xs text-gray-500 mt-1">Drop-off Code: <span className="font-mono">{orderData.dropoff_code}</span></p>
+              )}
             </div>
             <div className="mt-4 md:mt-0">
               <div className="text-sm text-gray-500">Payment Status</div>
