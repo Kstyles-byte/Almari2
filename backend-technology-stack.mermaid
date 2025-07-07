@@ -1,0 +1,11 @@
+graph TD;
+    A["Next.js App Router"] --> B["Server Components"]
+    A --> C["API Routes"]
+    A --> D["Server Actions"]
+    B --> E["Database (PostgreSQL)"]
+    C --> E
+    D --> E
+    A --> F["Authentication (NextAuth.js)"]
+    A --> G["File Storage (Cloudinary)"]
+    A --> H["Payment Processing (Paystack)"]
+    A --> I["Deployment (Vercel)"]

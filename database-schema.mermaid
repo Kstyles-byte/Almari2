@@ -1,0 +1,149 @@
+erDiagram
+    User {
+        id UUID PK
+        name String
+        email String
+        password String
+        role Enum
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    Customer {
+        id UUID PK
+        userId UUID FK
+        phone String
+        address String
+        hostel String
+        room String
+        college String
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    Vendor {
+        id UUID PK
+        userId UUID FK
+        storeName String
+        description String
+        logo String
+        banner String
+        isApproved Boolean
+        commissionRate Decimal
+        bankName String
+        accountNumber String
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    Category {
+        id UUID PK
+        name String
+        slug String
+        icon String
+        parentId UUID FK
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    Product {
+        id UUID PK
+        vendorId UUID FK
+        name String
+        slug String
+        description String
+        price Decimal
+        comparePrice Decimal
+        categoryId UUID FK
+        inventory Integer
+        isPublished Boolean
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    ProductImage {
+        id UUID PK
+        productId UUID FK
+        url String
+        alt String
+        order Integer
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    Order {
+        id UUID PK
+        customerId UUID FK
+        status Enum
+        total Decimal
+        shippingAddress String
+        paymentStatus Enum
+        paymentReference String
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    OrderItem {
+        id UUID PK
+        orderId UUID FK
+        productId UUID FK
+        vendorId UUID FK
+        quantity Integer
+        price Decimal
+        status Enum
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    Review {
+        id UUID PK
+        customerId UUID FK
+        productId UUID FK
+        rating Integer
+        comment String
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    Cart {
+        id UUID PK
+        customerId UUID FK
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    CartItem {
+        id UUID PK
+        cartId UUID FK
+        productId UUID FK
+        quantity Integer
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    Payout {
+        id UUID PK
+        vendorId UUID FK
+        amount Decimal
+        status Enum
+        reference String
+        createdAt DateTime
+        updatedAt DateTime
+    }
+    
+    User ||--o{ Customer : "has"
+    User ||--o{ Vendor : "has"
+    Category ||--o{ Product : "contains"
+    Category ||--o{ Category : "has subcategories"
+    Vendor ||--o{ Product : "sells"
+    Product ||--o{ ProductImage : "has"
+    Product ||--o{ OrderItem : "included in"
+    Product ||--o{ CartItem : "added to"
+    Product ||--o{ Review : "receives"
+    Customer ||--o{ Order : "places"
+    Customer ||--o{ Review : "writes"
+    Customer ||--o{ Cart : "has"
+    Cart ||--o{ CartItem : "contains"
+    Order ||--o{ OrderItem : "contains"
+    Vendor ||--o{ OrderItem : "fulfills"
+    Vendor ||--o{ Payout : "receives"

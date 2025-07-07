@@ -1,0 +1,348 @@
+### Almari E-commerce Platform: Backend Architecture
+
+Here's a comprehensive backend breakdown for your multi-vendor e-commerce platform. This will serve as a guide for setting up the necessary infrastructure before building the frontend.
+
+- **Framework**: Next.js with App Router
+- **Database**: PostgreSQL (via Vercel Postgres or Neon)
+- **Authentication**: NextAuth.js
+- **Storage**: Cloudinary
+- **Payment**: Paystack (popular in Nigeria)
+- **Hosting**: Vercel with free domain (yourapp.vercel.app)
+
+
+## 2. Database Schema
+
+Here's the core database schema for the Almari platform:
+
+
+## 3. API Routes Structure
+
+Here's the API structure using Next.js App Router:
+
+```plaintext
+/app
+  /api
+    /auth
+      /[...nextauth]/route.ts    # Authentication endpoints
+    /users
+      /route.ts                  # GET, POST users
+      /[id]/route.ts             # GET, PUT, DELETE specific user
+    /vendors
+      /route.ts                  # GET, POST vendors
+      /[id]/route.ts             # GET, PUT, DELETE specific vendor
+      /[id]/products/route.ts    # GET vendor products
+      /[id]/orders/route.ts      # GET vendor orders
+      /[id]/payouts/route.ts     # GET, POST vendor payouts
+    /customers
+      /route.ts                  # GET, POST customers
+      /[id]/route.ts             # GET, PUT, DELETE specific customer
+      /[id]/orders/route.ts      # GET customer orders
+    /products
+      /route.ts                  # GET, POST products
+      /[id]/route.ts             # GET, PUT, DELETE specific product
+      /[id]/images/route.ts      # GET, POST, DELETE product images
+      /[id]/reviews/route.ts     # GET, POST product reviews
+    /categories
+      /route.ts                  # GET, POST categories
+      /[id]/route.ts             # GET, PUT, DELETE specific category
+      /[id]/products/route.ts    # GET category products
+    /orders
+      /route.ts                  # GET, POST orders
+      /[id]/route.ts             # GET, PUT specific order
+      /[id]/items/route.ts       # GET order items
+    /cart
+      /route.ts                  # GET, POST cart
+      /items/route.ts            # GET, POST, PUT, DELETE cart items
+    /webhooks
+      /paystack/route.ts         # Webhook for payment notifications
+```
+
+## 4. Authentication & Authorization
+
+Use NextAuth.js for authentication with the following configuration (Phone number and Pin):
+
+
+### Role-Based Access Control
+
+Implement middleware to protect routes based on user roles:
+
+
+## 5. Cloudinary Integration
+
+Set up Cloudinary for image storage:
+
+
+## 6. Database Connection(vercel supabase integration)
+
+Set up PostgreSQL connection using Prisma ORM:
+
+
+## 7. Payment Integration (Paystack)
+
+
+## 8. Server Actions
+
+
+## 9. Environment Variables
+
+Required environment variables:
+
+
+## 10. Deployment on Vercel
+
+1. **Setup Vercel Project**:
+
+1. Connect your GitHub repository to Vercel
+2. Configure environment variables in Vercel dashboard
+3. Use the free domain: `almari-abuad.vercel.app`
+
+
+
+2. **Database Setup**:
+
+1. Create a PostgreSQL database using Vercel Postgres or Neon
+2. Run migrations using Prisma
+
+
+
+3. **CI/CD Pipeline**:
+
+1. Vercel automatically deploys when you push to your main branch
+2. Configure build settings if needed
+
+
+
+
+
+## 11. Implementation Checklist
+
+Before building the frontend, ensure these backend components are set up:
+
+- Database schema created and migrations applied
+- Authentication system configured with NextAuth.js
+- API routes implemented for core entities
+- Cloudinary integration for image uploads
+- Paystack integration for payments
+- Server actions for form submissions
+- Environment variables configured
+- Deployment pipeline set up on Vercel
+
+
+## 12. Data Models and Types
+
+Create TypeScript types for your data models:
+
+
+## 13. API Response Formats
+
+Standardize API response formats:
+
+
+## 14. Webhooks
+
+Set up webhooks for payment notifications:
+
+-----------------------------------------------------------------------------------
+FRONTEND:
+Here's the combined frontend specification for the Almari E-commerce Platform, integrating both the original requirements and the agent-based delivery system updates:
+
+# Almari E-commerce Platform: Comprehensive Frontend Specifications
+
+## Design Style
+
+### 1. Visual Identity
+
+#### Color Palette
+- **Primary**: Blue (`#3B82F6`)
+- **Secondary**: Neutral Gray (`#F3F4F6`)
+- **Accent**: Gold (`#F59E0B`)
+- **Text**: 
+  - Dark Gray (`#1F2937`) for primary text
+  - Medium Gray (`#6B7280`) for secondary text
+- **Status Colors**:
+  - Success: Green (`#10B981`)
+  - Error: Red (`#EF4444`)
+  - Warning: Amber (`#F59E0B`)
+  - Info: Light Blue (`#60A5FA`)
+- **Pickup Status**:
+  - Pending: Gray (`#9CA3AF`)
+  - Ready for Pickup: Amber (`#F59E0B`)
+  - Picked Up: Green (`#10B981`)
+- **Return Status**:
+  - Requested: Purple (`#8B5CF6`)
+  - Approved: Blue (`#3B82F6`)
+  - Rejected: Red (`#EF4444`)
+  - Completed: Green (`#10B981`)
+
+#### Typography
+- **Font Family**: Inter (Google Font)
+- **Heading Sizes**:
+  - H1: 2.5rem (40px), Bold
+  - H2: 2rem (32px), Bold
+  - H3: 1.5rem (24px), Bold
+  - H4: 1.25rem (20px), Bold
+  - H5: 1rem (16px), Bold
+- **Body Text**:
+  - Regular: 1rem (16px)
+  - Small: 0.875rem (14px)
+  - Micro: 0.75rem (12px)
+- **Line Heights**:
+  - Headings: 1.2
+  - Body: 1.5
+
+#### UI Elements
+- **Buttons**: Rounded corners (8px), clear hover/active states
+- **Cards**: Subtle shadows, consistent padding (16px), rounded corners (12px)
+- **Forms**: Clear labels, validation states, consistent spacing
+- **Icons**: Lucide icon set (plus additional icons for pickup/return)
+- **Status Indicators**: Color-coded badges with icons
+- **Notification Badges**: Prominent indicators for pickup/return status changes
+
+## Technical Specifications
+
+### 1. Frontend Stack
+- **Framework**: 
+- **UI Library**: 
+- **Styling**: 
+- **images**  Use unsplash mcp to get images (@https://github.com/hellokaton/unsplash-mcp-server )
+- **State Management**: 
+  - React Context API for global state
+  - React Query for server state
+- **Form Handling**: React Hook Form with Zod validation
+- **Animation**: Framer Motion
+- **Specialized Libraries**:
+  - `react-qr-code` for pickup verification
+  - Browser Print API for receipts/labels
+- **Image Optimization**: Next.js Image with Cloudinary
+
+### 2. Component Architecture
+```
+/components
+  /ui                  # Base UI components
+  /common              # Shared components
+  /layout              # Layout components
+  /forms               # Form components
+  /products            # Product components
+  /cart                # Cart components
+  /checkout            # Checkout components
+  /account             # User account components
+  /vendor              # Vendor components
+  /admin               # Admin components
+  /agent               # Agent components
+    /dashboard         # Agent dashboard
+    /pickup            # Pickup management
+    /verification      # Code verification
+  /return              # Return components
+    /request-form      # Return forms
+    /status            # Return tracking
+  /pickup              # Pickup components
+    /location-selector # Agent location UI
+    /code-display      # Pickup codes
+    /status-tracker    # Status indicators
+```
+
+## Key Pages & Features
+
+### 1. Enhanced Checkout Flow
+1. **Information Page**:
+   - Shipping address (for records)
+   - Agent location selection (map/dropdown)
+   - Operating hours display
+   - Estimated pickup date
+
+2. **Payment Page**:
+   - Standard payment processing
+   - Order review including pickup location
+
+3. **Confirmation Page**:
+   - Order details with pickup instructions
+   - Pickup code (when ready)
+   - Agent contact information
+
+### 2. Order Management
+- **Order Detail Page**:
+  - Pickup status tracking
+  - QR/barcode display for verification
+  - Return eligibility countdown timer
+  - Return request button (when eligible)
+
+- **Order History**:
+  - Pickup status indicators
+  - Agent location information
+  - Return status for applicable orders
+
+### 3. Return System
+- **Return Request Flow**:
+  - Product selection
+  - Reason dropdown (damaged, wrong item, etc.)
+  - Photo upload capability
+  - Automated approval rules
+
+- **Return Tracking**:
+  - Status timeline
+  - Refund processing information
+  - Communication history
+
+### 4. Agent Dashboard
+- **Order Management**:
+  - Incoming orders from vendors
+  - "Mark as Ready" functionality
+  - Bulk status updates
+
+- **Pickup Verification**:
+  - QR code scanner
+  - Manual code entry
+  - Customer confirmation
+
+- **Return Processing**:
+  - Physical item inspection
+  - Condition reporting
+  - Status updates
+
+## Implementation Phases
+
+1. **Core Marketplace**:
+   - Product listings
+   - Standard checkout
+   - Basic user accounts
+
+2. **Agent System**:
+   - Location selection
+   - Pickup management
+   - Verification interfaces
+
+3. **Return System**:
+   - Eligibility tracking
+   - Request workflows
+   - Refund processing
+
+4. **Dashboard Enhancements**:
+   - Vendor return analytics
+   - Agent performance metrics
+   - Admin configuration
+
+5. **Optimization**:
+   - Performance tuning
+   - Accessibility refinements
+   - Mobile experience
+
+## Accessibility & Performance
+- WCAG 2.1 AA compliance
+- Mobile-first responsive design
+- Image optimization
+- Code splitting
+- Preloader animation while Page is loading
+
+This combined specification maintains all original e-commerce functionality while adding comprehensive support for the agent-based delivery model and return system. The design system has been extended with additional status colors and UI patterns specific to the new features, while maintaining consistency with the original visual identity.
+
+The technical implementation leverages React's component architecture to cleanly separate concerns between the core marketplace functionality and the agent/return systems, allowing for parallel development when possible.
+
+
+---------------------------------------------------------------------------------
+email: almari@hosting1.infinityfreeapp.com
+password: Marigold2020$
+
+Supabase access token: sbp_b4068b1bf99d434882ccf51de01a0adfde38d388; 
+
+Printer Driver: https://help.nextar.com/tutorial/how-to-install-pos-58-or-pos-80-printer;
+Printer hardware: https://www.jumia.com.ng/portable-mini-thermal-receipt-printer-2inch-wireless-usb58mm-generic-mpg9442465.html;

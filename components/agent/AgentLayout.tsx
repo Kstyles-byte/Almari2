@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Settings,
 } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ export default function AgentLayout({ children, agentData }: AgentLayoutProps) {
     { name: 'Dashboard', href: '/agent/dashboard', icon: Home },
     { name: 'Orders', href: '/agent/orders', icon: Package },
     { name: 'Profile', href: '/agent/profile', icon: User2 },
+    { name: 'Settings', href: '/agent/settings', icon: Settings },
   ];
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);

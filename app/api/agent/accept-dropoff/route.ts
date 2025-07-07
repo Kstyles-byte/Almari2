@@ -3,8 +3,8 @@ import { createSupabaseServerActionClient } from '@/lib/supabase/action';
 
 export async function POST(req: NextRequest) {
   try {
-    const { orderId, code } = await req.json();
-    if (!orderId || !code) {
+    const { orderId } = await req.json();
+    if (!orderId) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 });
     }
 
@@ -27,11 +27,6 @@ export async function POST(req: NextRequest) {
     // Order must be in PROCESSING state *and* still pending pickup to accept drop-off
     if (order.status !== 'PROCESSING' || order.pickup_status !== 'PENDING') {
       return NextResponse.json({ error: 'Order not eligible for drop-off' }, { status: 400 });
-    }
-
-    // For now we reuse dropoff_code as drop-off token
-    if (order.dropoff_code !== code) {
-      return NextResponse.json({ error: 'Invalid drop-off code' }, { status: 400 });
     }
 
     // Retrieve current user & corresponding agent record

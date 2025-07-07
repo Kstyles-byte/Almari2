@@ -1,0 +1,25 @@
+---
+alwaysApply: true
+---
+
+context7-mcp
+- Context7 solves the problem of managing and tracking contextual information across different parts of a codebase:
+  - It helps maintain a clear understanding of code relationships and dependencies
+  - Tracks the flow of data and logic between different components
+  - Provides insights into code navigation and usage patterns
+  - Assists in understanding the broader impact of code changes
+
+- When encountering needs for code context tracking and analysis, always use the Context7 MCP server:
+  - For analyzing code relationships and dependencies
+  - For tracking data and control flow
+  - For understanding component interactions
+  - For impact analysis of code changes
+  - For maintaining contextual documentation
+
+- The Context7 MCP server provides:
+  - Centralized context management
+  - Real-time context updates
+  - Secure access to contextual data
+  - Performance optimized analysis
+  - Integration with development workflows
+

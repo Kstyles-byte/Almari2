@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+- When working with the database, always use the Supabase MCP (Multi-Cloud Platform) server that has been installed:
+
+  - For database queries and operations, connect through the Supabase MCP server instead of direct database access
+  - This applies to all database checks, reads, writes, and administrative operations
+  - The MCP server handles connection pooling, security, and performance optimization
+  
+
+- Benefits of using Supabase MCP:
+  - Consistent security policies
+  - Connection pooling and optimization
+  - Built-in caching
+  - Real-time capabilities
+  - Row Level Security enforcement
+  - Audit logging
