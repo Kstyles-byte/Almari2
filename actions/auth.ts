@@ -229,7 +229,7 @@ export async function signInWithSupabase(
   
   // Otherwise redirect based on role
   if (role === 'admin') {
-    return redirect('/admin/dashboard');
+    return redirect('/admin');
   } else if (role === 'vendor') {
     return redirect('/vendor/dashboard');
   } else if (role === 'agent') {

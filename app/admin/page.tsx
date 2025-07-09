@@ -4,13 +4,29 @@ import { Users, ShoppingCart, TrendingUp, Package, ImageIcon } from 'lucide-reac
 import { Card } from '@/components/ui/card';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
+import { getDashboardStats } from '@/actions/admin-dashboard';
+import { getOrders } from '@/actions/admin-orders';
+import { redirect } from 'next/navigation';
 
 export const metadata = {
   title: 'Admin Dashboard | Zervia',
   description: 'Manage your Zervia multi-vendor e-commerce platform',
 };
 
-export default function AdminDashboard() {
+export default async function AdminDashboard() {
+  const statsResult = await getDashboardStats();
+
+  if (!statsResult.success) {
+    console.error('Failed to fetch dashboard stats', statsResult.error);
+    redirect('/error?message=Failed to fetch dashboard statistics');
+  }
+
+  const { userCount, orderCount, productCount, totalRevenue } = statsResult.data;
+
+  // Fetch the five most recent orders
+  const ordersRes = await getOrders({ limit: 5 });
+  const recentOrders = ordersRes.success ? ordersRes.orders : [];
+
   return (
     <AdminLayout>
       <div className="container mx-auto">
@@ -22,7 +38,7 @@ export default function AdminDashboard() {
               <Users className="w-8 h-8 text-zervia-500" />
               <div>
                 <p className="text-sm text-zervia-600">Total Users</p>
-                <p className="text-2xl font-bold">1,234</p>
+                <p className="text-2xl font-bold">{userCount.toLocaleString()}</p>
               </div>
             </div>
           </Card>
@@ -31,8 +47,8 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-4">
               <ShoppingCart className="w-8 h-8 text-zervia-500" />
               <div>
-                <p className="text-sm text-zervia-600">Total Orders</p>
-                <p className="text-2xl font-bold">856</p>
+                <p className="text-sm text-zervia-600">Completed Orders</p>
+                <p className="text-2xl font-bold">{orderCount.toLocaleString()}</p>
               </div>
             </div>
           </Card>
@@ -42,7 +58,7 @@ export default function AdminDashboard() {
               <TrendingUp className="w-8 h-8 text-zervia-500" />
               <div>
                 <p className="text-sm text-zervia-600">Revenue</p>
-                <p className="text-2xl font-bold">$45,678</p>
+                <p className="text-2xl font-bold">₦{(totalRevenue / 100).toLocaleString()}</p>
               </div>
             </div>
           </Card>
@@ -52,7 +68,7 @@ export default function AdminDashboard() {
               <Package className="w-8 h-8 text-zervia-500" />
               <div>
                 <p className="text-sm text-zervia-600">Products</p>
-                <p className="text-2xl font-bold">432</p>
+                <p className="text-2xl font-bold">{productCount.toLocaleString()}</p>
               </div>
             </div>
           </Card>
@@ -61,27 +77,31 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="p-6 col-span-2">
             <h2 className="text-lg font-semibold mb-4">Recent Orders</h2>
-            <div className="space-y-4">
-              {/* Mock recent orders */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium">#ORD-2024-001</p>
-                  <p className="text-sm text-zervia-600">John Doe • $129.99</p>
-                </div>
-                <span className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full">
-                  Completed
-                </span>
+            {recentOrders && recentOrders.length > 0 ? (
+              <div className="space-y-4">
+                {recentOrders.map((order) => (
+                  <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">#{order.id.substring(0, 8)}</p>
+                      <p className="text-sm text-zervia-600">₦{Number(order.total_amount).toLocaleString()}</p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 text-sm rounded-full ${
+                        order.status === 'DELIVERED'
+                          ? 'bg-green-100 text-green-800'
+                          : order.status === 'PENDING'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {order.status}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium">#ORD-2024-002</p>
-                  <p className="text-sm text-zervia-600">Jane Smith • $89.99</p>
-                </div>
-                <span className="px-3 py-1 text-sm bg-yellow-100 text-yellow-800 rounded-full">
-                  Pending
-                </span>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-gray-500">No recent orders found.</p>
+            )}
           </Card>
 
           <Card className="p-6">

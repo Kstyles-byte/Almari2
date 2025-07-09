@@ -680,41 +680,41 @@ To retrieve their order, the customer must provide the **customerPickupCode** (e
   - [x] Store ratings/reviews display
 
 ### Phase 6: Admin Dashboard & System Completion
-- [ ] **Admin Dashboard Foundation:**
-  - [ ] Create `AdminLayout` with persistent sidebar & topbar
-  - [ ] Implement role-based middleware guard (`is_admin`) and Supabase RLS bypass for admin queries
-  - [ ] Build reusable `DataTable` component (pagination, sorting, column filters)
-  - [ ] Establish design tokens for admin theme (colors, typography)
+- [x] **Admin Dashboard Foundation:**
+  - [x] Create `AdminLayout` with persistent sidebar & topbar
+  - [x] Implement role-based middleware guard (`is_admin`) and Supabase RLS bypass for admin queries
+  - [x] Build reusable `DataTable` component (pagination, sorting, column filters)
+  - [x] Establish design tokens for admin theme (colors, typography)
 - [ ] **User Management**
-  - [ ] Paginated user list with search & role/status filters
+  - [x] Paginated user list with search & role/status filters ✅
   - [ ] User detail drawer showing orders, addresses, devices, auth provider
   - [ ] Role & status editing (activate / suspend / reset password)
   - [ ] Bulk actions (activate, suspend, delete) & CSV export
 - [ ] **Vendor Management**
-  - [ ] Pending applications queue with approve/reject modal & email template
-  - [ ] Active vendors list with search & filters
+  - [x] Pending applications queue with approve/reject modal (email template pending) 🟡
+  - [x] Active vendors list with search & filters ✅
   - [ ] Vendor deactivation / re-activation flow & audit trail
   - [ ] View vendor store analytics (products, sales, ratings)
 - [ ] **Product Moderation**
-  - [ ] Global product catalogue list with vendor & category join
-  - [ ] Toggle publish / unpublish & "featured" flag
+  - [x] Global product catalogue list with vendor & category join ✅
+  - [x] Toggle publish / unpublish & "featured" flag ✅
   - [ ] Flagged content review queue & dispute resolution workflow
   - [ ] Category reassignment & bulk price update utilities
-- [ ] **Order & Fulfilment Oversight**
-  - [ ] Cross-vendor orders table with status, payment & refund columns
-  - [ ] Manual status override & refund trigger panel
+- [x] **Order & Fulfilment Oversight**
+  - [x] Cross-vendor orders table with status, payment & refund columns
+  - [~] Manual status override implemented (refund trigger panel pending) 🟡
   - [ ] KPI dashboards: GMV, AOV, completion rates, daily orders trend
   - [ ] Export order data (CSV, date-range)
 - [ ] **Return & Refund Management**
   - [ ] Returns queue with SLA timers & escalation alerts
   - [ ] Approve / reject returns with reason & evidence attachments
-  - [ ] Manual / automatic refund execution & event log
+  - [~] Manual / automatic refund execution & event log (backend service in place, admin UI pending) 🟡
 - [ ] **Agent Management**
-  - [ ] Agents list with capacity & location editor (map picker)
+  - [~] Agents list UI implemented (backend integration & map picker pending) 🟡
   - [ ] Activation / deactivation & password reset
   - [ ] Pickup statistics dashboard (orders handled, avg. wait time)
 - [ ] **Content Management System (CMS)**
-  - [ ] CRUD for Hero banners & homepage sections
+  - [x] CRUD for Hero banners & homepage sections ✅
   - [ ] Static pages (About, FAQ, Policies) with WYSIWYG / Markdown editor
   - [ ] Promotional banners & navigation links manager
 - [ ] **System Settings**
@@ -733,11 +733,11 @@ To retrieve their order, the customer must provide the **customerPickupCode** (e
   - [ ] CI pipeline for lint, type-check & test
   - [ ] Storybook for UI components & visual regression tests
 - [ ] **Anticipated Challenges**
-  - [ ] Designing complex Supabase RLS policies while allowing admin overrides
+  - [x] Designing complex Supabase RLS policies while allowing admin overrides – Added `is_admin()` helper & universal "Admin full access" RLS policy migration
   - [ ] Handling pagination limits (PostgREST 1000 row cap) – implement cursor based pagination
   - [ ] Avoiding N+1 queries in analytics dashboards – create Postgres views / RPCs
   - [ ] Long-running CSV exports – move to edge function generating signed URL download
-  - [ ] Keeping RBAC consistent between client, server actions & database policies
+  - [x] Keeping RBAC consistent between client, server actions & database policies – Server actions now rely on `user.role` check mirroring DB `is_admin()`
   - [ ] Performance impact of large image uploads in CMS – enforce Cloudinary transformation presets
   - [ ] Managing secret configuration across Vercel & Supabase environments
 

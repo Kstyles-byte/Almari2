@@ -89,7 +89,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Mobile sidebar toggle */}
       <button
         type="button"
-        className="fixed top-4 left-4 z-50 md:hidden p-2 rounded-md bg-zervia-600 text-white"
+        className="fixed top-20 left-4 z-50 md:hidden p-2 rounded-md bg-zervia-600 text-white"
         onClick={() => setSidebarOpen(!sidebarOpen)}
       >
         {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -98,7 +98,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-40 w-64 h-screen transition-transform bg-white border-r border-gray-200 shadow-md",
+          "fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] transition-transform bg-white border-r border-gray-200 shadow-md",
           sidebarOpen ? "transform-none" : "-translate-x-full md:translate-x-0"
         )}
       >
@@ -139,7 +139,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       </aside>
 
       {/* Main content */}
-      <div className="md:ml-64 p-4 md:p-8">
+      <div className="md:ml-64 pt-20 p-4 md:p-8">
         {children}
       </div>
     </div>

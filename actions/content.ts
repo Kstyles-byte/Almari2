@@ -58,6 +58,27 @@ export async function getActiveHeroBanners(): Promise<HeroBanner[]> {
 }
 
 /**
+ * Admin helper – fetches ALL hero banners (active or inactive) using the service-role key so that
+ * RLS will not block the query. This should only be called from secured admin pages.
+ */
+export async function getAllHeroBannersAdmin(): Promise<HeroBanner[]> {
+  // We purposely bypass RLS here because only admins can invoke this on the server.
+  const supabase = await import('../lib/supabase/action').then((m) => m.createSupabaseServerActionClient(false));
+
+  const { data, error } = await supabase
+    .from('HeroBanner')
+    .select('*')
+    .order('priority', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching all hero banners (admin):', error);
+    return [];
+  }
+
+  return data ?? [];
+}
+
+/**
  * Get a single hero banner by ID
  */
 export async function getHeroBannerById(id: string): Promise<HeroBanner | null> {

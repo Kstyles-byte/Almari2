@@ -18,7 +18,7 @@ import {
 import { Icons } from '../icons';
 
 const navItems = [
-  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Vendors', href: '/admin/vendors', icon: Store },
   { name: 'Products', href: '/admin/products', icon: Package },
@@ -35,7 +35,7 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-20 h-full w-64 border-r border-gray-200 bg-white shadow-sm md:relative md:flex md:w-64 md:flex-col">
       <div className="flex h-16 items-center justify-center border-b border-gray-200 px-6">
-        <Link href="/admin/dashboard" className="flex items-center">
+        <Link href="/admin" className="flex items-center">
           <Icons.logo className="h-8 w-auto" />
           <span className="ml-2 text-lg font-semibold text-zervia-900">Admin</span>
         </Link>

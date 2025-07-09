@@ -69,7 +69,7 @@ export default async function AccountRedirectPage() {
     console.log(`AccountRedirectPage: User ${user.email} has role ${role}, redirecting...`);
 
     if (role === 'admin') {
-      return redirect('/admin/dashboard');
+      return redirect('/admin');
     } else if (role === 'vendor') {
       return redirect('/vendor/dashboard');
     } else if (role === 'agent') {
