@@ -12,14 +12,17 @@ const protectedPaths = ['/admin', '/vendor', '/agent', '/cart', '/checkout', '/a
 // Define paths that should be exempted from authentication even though they start with a protected path
 const exemptPaths = ['/checkout/complete', '/checkout/thank-you'];
 
-// Function to check if a path is protected (simple startsWith check)
+// Function to check if a path is protected (match whole segment, not prefix like "/vendors")
 function isProtectedRoute(pathname: string): boolean {
   // First check if it's in the exempt list
   if (exemptPaths.some(path => pathname.startsWith(path))) {
     return false;
   }
-  // Then check if it's in the protected list
-  return protectedPaths.some(path => pathname.startsWith(path));
+
+  // Protected if pathname matches exactly the protected path OR starts with it followed by a slash
+  return protectedPaths.some(path =>
+    pathname === path || pathname.startsWith(`${path}/`)
+  );
 }
 
 export async function middleware(request: NextRequest) {

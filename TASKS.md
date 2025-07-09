@@ -672,69 +672,74 @@ To retrieve their order, the customer must provide the **customerPickupCode** (e
     - `app/agent/profile/page.tsx`
   - [x] Ensured desktop & mobile sidebars start below global header (`pt-16`, `top-16` adjustments)
   - [x] Verified profile update & pickup verification flows via new endpoints
-- [ ] Create vendor store page:
-  - [ ] Store banner/logo customization
-  - [ ] Store description and policies
-  - [ ] Store categories navigation
-  - [ ] Featured products selection
-  - [ ] Store ratings/reviews display
+- [x] Create vendor store page:
+  - [x] Store banner/logo customization
+  - [x] Store description and policies
+  - [x] Store categories navigation
+  - [x] Featured products selection
+  - [x] Store ratings/reviews display
 
 ### Phase 6: Admin Dashboard & System Completion
-- [ ] Create admin dashboard:
-  - [ ] User management interfaces
-  - [ ] Vendor management and approval
-  - [ ] Product management and moderation
-  - [ ] Order management and oversight
-  - [ ] Content management for static pages
-  - [ ] System settings configuration
-  - [ ] Agent management and assignment
-  - [ ] Return & refund management
-- [ ] Create static pages:
-  - [ ] About Us page
-  - [ ] Contact Us page with form
-  - [ ] FAQ page with categories
-  - [ ] Terms & Conditions page
-  - [ ] Privacy Policy page
-  - [ ] Shipping Policy page
-  - [ ] Return Policy page
-- [ ] Implement system-wide enhancements:
-  - [ ] Performance optimization
-  - [ ] Accessibility improvements
-  - [ ] Cross-browser testing
-  - [ ] Mobile responsiveness refinement
-  - [ ] SEO optimization
-  - [ ] Analytics integration
-
-- [ ] **Finalize Notification System Connections:**
-  - [ ] **Admin Notifications:**
-    - [ ] On new Order placement
-    - [ ] On new Vendor application submission
-    - [ ] On Return request submission
-    - [ ] On high-value Order placement (optional threshold)
-    - [ ] On critical system errors (e.g., payment processing failure)
-    - [ ] On Payout request (if admin approval needed)
-  - [ ] **Customer Notifications:**
-    - [ ] On Order confirmation (after successful payment)
-    - [ ] On Order status change (Processing, Shipped, Delivered, Ready for Pickup, Cancelled)
-    - [ ] On successful Order pickup
-    - [ ] On Return request confirmation
-    - [ ] On Return status change (Approved, Rejected, Completed)
-    - [ ] On Refund processed
-    - [ ] On Password reset confirmation/success
-    - [ ] On Profile update confirmation
-  - [ ] **Vendor Notifications:**
-    - [ ] On new Order received for their product(s)
-    - [ ] On Order item cancellation (for their product)
-    - [ ] On Return request received for their product
-    - [ ] On Return request approved/rejected for their product
-    - [ ] On Vendor application approval/rejection
-    - [ ] On Payout processed/failed
-    - [ ] On Low stock warning for their product (optional)
-  - [ ] **Agent Notifications:**
-    - [ ] On Order assigned for pickup at their location
-    - [ ] On Order marked 'Ready for Pickup' by vendor(s) (if applicable to flow)
-    - [ ] On Return drop-off at their location (if applicable to flow)
-    - [ ] On Agent account activation/deactivation
+- [ ] **Admin Dashboard Foundation:**
+  - [ ] Create `AdminLayout` with persistent sidebar & topbar
+  - [ ] Implement role-based middleware guard (`is_admin`) and Supabase RLS bypass for admin queries
+  - [ ] Build reusable `DataTable` component (pagination, sorting, column filters)
+  - [ ] Establish design tokens for admin theme (colors, typography)
+- [ ] **User Management**
+  - [ ] Paginated user list with search & role/status filters
+  - [ ] User detail drawer showing orders, addresses, devices, auth provider
+  - [ ] Role & status editing (activate / suspend / reset password)
+  - [ ] Bulk actions (activate, suspend, delete) & CSV export
+- [ ] **Vendor Management**
+  - [ ] Pending applications queue with approve/reject modal & email template
+  - [ ] Active vendors list with search & filters
+  - [ ] Vendor deactivation / re-activation flow & audit trail
+  - [ ] View vendor store analytics (products, sales, ratings)
+- [ ] **Product Moderation**
+  - [ ] Global product catalogue list with vendor & category join
+  - [ ] Toggle publish / unpublish & "featured" flag
+  - [ ] Flagged content review queue & dispute resolution workflow
+  - [ ] Category reassignment & bulk price update utilities
+- [ ] **Order & Fulfilment Oversight**
+  - [ ] Cross-vendor orders table with status, payment & refund columns
+  - [ ] Manual status override & refund trigger panel
+  - [ ] KPI dashboards: GMV, AOV, completion rates, daily orders trend
+  - [ ] Export order data (CSV, date-range)
+- [ ] **Return & Refund Management**
+  - [ ] Returns queue with SLA timers & escalation alerts
+  - [ ] Approve / reject returns with reason & evidence attachments
+  - [ ] Manual / automatic refund execution & event log
+- [ ] **Agent Management**
+  - [ ] Agents list with capacity & location editor (map picker)
+  - [ ] Activation / deactivation & password reset
+  - [ ] Pickup statistics dashboard (orders handled, avg. wait time)
+- [ ] **Content Management System (CMS)**
+  - [ ] CRUD for Hero banners & homepage sections
+  - [ ] Static pages (About, FAQ, Policies) with WYSIWYG / Markdown editor
+  - [ ] Promotional banners & navigation links manager
+- [ ] **System Settings**
+  - [ ] Payment keys & transaction thresholds editor
+  - [ ] Email/SMS template editor with variable preview
+  - [ ] Feature flag toggles (maintenance mode, experimental features)
+  - [ ] Environment variable diagnostics & health-check screen
+- [ ] **Notification Templates & Routing**
+  - [ ] Manage template variables per channel (email, in-app, push)
+  - [ ] Channel enable/disable toggles & user preference overrides
+  - [ ] Test send utility & preview renderer
+- [ ] **Technical & DX Enhancements**
+  - [ ] End-to-end tests (Playwright) for critical flows
+  - [ ] Performance budget enforcement (Lighthouse CI)
+  - [ ] Error monitoring integration (Sentry)
+  - [ ] CI pipeline for lint, type-check & test
+  - [ ] Storybook for UI components & visual regression tests
+- [ ] **Anticipated Challenges**
+  - [ ] Designing complex Supabase RLS policies while allowing admin overrides
+  - [ ] Handling pagination limits (PostgREST 1000 row cap) – implement cursor based pagination
+  - [ ] Avoiding N+1 queries in analytics dashboards – create Postgres views / RPCs
+  - [ ] Long-running CSV exports – move to edge function generating signed URL download
+  - [ ] Keeping RBAC consistent between client, server actions & database policies
+  - [ ] Performance impact of large image uploads in CMS – enforce Cloudinary transformation presets
+  - [ ] Managing secret configuration across Vercel & Supabase environments
 
 ## Implementation Plan
 

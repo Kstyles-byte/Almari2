@@ -104,7 +104,7 @@ const VendorShowcase = async () => {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-zervia-500">{vendor.productCount} products</span>
                     <Button asChild variant="outline" size="sm">
-                      <Link href={`/vendor/${vendor.slug}`}>
+                      <Link href={`/store/${vendor.id}`}>
                         Visit Store
                       </Link>
                     </Button>

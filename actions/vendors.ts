@@ -3,6 +3,8 @@
 import { createServerActionClient } from '../lib/supabase/server';
 import type { Vendor, Product, Review, Category } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
 
 // Define expected data structure
 interface VendorShowcaseData {
@@ -45,7 +47,12 @@ export async function getActiveVendors(limit = 6): Promise<VendorShowcaseData[]>
  * Get featured vendors for homepage
  */
 export async function getFeaturedVendors(limit = 3) {
-  const supabase = await createServerActionClient(); // Create client inside function
+  // Prefer service role key so public vendor list isn't blocked by RLS
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabase = createClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
   try {
     // Define the structure expected from the vendors query (matching the select statement)
     // Supabase might return relations as arrays even with !inner
@@ -61,7 +68,7 @@ export async function getFeaturedVendors(limit = 3) {
         } | null; // Expect single object or null
     };
     
-    // 1. Fetch approved vendors with their basic user info
+    // 1. Fetch approved vendors without joining User table to avoid RLS restrictions
     const { data: vendorsData, error: vendorsError } = await supabase
       .from('Vendor')
       .select(`
@@ -69,8 +76,7 @@ export async function getFeaturedVendors(limit = 3) {
         store_name,
         description,
         logo_url,
-        banner_url,
-        User!inner ( name, email ) 
+        banner_url
       `)
       .eq('is_approved', true)
       .order('created_at', { ascending: false })

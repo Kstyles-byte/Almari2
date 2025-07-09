@@ -346,3 +346,5 @@ Supabase access token: sbp_b4068b1bf99d434882ccf51de01a0adfde38d388;
 
 Printer Driver: https://help.nextar.com/tutorial/how-to-install-pos-58-or-pos-80-printer;
 Printer hardware: https://www.jumia.com.ng/portable-mini-thermal-receipt-printer-2inch-wireless-usb58mm-generic-mpg9442465.html;
+
+supabse mcp smith ai intaller: npx -y @smithery/cli@latest install @alexander-zuev/supabase-mcp-server --client cursor --profile motionless-cat-QKiB6w --key 92eaf9d9-bc50-4d44-88f7-ba31f468638c
