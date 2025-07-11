@@ -10,7 +10,7 @@ import {
 // ----------------------------------
 // Vendor Types & Validation
 // ----------------------------------
-export const VendorStatusEnum = z.enum(['PENDING', 'APPROVED', 'REJECTED']);
+const VendorStatusEnum = z.enum(['PENDING', 'APPROVED', 'REJECTED']);
 
 export async function checkAdminPermission() {
   const session = await getActionSession();

@@ -127,3 +127,56 @@ export function Pagination({
 }
 
 Pagination.displayName = "Pagination" 
+
+// -----------------------------------------------------------------------------
+// Added shadcn/ui compatible sub-components so that legacy imports like
+// "PaginationContent", "PaginationItem", etc. resolve without changes.
+// These are thin wrappers that output simple semantic elements.
+// -----------------------------------------------------------------------------
+
+interface PaginationLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  isActive?: boolean;
+  children: React.ReactNode;
+}
+
+export const PaginationContent = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <nav className={cn("flex items-center gap-2", className)} aria-label="Pagination Navigation">
+    {children}
+  </nav>
+);
+
+export const PaginationItem = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <div className={className}>{children}</div>
+);
+
+export const PaginationLink = ({ isActive, className, children, ...props }: PaginationLinkProps) => (
+  <a
+    {...props}
+    className={cn(
+      "inline-flex h-8 w-8 items-center justify-center rounded-md border text-sm font-medium transition-colors",
+      isActive ? "bg-primary text-primary-foreground" : "hover:bg-accent hover:text-accent-foreground",
+      className
+    )}
+    aria-current={isActive ? "page" : undefined}
+  >
+    {children}
+  </a>
+);
+
+export const PaginationPrevious = ({ className, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+  <PaginationLink aria-label="Go to previous page" {...props} className={className}>
+    <ChevronLeft className="h-4 w-4" />
+  </PaginationLink>
+);
+
+export const PaginationNext = ({ className, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+  <PaginationLink aria-label="Go to next page" {...props} className={className}>
+    <ChevronRight className="h-4 w-4" />
+  </PaginationLink>
+);
+
+export const PaginationEllipsis = ({ className }: { className?: string }) => (
+  <span className={cn("inline-flex h-8 w-8 items-center justify-center", className)}>
+    <MoreHorizontal className="h-4 w-4" />
+  </span>
+); 
