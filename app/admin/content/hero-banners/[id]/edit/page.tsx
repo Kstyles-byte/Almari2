@@ -4,7 +4,7 @@ import { getHeroBannerById } from '@/actions/content';
 import { AdminHeroImageForm } from '@/components/admin/content/AdminHeroImageForm';
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export const metadata = {
@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 export default async function EditHeroBannerPage({ params }: Props) {
-  const { id } = params;
+  const { id } = await params;
 
   const banner = await getHeroBannerById(id);
 

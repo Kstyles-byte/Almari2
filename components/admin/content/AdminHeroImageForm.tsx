@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { updateHeroImage, updateHeroContent } from '@/actions/content';
 import { HeroBanner } from '@/types/content';
 import { Label } from "@/components/ui/label";
@@ -58,8 +58,8 @@ const formatDateForInput = (dateString: string | null | undefined) => {
 };
 
 export function AdminHeroImageForm({ banner }: AdminHeroImageFormProps) {
-  const [imageState, imageFormAction] = useFormState(updateHeroImage, { success: false, message: '', error: null });
-  const [contentState, contentFormAction] = useFormState(updateHeroContent, { success: false, message: '', error: null });
+  const [imageState, imageFormAction] = useActionState(updateHeroImage, { success: false, message: '', error: null });
+  const [contentState, contentFormAction] = useActionState(updateHeroContent, { success: false, message: '', error: null });
 
   useEffect(() => {
     if (imageState?.message) {
