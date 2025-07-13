@@ -741,6 +741,12 @@ To retrieve their order, the customer must provide the **customerPickupCode** (e
   - [ ] Performance impact of large image uploads in CMS – enforce Cloudinary transformation presets
   - [ ] Managing secret configuration across Vercel & Supabase environments
 
+### Phase 7: EXtra Features and Notes
+Note: The storefront is designed to display a single hero banner, not a carousel. This is achieved through the Hero.tsx homepage component, which calls getActiveHeroBanner() from lib/services/content.ts. This service then retrieves and renders only the single active banner with the highest priority, effectively ignoring all other banners.
+
+
+
+
 ## Implementation Plan
 
 ### Backend Implementation (Supabase)

@@ -19,4 +19,23 @@ export interface HeroBanner {
   updatedAt: string; // ISO date string
 }
 
+export interface SpecialOffer {
+  id: string; // UUID
+  title: string;
+  subtitle: string | null;
+  discountCode: string | null; // e.g., "NEWSTUDENT15"
+  discountDescription: string | null; // e.g., "Get 15% off your first purchase"
+  buttonText: string | null;
+  buttonLink: string | null;
+  isActive: boolean;
+  priority: number; // Higher numbers take precedence when selecting the active offer
+  startDate: string | null; // ISO date string
+  endDate: string | null;   // ISO date string
+  // Postgres columns are lowercase; keep aliases for type safety
+  startdate?: string | null;
+  enddate?: string | null;
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+}
+
 // Add other content types here as needed 

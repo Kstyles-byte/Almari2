@@ -30,6 +30,15 @@ export default function ContentIndex() {
               </span>
             </Button>
           </Link>
+
+          <Link href="/admin/content/offers">
+            <Button variant="outline" className="w-full flex items-center justify-between">
+              <span className="flex items-center">
+                {/* Icon representing promotions */}
+                <span className="mr-2 h-4 w-4">%</span> Offers
+              </span>
+            </Button>
+          </Link>
         </div>
       </div>
     </AdminLayout>

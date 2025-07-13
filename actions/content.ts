@@ -694,4 +694,99 @@ export async function deleteHeroBannerAction(bannerId: string): Promise<void> {
   }
 }
 
-// Removed the trailing comment 
+// ===================== SPECIAL OFFER ACTIONS =====================
+
+import { SpecialOffer } from '@/types/content';
+
+/**
+ * Create a new special offer
+ */
+export async function createSpecialOffer(data: {
+  title: string;
+  subtitle?: string;
+  discountCode?: string;
+  discountDescription?: string;
+  buttonText?: string;
+  buttonLink?: string;
+  isActive?: boolean;
+  priority?: number;
+  startDate?: Date;
+  endDate?: Date;
+}): Promise<SpecialOffer | null> {
+  const supabase = await createServerActionClient();
+  try {
+    const formattedData = {
+      ...data,
+      startDate: data.startDate ? data.startDate.toISOString() : null,
+      endDate: data.endDate ? data.endDate.toISOString() : null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const { data: newOffer, error } = await supabase
+      .from('SpecialOffer')
+      .insert([formattedData])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    revalidatePath('/'); // refresh homepage offers banner
+    return newOffer;
+  } catch (error) {
+    console.error('Error creating special offer:', error);
+    return null;
+  }
+}
+
+/**
+ * Update an existing special offer
+ */
+export async function updateSpecialOffer(id: string, data: Partial<Omit<SpecialOffer, 'id' | 'createdAt' | 'updatedAt'>>): Promise<SpecialOffer | null> {
+  const supabase = await createServerActionClient();
+  try {
+    const updatePayload = {
+      ...data,
+      startDate: (data.startDate instanceof Date) ? data.startDate.toISOString() : data.startDate ?? null,
+      endDate: (data.endDate instanceof Date) ? data.endDate.toISOString() : data.endDate ?? null,
+      updatedAt: new Date().toISOString(),
+    } as Partial<SpecialOffer>;
+
+    const { data: updatedOffer, error } = await supabase
+      .from('SpecialOffer')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    revalidatePath('/');
+    return updatedOffer;
+  } catch (error) {
+    console.error('Error updating special offer:', error);
+    return null;
+  }
+}
+
+/**
+ * Delete a special offer
+ */
+export async function deleteSpecialOffer(id: string): Promise<boolean> {
+  const supabase = await createServerActionClient();
+  try {
+    const { error } = await supabase
+      .from('SpecialOffer')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    revalidatePath('/');
+    return true;
+  } catch (error) {
+    console.error('Error deleting special offer:', error);
+    return false;
+  }
+}
+
+// ===================== END SPECIAL OFFER ACTIONS ===================== 
