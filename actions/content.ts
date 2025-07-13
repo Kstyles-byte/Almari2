@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { createServerActionClient } from '../lib/supabase/server';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { HeroBanner, Category } from '@/types';
+import slugify from 'slugify';
 
 // Configure Cloudinary (ensure environment variables are set)
 cloudinary.config({
@@ -46,6 +47,8 @@ export async function getActiveHeroBanners(): Promise<HeroBanner[]> {
       buttonText: 'Shop Now',
       buttonLink: '/products',
       imageUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158',
+      imagePublicId: null,
+      mobileImagePublicId: null,
       mobileImageUrl: null,
       isActive: true,
       priority: 10,
@@ -731,7 +734,8 @@ export async function createSpecialOffer(data: {
     if (error) throw error;
 
     revalidatePath('/'); // refresh homepage offers banner
-    return newOffer;
+    // @ts-ignore – casting DB row to interface with different case mapping
+    return newOffer as unknown as SpecialOffer;
   } catch (error) {
     console.error('Error creating special offer:', error);
     return null;
@@ -746,8 +750,8 @@ export async function updateSpecialOffer(id: string, data: Partial<Omit<SpecialO
   try {
     const updatePayload = {
       ...data,
-      startDate: (data.startDate instanceof Date) ? data.startDate.toISOString() : data.startDate ?? null,
-      endDate: (data.endDate instanceof Date) ? data.endDate.toISOString() : data.endDate ?? null,
+      startDate: ((data.startDate as any) instanceof Date) ? (data.startDate as any).toISOString() : data.startDate ?? null,
+      endDate: ((data.endDate as any) instanceof Date) ? (data.endDate as any).toISOString() : data.endDate ?? null,
       updatedAt: new Date().toISOString(),
     } as Partial<SpecialOffer>;
 
@@ -761,7 +765,8 @@ export async function updateSpecialOffer(id: string, data: Partial<Omit<SpecialO
     if (error) throw error;
 
     revalidatePath('/');
-    return updatedOffer;
+    // @ts-ignore – casting DB row to interface with different case mapping
+    return updatedOffer as unknown as SpecialOffer;
   } catch (error) {
     console.error('Error updating special offer:', error);
     return null;
@@ -790,3 +795,97 @@ export async function deleteSpecialOffer(id: string): Promise<boolean> {
 }
 
 // ===================== END SPECIAL OFFER ACTIONS ===================== 
+
+// ----------------- CATEGORY HELPERS -----------------
+
+export async function getCategoryById(id: string): Promise<Category | null> {
+  const supabase = await createServerActionClient();
+  try {
+    const { data, error } = await supabase
+      .from('Category')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching category by id:', error);
+    return null;
+  }
+}
+
+export async function createCategory(data: { name: string; iconUrl?: string | null; parentId?: string | null }): Promise<Category | null> {
+  const supabase = await import('../lib/supabase/action').then(m => m.createSupabaseServerActionClient(false));
+  try {
+    const slug = slugify(data.name, { lower: true });
+    // ensure unique slug – fetch at most one existing row
+    const { data: existing, error: checkErr } = await supabase
+      .from('Category')
+      .select('id')
+      .eq('slug', slug)
+      .limit(1)
+      .maybeSingle();
+    if (checkErr && checkErr.code !== 'PGRST116') {
+      // PGRST116 indicates no rows found when using maybeSingle, treat as no duplicate
+      throw checkErr;
+    }
+    if (existing) {
+      throw new Error('Category with this name already exists');
+    }
+    const payload = {
+      name: data.name,
+      slug,
+      icon_url: data.iconUrl ?? null,
+      parent_id: data.parentId ?? null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const { data: created, error } = await supabase.from('Category').insert([payload]).select().single();
+    if (error) throw error;
+    revalidatePath('/admin/content/categories');
+    return created;
+  } catch (error) {
+    console.error('Error creating category:', error);
+    return null;
+  }
+}
+
+export async function updateCategory(id: string, data: Partial<{ name: string; iconUrl?: string | null; parentId?: string | null }>): Promise<Category | null> {
+  const supabase = await import('../lib/supabase/action').then(m => m.createSupabaseServerActionClient(false));
+  try {
+    const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (data.name) {
+      payload.name = data.name;
+      payload.slug = slugify(data.name, { lower: true });
+    }
+    if (data.iconUrl !== undefined) payload.icon_url = data.iconUrl;
+    if (data.parentId !== undefined) payload.parent_id = data.parentId;
+
+    const { data: updated, error } = await supabase
+      .from('Category')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    revalidatePath('/admin/content/categories');
+    return updated;
+  } catch (error) {
+    console.error('Error updating category:', error);
+    return null;
+  }
+}
+
+export async function deleteCategory(id: string): Promise<boolean> {
+  const supabase = await createServerActionClient();
+  try {
+    const { error } = await supabase.from('Category').delete().eq('id', id);
+    if (error) throw error;
+    revalidatePath('/admin/content/categories');
+    return true;
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    return false;
+  }
+}
+// ---------------------------------------------------- 
