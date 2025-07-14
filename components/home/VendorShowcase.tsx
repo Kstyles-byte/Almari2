@@ -54,7 +54,11 @@ const VendorShowcase = async () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {vendors.map((vendor) => (
-              <div key={vendor.id} className="group relative bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow">
+              <Link
+                key={vendor.id}
+                href={`/store/${vendor.id}`}
+                className="group relative bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zervia-600"
+              >
                 <div className="relative h-48 w-full">
                   <Image
                     src={vendor.image}
@@ -103,14 +107,12 @@ const VendorShowcase = async () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-zervia-500">{vendor.productCount} products</span>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/store/${vendor.id}`}>
-                        Visit Store
-                      </Link>
+                    <Button variant="outline" size="sm" className="pointer-events-none">
+                      Visit Store
                     </Button>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

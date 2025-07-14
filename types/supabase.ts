@@ -475,6 +475,44 @@ export type Database = {
           },
         ]
       }
+      NotificationPreference: {
+        Row: {
+          channel: Database["public"]["Enums"]["NotificationChannel"]
+          created_at: string
+          enabled: boolean
+          id: string
+          type: Database["public"]["Enums"]["NotificationType"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel?: Database["public"]["Enums"]["NotificationChannel"]
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          type: Database["public"]["Enums"]["NotificationType"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["NotificationChannel"]
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          type?: Database["public"]["Enums"]["NotificationType"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "NotificationPreference_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Order: {
         Row: {
           actual_pickup_date: string | null
@@ -1129,7 +1167,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      UserUnreadNotificationCount: {
+        Row: {
+          unread_count: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Notification_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_set_user_role: {
@@ -1143,6 +1195,7 @@ export type Database = {
     }
     Enums: {
       discount_type: "PERCENTAGE" | "FIXED_AMOUNT"
+      NotificationChannel: "IN_APP" | "EMAIL" | "SMS"
       NotificationType:
         | "ORDER_STATUS_CHANGE"
         | "PICKUP_READY"
@@ -1151,6 +1204,18 @@ export type Database = {
         | "RETURN_APPROVED"
         | "RETURN_REJECTED"
         | "REFUND_PROCESSED"
+        | "PAYMENT_FAILED"
+        | "ORDER_SHIPPED"
+        | "ORDER_DELIVERED"
+        | "NEW_ORDER_VENDOR"
+        | "RETURN_VENDOR_ACTION_REQUIRED"
+        | "RETURN_VENDOR_COMPLETED"
+        | "PAYOUT_PROCESSED"
+        | "NEW_PICKUP_ASSIGNMENT"
+        | "RETURN_PICKUP_ASSIGNMENT"
+        | "NEW_VENDOR_APPLICATION"
+        | "HIGH_VALUE_ORDER_ALERT"
+        | "LOW_STOCK_ALERT"
       OrderItemStatus:
         | "PENDING"
         | "PROCESSING"
@@ -1298,6 +1363,7 @@ export const Constants = {
   public: {
     Enums: {
       discount_type: ["PERCENTAGE", "FIXED_AMOUNT"],
+      NotificationChannel: ["IN_APP", "EMAIL", "SMS"],
       NotificationType: [
         "ORDER_STATUS_CHANGE",
         "PICKUP_READY",
@@ -1306,6 +1372,18 @@ export const Constants = {
         "RETURN_APPROVED",
         "RETURN_REJECTED",
         "REFUND_PROCESSED",
+        "PAYMENT_FAILED",
+        "ORDER_SHIPPED",
+        "ORDER_DELIVERED",
+        "NEW_ORDER_VENDOR",
+        "RETURN_VENDOR_ACTION_REQUIRED",
+        "RETURN_VENDOR_COMPLETED",
+        "PAYOUT_PROCESSED",
+        "NEW_PICKUP_ASSIGNMENT",
+        "RETURN_PICKUP_ASSIGNMENT",
+        "NEW_VENDOR_APPLICATION",
+        "HIGH_VALUE_ORDER_ALERT",
+        "LOW_STOCK_ALERT",
       ],
       OrderItemStatus: [
         "PENDING",

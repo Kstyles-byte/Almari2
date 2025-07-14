@@ -595,3 +595,101 @@ export async function createPickupStatusNotification(orderId: string, status: 'P
     return { success: false, error: error instanceof Error ? error.message : "Failed to create pickup status notification" };
   }
 } 
+
+// --- NEW GENERATOR HELPERS (2025-07-13) ---
+
+/**
+ * Generic helper to create a notification only if the recipient has enabled it
+ */
+export async function createTypedNotification(params: {
+  userId: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  orderId?: string | null;
+  returnId?: string | null;
+  referenceUrl?: string | null;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Check user preference – if disabled for IN_APP channel we skip
+    const prefEnabled = await isPreferenceEnabled(params.userId, params.type, 'IN_APP');
+    if (!prefEnabled) {
+      console.log(`[Notification Service] Preference disabled for user ${params.userId} and type ${params.type}`);
+      return { success: true }; // Not an error, just skip
+    }
+
+    const result = await createNotification({
+      userId: params.userId,
+      title: params.title,
+      message: params.message,
+      type: params.type,
+      orderId: params.orderId,
+      returnId: params.returnId,
+      referenceUrl: params.referenceUrl,
+    });
+    return result.success ? { success: true } : { success: false, error: result.error };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to create notification' };
+  }
+}
+
+/**
+ * Helper to check if a notification preference is enabled (IN_APP channel only for now)
+ */
+export async function isPreferenceEnabled(userId: string, type: NotificationType, channel: 'IN_APP' | 'EMAIL' | 'SMS' = 'IN_APP'): Promise<boolean> {
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('NotificationPreference')
+      .select('enabled')
+      .eq('user_id', userId)
+      .eq('type', type)
+      .eq('channel', channel)
+      .single();
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 => no rows found
+      console.error('[Notification Service] Error fetching preference:', error.message);
+    }
+    // If no row, default to enabled
+    return data ? data.enabled : true;
+  } catch (err) {
+    console.error('[Notification Service] Preference check error', err);
+    return true;
+  }
+}
+
+// Example new generators
+export async function createPaymentFailureNotification(orderId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  return createTypedNotification({
+    userId,
+    title: 'Payment Failed',
+    message: 'Your payment could not be processed. Please try again or use a different method.',
+    type: 'PAYMENT_FAILED',
+    orderId,
+    referenceUrl: `/customer/orders/${orderId}`,
+  });
+}
+
+export async function createVendorNewOrderNotification(vendorUserId: string, orderId: string): Promise<{ success: boolean; error?: string }> {
+  return createTypedNotification({
+    userId: vendorUserId,
+    title: 'New Order Received',
+    message: 'You have a new order to fulfill. Please prepare items for drop-off.',
+    type: 'NEW_ORDER_VENDOR',
+    orderId,
+    referenceUrl: `/vendor/orders/${orderId}`,
+  });
+}
+
+export async function createShipmentNotification(userId: string, orderId: string): Promise<{ success: boolean; error?: string }> {
+  return createTypedNotification({
+    userId,
+    title: 'Order Shipped',
+    message: 'Your order has been shipped and is on its way to the pickup point.',
+    type: 'ORDER_SHIPPED',
+    orderId,
+    referenceUrl: `/customer/orders/${orderId}`,
+  });
+}
+
+// Additional helpers can be added similarly for each new NotificationType. 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Star, ShoppingCart } from 'lucide-react'; // Added ShoppingCart
 import { Button } from '../ui/button';
-import { getProducts } from '@/actions/products'; // Import getProducts
+import { getTrendingProducts } from '@/actions/products'; // Import new getTrendingProducts
 import { addToCart } from '../../actions/cart'; // Import the action
 import { toast } from 'sonner'; // Import toast
 
@@ -40,8 +40,8 @@ const TrendingProductsSection = () => {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
-        // Use getProducts sorted by newest
-        const result = await getProducts({ sortBy: 'newest', limit: 3 }); 
+        // Fetch top-selling products using new action
+        const result = await getTrendingProducts({ limit: 3 });
         
         // Check if result exists first before accessing properties
         if (result && result.products) {

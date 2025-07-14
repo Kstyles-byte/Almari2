@@ -12,9 +12,9 @@ import {
   deleteNotification 
 } from "../lib/services/notification";
 
-// Define NotificationType enum
-type NotificationType = 'ORDER_STATUS_CHANGE' | 'PICKUP_READY' | 'ORDER_PICKED_UP' | 
-  'RETURN_REQUESTED' | 'RETURN_APPROVED' | 'RETURN_REJECTED' | 'REFUND_PROCESSED';
+// Define NotificationType type based on Supabase schema to stay in sync with enum values
+import type { Database } from "../types/supabase";
+type NotificationType = Database['public']['Enums']['NotificationType'];
 
 // Define Notification interface
 interface Notification {

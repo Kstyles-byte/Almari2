@@ -1016,3 +1016,235 @@ When implementing features within each phase, the following priority framework w
    - Skeleton loaders are ready for product loading states
    - Empty state components are prepared for zero-data scenarios
    - Error handling components are in place
+
+## Notification System Roadmap
+
+> This section captures the full scope of the in-app notification feature.  It documents the current implementation status, highlights identified gaps, and enumerates the granular tasks required to reach production-ready quality across all user roles (Customer, Vendor, Agent, Admin).
+
+### 1. Current Implementation (✅  Already done)
+- [x] **Database**: `Notification` table with columns `(id, user_id, title, message, type, order_id, return_id, reference_url, is_read, created_at)`
+- [x] **Enum**: `NotificationType` with base values `ORDER_STATUS_CHANGE`, `PICKUP_READY`, `ORDER_PICKED_UP`, `RETURN_REQUESTED`, `RETURN_APPROVED`, `RETURN_REJECTED`, `REFUND_PROCESSED`.
+- [x] **Backend Service** (`lib/services/notification.ts`): helpers to create/read/update/delete notifications and three generator helpers (`createOrderStatusNotification`, `createReturnStatusNotification`, `createPickupStatusNotification`).
+- [x] **API Routes**:  `/api/notifications` (bulk create/query) and `/api/notifications/[id]` (read/update/delete) secured via `x-api-key`.
+- [x] **Server Actions** (`actions/notifications.ts`) bridging Supabase auth to the service layer.
+- [x] **Frontend UI**:
+  - `components/notifications/notification-center.tsx` (bell dropdown with tabs, mark-as-read, pagination).
+  - `components/notifications/notifications-list.tsx` (+ skeleton) and route `/notifications`.
+- [x] **Integration Points** (where notifications are emitted):
+  - Order life-cycle (`actions/orders.ts`)
+  - Pickup flow (`lib/services/agent.ts`)
+  - Return / Refund flow (`actions/returns.ts`, `actions/refunds.ts`, Paystack webhook)
+
+### 2. Identified Gaps / Requirements  (🔜  To-do)
+
+#### 2.1 Database & Security
+- [x] Add Row Level Security (RLS) policy to `Notification` table – `user_id = auth.uid()` for SELECT/UPDATE/DELETE.
+- [x] Create composite index on `(user_id, is_read, created_at)` for faster look-ups.
+- [x] Add trigger to auto-populate `created_at` (server default) and maintain a materialized view `UserUnreadNotificationCount`.
+
+#### 2.2 Expand Notification Domain
+**Extend Enum & Schema**  
+  - [x] Write migration to add new types:  
+    `PAYMENT_FAILED`, `ORDER_SHIPPED`, `ORDER_DELIVERED`, `NEW_ORDER_VENDOR`, `RETURN_VENDOR_ACTION_REQUIRED`, `RETURN_VENDOR_COMPLETED`, `PAYOUT_PROCESSED`, `NEW_PICKUP_ASSIGNMENT`, `RETURN_PICKUP_ASSIGNMENT`, `NEW_VENDOR_APPLICATION`, `HIGH_VALUE_ORDER_ALERT`, `LOW_STOCK_ALERT`.  
+  - [x] Regenerate TypeScript definitions (`supabase gen types`) and commit.
+
+  - [x] `createPaymentFailureNotification`
+  - [x] `createShipmentNotification`
+  - [ ] `createDeliveryNotification`
+  - [x] `createVendorNewOrderNotification`
+  - [ ] `createVendorReturnNotification`
+  - [ ] `createVendorPayoutNotification`
+  - [ ] `createAgentAssignmentNotification`
+  - [ ] `createAdminVendorApplicationNotification`
+  - [ ] `createAdminHighValueOrderNotification`
+  - [ ] `createAdminLowStockNotification`
+
+#### 2.3 Notification Preferences
+- [x] Create `NotificationPreference` table: `(id, user_id, type, channel IN ('IN_APP','EMAIL','SMS'), enabled)`.
+- [x] Add RLS (`user_id = auth.uid()`).
+- [x] CRUD Service + Actions (`lib/services/notification-preference.ts`, `actions/notification-preferences.ts`).
+- [x] UI: `/notifications/preferences` – allow toggling per-type & per-channel.
+- [ ] Update generators to skip creation when `enabled = false` for user & channel (partial – IN_APP implemented).
+
+#### 2.4 Real-Time Delivery
+- [x] Subscribe to Supabase Realtime channel on `Notification` table filtered by `user_id`.
+- [x] Create hook `useNotificationSubscription` that updates Jotai atom and bell badge.
+- [ ] Optimise: fall back to `getUnreadNotificationCountAction` polling if socket disconnects.
+
+#### 2.5 Multi-Channel Dispatch
+- [ ] Email: integrate Postmark (template per type) – background edge function `send_email_notification`.
+- [ ] SMS (optional): integrate Twilio for time-critical alerts.
+- [ ] Push: add service-worker + `Notification` API for PWA support (stretch goal).
+
+#### 2.6 Frontend UX Polish
+- [ ] Show unread badge in mobile nav & header.
+- [ ] Infinite scroll / "Load more" in `NotificationCenter`.
+- [ ] Group notifications by date (Today, Yesterday, Last Week...).
+- [ ] Swipe-to-delete on touch devices.
+- [ ] ARIA live region announcements for accessibility.
+
+#### 2.7 Quality Assurance
+- [ ] Unit tests for each generator helper (Supabase test harness).
+- [ ] Integration tests: simulate full order lifecycle and assert side-effects.
+- [ ] E2E tests with Playwright covering UI flows (bell badge updates, mark-as-read, preferences save).
+- [ ] Load test: mass insert 10k notifs, verify list latency < 300 ms.
+
+#### 2.8 Documentation
+- [ ] Update `backend-technology-stack.mermaid` diagram to include notification flow & realtime channel.
+- [ ] Add "Notifications" section to `README.md` (sequence diagrams, table reference, preference schema).
+
+### 3. Execution Plan (Suggested Order)
+1. **DB migrations & enum extension**  
+2. **RLS + indexes**  
+3. **Service helpers for new types**  
+4. **Wire into business logic**  
+5. **Preferences table + UI**  
+6. **Realtime subscription hook**  
+7. **Multi-channel dispatch**  
+8. **UX polish**  
+9. **Testing & docs**
+
+### 4. Relevant Files To Create / Modify
+- `supabase/migrations/*__extend_notification_enum.sql`
+- `supabase/migrations/*__add_notification_preferences.sql`
+- `almari-app/lib/services/notification.ts`
+- `almari-app/lib/services/notification-preference.ts` (new)
+- `almari-app/lib/services/vendor.ts` (extend)
+- `almari-app/lib/services/payout.ts` (extend)
+- `almari-app/actions/notifications.ts` (extend)
+- `almari-app/actions/notification-preferences.ts` (new)
+- `almari-app/hooks/useNotificationSubscription.ts` (new)
+- `almari-app/components/notifications/*` (UI enhancements)
+- `almari-app/app/notifications/preferences/page.tsx` (new)
+- Testing: `__tests__/notifications/*.ts`, Playwright specs.
+- Docs: `docs/notifications.md`, updated diagrams.
+
+### Phase 3.5: Cart System Overhaul (Guest Cart ➜ Authenticated Cart Persistence)
+
+> Goal: Allow users to add items to cart while unauthenticated (guest). When the user signs in / signs up during checkout, seamlessly merge the guest cart into their server-side cart and continue the checkout flow. The cart badge in the header & mobile nav must reflect real-time quantities for both guest and logged-in states.
+
+#### 0. Discovery & Audit
+- [ ] **Audit existing cart implementation**
+  - [ ] Catalogue all files containing mock cart logic (e.g. `components/cart/AddToCartButton.tsx`, `components/cart/CartItems.tsx`, `app/cart/page.tsx`, test stubs).
+  - [ ] Map server actions & API routes that currently assume an authenticated session (`actions/cart.ts`, `/app/api/cart/**`).
+  - [ ] Document database tables/columns (`Cart`, `CartItem`) & existing RLS policies.
+  - [ ] Locate every call-site of `getCart()` or other cart helpers (header badge, checkout flow, order summary, tests).
+  - [ ] Identify usages of `supabaseServiceRoleKey` leaked to the client and flag for removal.
+
+#### 1. Data Layer Design
+- [ ] **Choose guest cart storage mechanism**
+  - [ ] Implement `localStorage` (fallback to `cookie` < 4 KB) namespace: `zervia_cart_v1`.
+  - [ ] Define TypeScript interfaces `LocalCartItem`, `LocalCart` mirroring DB schema for easy merging.
+  - [ ] Encrypt / stringify payload; add schema version for future migrations.
+
+- [ ] **Server-side schema hardening**
+  - [ ] Verify `Cart` table has 1-to-1 relation with `Customer` & `unique(customer_id)` constraint.
+  - [ ] Verify `CartItem` `unique(cart_id, product_id)` constraint exists for idempotent upserts.
+  - [ ] Add / review RLS:
+    - [ ] `Cart`: `customer_id = auth.uid()` for SELECT / UPDATE / DELETE.
+    - [ ] `CartItem`: `cart_id IN (SELECT id FROM Cart WHERE customer_id = auth.uid())`.
+  - [ ] Add index on `cart_id` + `product_id` for faster merges.
+
+#### 2. Shared Cart Service
+- [ ] **Create universal cart helpers** (`lib/services/cart.ts`)
+  - [ ] Functions: `getServerCart()`, `mergeGuestCart(items: LocalCartItem[])`, `syncServerToLocal()`.
+  - [ ] Remove direct Supabase admin client usage; replace with session-aware `createServerClient(..cookies)`.
+
+- [ ] **Guest cart utilities** (`lib/utils/guest-cart.ts`)
+  - [ ] `readGuestCart()`, `writeGuestCart()`, `clearGuestCart()`.
+  - [ ] `upsertGuestItem(productId, qty)`; clamp by inventory & max 99.
+
+#### 3. React Context / Store
+- [ ] **Create `CartProvider`** (`components/providers/CartProvider.tsx`)
+  - [ ] Use Zustand or Jotai atom to hold `cartItems`, `subtotal`, `itemCount`.
+  - [ ] On mount: if authenticated ⇒ fetch server cart; else read guest cart.
+  - [ ] Subscribe to state changes; persist to localStorage when unauthenticated.
+  - [ ] Expose actions: `add`, `remove`, `updateQty`, `clear`.
+
+- [ ] **Hook API**
+  - [ ] `useCart()` – readonly state.
+  - [ ] `useCartActions()` – mutators.
+  - [ ] Ensure SSR safety (no `window` access on server).
+
+#### 4. UI Refactors
+- [ ] **Replace mock Add-to-Cart flow**
+  - [ ] Delete timeout mocks in `AddToCartButton.tsx`.
+  - [ ] Invoke `useCartActions().add(productId, qty)`.
+  - [ ] Optimistic UI + toast → success / error.
+
+- [ ] **Header & Mobile Cart Badge**
+  - [ ] Replace `getCart()` call with `useCart()` state.
+  - [ ] Listen to store changes for real-time badge updates.
+
+- [ ] **Cart Page (`app/cart/page.tsx`)**
+  - [ ] Convert to Server Component wrapper + Client `CartClient`.
+  - [ ] If guest & cart empty ⇒ show empty state.
+  - [ ] On “Checkout” button click:
+    - [ ] If unauthenticated, redirect to `/login?callbackUrl=/checkout`.
+    - [ ] Else continue to `/checkout`.
+  - [ ] Handle coupon, clear, update qty via store; if authenticated propagate mutations to server.
+
+- [ ] **Checkout Flow**
+  - [ ] At `/checkout` loader, if unauthenticated ⇒ redirect to login.
+  - [ ] After successful login/signup (both client & route), call `mergeGuestCart()` then refresh `/checkout` route to pull merged cart.
+
+#### 5. Authentication Hooks
+- [ ] **Enhance sign-in / sign-up actions**
+  - [ ] After Supabase `auth.signIn/Up` resolves, invoke `mergeGuestCart()` via POST `/api/cart/merge`.
+  - [ ] Clear guest cart localStorage afterwards.
+
+#### 6. API / Server Actions
+- [ ] **`POST /api/cart/merge` (route.ts)**
+  - [ ] Auth required; Accept body `{ items: [{productId, qty}] }`.
+  - [ ] For each item: upsert into `CartItem` (respect inventory).
+  - [ ] Return updated cart summary.
+
+- [ ] **Refactor existing `actions/cart.ts`**
+  - [ ] Remove service-role client; use session client.
+  - [ ] Expose slim wrappers: `serverAdd`, `serverUpdateQty`, `serverRemove`, `serverClear`, `serverGet`.
+
+#### 7. Edge Cases & Validation
+- [ ] Prevent adding unpublished / out-of-stock products in both guest & server paths.
+- [ ] Clamp quantity to available inventory on merge.
+- [ ] Handle price changes between guest time & checkout (show diff alert).
+- [ ] Rate-limit merge endpoint to 3 req/min per user.
+
+#### 8. Testing
+- [ ] Unit tests for guest cart utils (localStorage read/write, merge logic).
+- [ ] Integration tests: add items as guest → sign up → verify cart persists.
+- [ ] Playwright E2E: Add item, refresh, login at checkout, complete payment.
+
+#### 9. Performance & UX
+- [ ] Lazy-load product images in mini-cart / header dropdown.
+- [ ] Debounce quantity update network calls.
+- [ ] Persist cart store to `sessionStorage` while payment page loaded (prevent accidental back nav clearing).
+
+#### 10. Documentation & Diagrams
+- [ ] Update `database-schema.mermaid` to include guest-cart flow annotation.
+- [ ] Add sequence diagram (`docs/cart-merge-flow.mmd`) showing Guest → Auth merge.
+- [ ] Write README section “Guest Cart & Persistence”.
+
+#### 11. Cleanup / Deletions
+- [ ] Remove obsolete mocks: `components/cart/CartItems.tsx` mock list, vestigial images.
+- [ ] Remove header event-based `window.dispatchEvent('cart-updated')` once store subscription is in place.
+- [ ] Delete unused helper `getCart()` from header after migration.
+
+#### 12. Roll-out Plan
+- [ ] Feature flag behind `NEXT_PUBLIC_CART_V2` env var.
+- [ ] Deploy to staging → QA regression (add, update, checkout, mobile badge).
+- [ ] If stable, flip flag in production.
+
+---
+**Relevant Files to Create / Modify**
+- `lib/utils/guest-cart.ts` (NEW)
+- `lib/services/cart.ts` (REWRITE)
+- `components/providers/CartProvider.tsx` (NEW)
+- `components/cart/AddToCartButton.tsx` (REFactor)
+- `components/layout/header.tsx` (REFactor badge)
+- `app/cart/page.tsx` → split into Server + Client components
+- `app/api/cart/merge/route.ts` (NEW)
+- `actions/cart.ts` (REFactor)
+- `hooks/useCart.ts` (NEW) or Zustand store definition
+- Tests in `__tests__/cart/*`, `e2e/cart.spec.ts`
+- Diagrams in `docs/cart-merge-flow.mmd`
+

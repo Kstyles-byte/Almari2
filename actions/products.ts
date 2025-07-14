@@ -730,3 +730,104 @@ export async function getProductBySlug(slug: string) {
     return null;
   }
 }
+
+export async function getTrendingProducts({ limit = 3 }: { limit?: number } = {}) {
+  try {
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    // Aggregates are disabled in PostgREST by default. Fetch delivered OrderItems and sum in JS.
+    const { data: orderItems, error: salesError } = await supabase
+      .from('OrderItem')
+      .select('product_id,quantity,status')
+      .not('status', 'eq', 'CANCELLED'); // count all fulfilled or in-progress sales
+
+    if (salesError) {
+      console.error('Error fetching order items for trending products:', salesError.message);
+      throw salesError;
+    }
+
+    if (!orderItems || orderItems.length === 0) {
+      return { products: [], count: 0 };
+    }
+
+    // Compute total sales per product in JS
+    const salesMap = new Map<string, number>();
+    for (const item of orderItems as any[]) {
+      const current = salesMap.get(item.product_id) || 0;
+      salesMap.set(item.product_id, current + (item.quantity ?? 0));
+    }
+
+    const sortedProductIds = [...salesMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([productId]) => productId);
+
+    if (sortedProductIds.length === 0) {
+      return { products: [], count: 0 };
+    }
+ 
+    // 2. Fetch corresponding product details
+    const { data: productsData, error: productError } = await supabase
+      .from('Product')
+      .select(`
+        id, name, slug, description, price, compare_at_price, inventory, is_published, created_at,
+        ProductImage(*),
+        Category(id, name, slug),
+        Vendor(store_name),
+        Review(rating)
+      `)
+      .in('id', sortedProductIds)
+      .eq('is_published', true);
+
+    if (productError) {
+      console.error('Error fetching product details for trending products:', productError.message);
+      throw productError;
+    }
+
+    if (!productsData) {
+      return { products: [], count: 0 };
+    }
+
+    // Ensure correct typing for mapping
+    type ProductQueryResult = Product & {
+      ProductImage: { url: string }[] | null;
+      Category: Pick<Category, 'id' | 'name' | 'slug'> | null;
+      Vendor: Pick<Vendor, 'store_name'> | null;
+      Review: { rating: number }[] | null;
+    };
+
+    const formattedProducts = (productsData as unknown as ProductQueryResult[]).map((product) => {
+      const reviews = product.Review || [];
+      const avgRating = reviews.length > 0
+        ? reviews.reduce((sum, review) => sum + (review.rating ?? 0), 0) / reviews.length
+        : 0;
+
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const createdAtTime = new Date(product.created_at).getTime();
+
+      return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        price: product.price,
+        comparePrice: product.compare_at_price,
+        image: product.ProductImage?.[0]?.url || '/assets/placeholder-product.svg',
+        rating: parseFloat(avgRating.toFixed(1)),
+        reviews: reviews.length,
+        isNew: !isNaN(createdAtTime) && createdAtTime > sevenDaysAgo,
+        vendor: product.Vendor?.store_name || 'Unknown',
+        category: product.Category?.name || 'Uncategorized',
+        inventory: product.inventory,
+      };
+    });
+
+    // Preserve best-selling order using productIds ranking
+    const productMap = new Map(formattedProducts.map((p) => [p.id, p]));
+    const orderedProducts = sortedProductIds.map((id) => productMap.get(id)).filter(Boolean) as typeof formattedProducts;
+
+    return { products: orderedProducts, count: orderedProducts.length };
+  } catch (error) {
+    console.error('Unexpected error fetching trending products:', error);
+    return { products: [], count: 0 };
+  }
+}
