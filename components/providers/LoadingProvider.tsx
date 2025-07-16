@@ -72,8 +72,8 @@ function NavigationAwareLoading({
 }
 
 export function LoadingProvider({ children }: { children: React.ReactNode }) {
-  // Initial loading state is true to show loader right away
-  const [isLoading, setIsLoading] = useState(true);
+  // Start with no overlay on initial mount. It will be enabled only on navigations.
+  const [isLoading, setIsLoading] = useState(false);
   // Initial text is "Zervia" for the app startup
   const [loadingText, setLoadingText] = useState('Zervia');
   // Track whether this is the initial load

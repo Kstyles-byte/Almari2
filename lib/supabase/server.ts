@@ -10,7 +10,7 @@ import { Database } from '@/types/supabase';
 export async function createServerActionClient() {
   const cookieStore = await cookies();
 
-  const supabaseUrl = process.env.SUPABASE_URL!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   // Use the public anon key for user-scoped auth flows; the service role key
   // results in cookies that the browser client cannot parse ("base64-" prefix).
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;

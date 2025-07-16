@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'; // Add this import
 import { ShoppingCart, User, Menu, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Icons } from '../icons';
-import { getCart } from '@/actions/cart'; // Import the getCart action
+import { useCart } from '@/hooks/useCart'; // Use cart hook
 import { SearchBox } from '../ui/search-box'; // Import the SearchBox component
 import { NotificationCenter } from '../notifications/notification-center';
 
@@ -16,46 +16,12 @@ const Header = () => {
   
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [cartItemCount, setCartItemCount] = useState(0); // State for cart item count
+  const cartItems = useCart();
+  const cartItemCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
-  
-  // Function to fetch cart data
-  const fetchCartItemCount = async () => {
-    try {
-      const cartData = await getCart();
-      if (cartData.success && cartData.cart?.items) {
-        // Calculate total items in cart (sum of quantities)
-        const totalItems = cartData.cart.items.reduce((total: number, item: { quantity: number }) => total + item.quantity, 0);
-        setCartItemCount(totalItems);
-      } else {
-        setCartItemCount(0);
-      }
-    } catch (error) {
-      console.error("Error fetching cart count:", error);
-      setCartItemCount(0);
-    }
-  };
-
-  // Fetch cart count on initial load and set up event listener for cart updates
-  useEffect(() => {
-    fetchCartItemCount();
-    
-    // Listen for cart update events
-    const handleCartUpdate = () => {
-      fetchCartItemCount();
-    };
-    
-    // Add event listener for custom cart-updated event
-    window.addEventListener('cart-updated', handleCartUpdate);
-    
-    // Cleanup event listener on component unmount
-    return () => {
-      window.removeEventListener('cart-updated', handleCartUpdate);
-    };
-  }, []);
   
   // Handle scroll effect
   useEffect(() => {

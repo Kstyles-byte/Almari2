@@ -7,7 +7,7 @@ import { Heart, ShoppingCart, Star } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { addToCart } from '../../actions/cart';
+import { useCartActions } from '@/hooks/useCart';
 import { toast } from 'sonner';
 import { WishlistButton } from '@/components/products/WishlistButton';
 
@@ -34,21 +34,16 @@ interface ProductGridProps {
 
 export function ProductGrid({ products, className, columnsOverride }: ProductGridProps) {
   const [isAdding, setIsAdding] = useState<string | null>(null);
+  const { add } = useCartActions();
 
-  const handleAddToCart = async (productId: string, productName: string) => {
+  const handleAddToCart = (productId: string, productName: string) => {
     setIsAdding(productId);
     try {
-      const result = await addToCart({ productId, quantity: 1 });
-      if (result.success) {
-        toast.success(`${productName} added to cart!`);
-        // Dispatch custom event to notify header about cart update
-        window.dispatchEvent(new Event('cart-updated'));
-      } else {
-        toast.error(result.error || 'Could not add item to cart.');
-      }
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-      toast.error("An unexpected error occurred.");
+      add(productId, 1);
+      toast.success(`${productName} added to cart!`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Could not add item to cart.');
     } finally {
       setIsAdding(null);
     }

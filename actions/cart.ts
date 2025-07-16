@@ -65,8 +65,9 @@ export async function addToCart(input: FormData | AddToCartInput): Promise<AddTo
     console.log("Session object in addToCart:", JSON.stringify(session, null, 2)); // Log session object
 
     if (!session?.user) {
-      console.error("Authorization failed: No user session found in addToCart."); // Specific log
-      return { error: "Unauthorized" };
+      // Guest user – rely on client-side store; skip server processing
+      console.log("Guest addToCart call – skipping server action and returning success");
+      return { success: true };
     }
     console.log("User ID from session:", session.user.id); // Log user ID
 

@@ -1,16 +1,20 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 // UI Components
 import { CheckoutStepper } from '@/components/checkout/checkout-stepper';
 import { CheckoutInformationForm } from '@/components/checkout/checkout-information-form';
+import { SignInForm } from '@/components/auth/SignInForm';
 import { AgentLocationSelector } from '@/components/checkout/agent-location-selector';
+import { getActiveAgents as fetchActiveAgents } from '@/actions/agent-actions';
 import { CheckoutSummary } from '@/components/checkout/checkout-summary';
 import { CheckoutPaymentForm } from '@/components/checkout/checkout-payment-form';
 import { PageTransitionLoader } from '@/components/ui/loader';
+import { useCart } from '@/components/providers/CartProvider';
+import { getProductsByIds, BasicProduct } from '@/lib/services/products';
 
 // Types
 import type { Tables } from '@/types/supabase';
@@ -34,7 +38,7 @@ type CartItemType = {
 type CheckoutFormData = {
   email: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   phone?: string;
   deliveryMethod: 'pickup' | 'delivery';
   addressLine1?: string;
@@ -52,20 +56,43 @@ const CHECKOUT_STEPS = ['Information', 'Pickup Location', 'Payment'];
 
 // Props for the client component
 type CheckoutClientProps = {
-  initialCart: any;
+  // Server-prefetched cart, kept for potential future use but no longer relied upon
+  initialCart?: any;
   initialAddresses: Tables<'Address'>[];
   initialAgents: Tables<'Agent'>[];
   userEmail: string;
+  userName?: string;
 };
 
 export function CheckoutClient({ 
-  initialCart, 
+  initialCart: _initialCart, // ignore – live cart comes from context
   initialAddresses, 
   initialAgents,
-  userEmail
+  userEmail,
+  userName = ''
 }: CheckoutClientProps) {
   // Router
   const router = useRouter();
+  
+  const isGuest = !userEmail;
+
+  const [profileLoading, setProfileLoading] = useState<boolean>(false);
+
+  // Keep default contact info in state so it can react to updates in
+  // the user profile that may arrive after the initial render (e.g. after
+  // a sign-in redirect). Using useEffect ensures the name/email are kept in
+  // sync with the latest prop values without requiring a full page refresh.
+  const [defaultContact, setDefaultContact] = useState<Partial<CheckoutFormData>>({});
+
+  useEffect(() => {
+    if (!userName && !userEmail) return;
+
+    const parts = (userName || '').split(' ');
+    const firstName = parts.shift() || '';
+    const lastName = parts.join(' ');
+
+    setDefaultContact({ email: userEmail, firstName, lastName });
+  }, [userName, userEmail]);
   
   // Step state
   const [currentStep, setCurrentStep] = useState(0);
@@ -73,29 +100,89 @@ export function CheckoutClient({
   // Form data state
   const [checkoutInfo, setCheckoutInfo] = useState<CheckoutFormData | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
-  
-  // Process cart items
-  const cartItems: CartItemType[] = (initialCart?.items || []).map((item: any) => ({
-    id: item.id || 'unknown',
-    quantity: typeof item.quantity === 'number' ? item.quantity : 1,
-    product: {
-      id: item.productId || item.id || 'unknown',
-      name: item.name || 'Unknown Product',
-      slug: item.slug || 'unknown-slug',
-      price: typeof item.price === 'number' ? item.price : 0,
-      inventory: typeof item.inventory === 'number' ? item.inventory : 0,
-      image: item.image || '/placeholder-product.jpg',
-      vendor: item.vendorName || null
+  const [agents, setAgents] = useState<Tables<'Agent'>[]>(initialAgents);
+
+  // Fallback: fetch agents on the client if none were passed down (or after sign-in)
+  useEffect(() => {
+    if (agents.length === 0) {
+      (async () => {
+        try {
+          const res = await fetchActiveAgents();
+          if (res.success && res.agents?.length) {
+            setAgents(res.agents);
+          }
+        } catch (err) {
+          console.error('[Checkout] Failed to fetch agents on client', err);
+        }
+      })();
     }
-  }));
+  }, [agents.length]);
+  
+  // Unified cart coming from the CartProvider – contains guest items or the authenticated user's server cart
+  const liveCart = useCart();
+
+  // Local state for product details (guest or fallback)
+  const [productMap, setProductMap] = useState<Record<string, BasicProduct>>({});
+
+  // Fetch product details whenever the live cart changes and we need metadata
+  useEffect(() => {
+    const missingIds = liveCart.filter(i => !productMap[i.productId]).map(i => i.productId);
+    if (missingIds.length) {
+      (async () => {
+        const products = await getProductsByIds(missingIds);
+        const newMap = { ...productMap };
+        products.forEach(p => (newMap[p.id] = p));
+        setProductMap(newMap);
+      })();
+    }
+  }, [liveCart, productMap]);
+
+  // Helper to transform cart items to unified structure
+  const transform = (items: any[]): CartItemType[] =>
+    items.map((item: any) => ({
+      id: item.id || 'tmp',
+      quantity: typeof item.quantity === 'number' ? item.quantity : item.qty || 1,
+      product: {
+        id: item.productId || item.id,
+        name: item.name,
+        slug: item.slug,
+        price: item.price,
+        inventory: item.inventory,
+        image: item.image || '/placeholder-product.jpg',
+        vendor: item.vendorName || item.vendor || null,
+      },
+    }));
+
+  // Build cart items from live cart and loaded product metadata
+  const cartItems: CartItemType[] = liveCart.map((ci) => {
+    const p = productMap[ci.productId];
+    return {
+      id: ci.productId,
+      quantity: ci.qty,
+      product: p
+        ? {
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            price: p.price,
+            inventory: p.inventory,
+            image: p.image ?? '/placeholder-product.jpg',
+            vendor: p.vendorName ?? null,
+          }
+        : {
+            id: ci.productId,
+            name: 'Loading…',
+            slug: '#',
+            price: 0,
+            inventory: 0,
+            image: '/placeholder-product.jpg',
+            vendor: null,
+          },
+    };
+  });
   
   // Calculate totals from cart state
-  const subtotal = cartItems.reduce((acc, item) => {
-    if (!item.product || typeof item.product.price !== 'number') {
-      return acc;
-    }
-    return acc + (item.product.price * item.quantity);
-  }, 0);
+  const subtotal = cartItems.reduce((acc, item) => acc + (item.product?.price || 0) * item.quantity, 0);
   
   // For now these are placeholders
   const discount = 0;
@@ -176,7 +263,12 @@ export function CheckoutClient({
     // Any UI state changes for payment completion
   }, []);
   
-  // Show cart empty state
+  // Show loading while we fetch product details for any of the cart items
+  if (liveCart.length && cartItems.some(i => i.product.name === 'Loading…')) {
+    return <PageTransitionLoader text="Loading your cart..." />;
+  }
+
+  // Empty state
   if (cartItems.length === 0) {
     return (
       <div className="container mx-auto p-4 py-16">
@@ -205,26 +297,38 @@ export function CheckoutClient({
         <div className="lg:col-span-2">
           {/* Step 1: Information */}
           {currentStep === 0 && (
-            <CheckoutInformationForm
-              onSave={handleSaveInformation}
-              onSuccess={(email) => {
-                toast.success("Information saved!");
-                handleNext();
-              }}
-              addresses={initialAddresses}
-              initialData={(checkoutInfo || { email: userEmail }) as any}
-            />
+            <>
+              {isGuest ? (
+                <div className="mb-8">
+                  <h3 className="text-lg font-medium mb-4">Sign In or Sign Up to Continue Checkout</h3>
+                  <SignInForm callbackUrl="/checkout" />
+                </div>
+              ) : (
+                <CheckoutInformationForm
+                  onSave={handleSaveInformation}
+                  onSuccess={(email) => {
+                    toast.success("Information saved!");
+                    handleNext();
+                  }}
+                  addresses={initialAddresses}
+                  initialData={(checkoutInfo || defaultContact) as any}
+                  readOnlyName={`${(defaultContact as any).firstName || ''} ${(defaultContact as any).lastName || ''}`.trim() || null}
+                  readOnlyEmail={userEmail}
+                  profileLoading={profileLoading}
+                />
+              )}
+            </>
           )}
           
           {/* Step 2: Agent Location */}
           {currentStep === 1 && (
             <AgentLocationSelector
-              agents={initialAgents}
+              agents={agents}
               selectedAgentId={selectedAgentId}
               onSelectAgent={handleSelectAgent}
               onNext={handleNext}
               onBack={handleBack}
-              error={null}
+              error={agents.length === 0 ? 'No active pickup locations found' : null}
             />
           )}
           
@@ -266,7 +370,7 @@ export function CheckoutClient({
     // Add checkout info
     formData.append('email', checkoutInfo.email);
     formData.append('firstName', checkoutInfo.firstName);
-    formData.append('lastName', checkoutInfo.lastName);
+    formData.append('lastName', checkoutInfo.lastName || '');
     formData.append('phone', checkoutInfo.phone || '');
     formData.append('deliveryMethod', checkoutInfo.deliveryMethod);
     

@@ -1,0 +1,1 @@
+export { useCart, useCartActions } from '@/components/providers/CartProvider'; 

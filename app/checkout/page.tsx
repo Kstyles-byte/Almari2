@@ -33,11 +33,7 @@ export default async function CheckoutPage() {
   // Check authentication directly via Supabase client
   const { data: { user } } = await supabase.auth.getUser();
 
-  // If not authenticated, redirect to login
-  if (!user) {
-    console.log('CheckoutPage: No user session, redirecting to login.');
-    redirect('/login?callbackUrl=/checkout');
-  }
+  const isGuest = !user;
 
   // Pre-fetch the data needed for checkout
   let initialCart;
@@ -46,34 +42,41 @@ export default async function CheckoutPage() {
   let initialAgents: any[] = [];
 
   try {
-    // Fetch cart data
-    const cartResult = await getCart();
-    
-    // If cart is empty, redirect to cart page
-    if (!cartResult.success || !cartResult.cart?.items?.length) {
-      redirect('/cart?message=Your+cart+is+empty');
+    if (!isGuest) {
+      // Authenticated user: fetch cart and addresses
+      const cartResult = await getCart();
+      // If cart is empty immediately after login it may be because the
+      // guest-cart merge has not yet happened.  Do NOT redirect; just
+      // pass an empty initialCart and let the client-side CartProvider
+      // sync + merge on first load.
+      initialCart = cartResult.cart ?? null;
+
+      const [addressesResult, agentsResult] = await Promise.all([
+        getUserAddresses(),
+        getActiveAgents(),
+      ]);
+
+      initialAddresses = addressesResult.addresses || [];
+      initialAgents = agentsResult.agents || [];
+    } else {
+      // Guest user: no server cart or addresses. Still fetch agents.
+      const agentsResult = await getActiveAgents();
+      initialAgents = agentsResult.agents || [];
     }
-    
-    initialCart = cartResult.cart;
-    
-    // Fetch addresses and agents in parallel
-    const [addressesResult, agentsResult] = await Promise.all([
-      getUserAddresses(),
-      getActiveAgents()
-    ]);
-    
-    // Ensure we always have arrays, even if empty
-    initialAddresses = addressesResult.addresses || [];
-    initialAgents = agentsResult.agents || [];
-    
   } catch (error) {
     console.error('Error loading checkout data:', error);
-    // In case of error, we'll still render the page and let client-side 
-    // error handling take over
   }
 
-  // Get user's email from Supabase
-  const userEmail = user.email || '';
+  const userEmail = user?.email ?? '';
+  let userName = '';
+  if (user) {
+    const { data: profile } = await supabase
+      .from('User')
+      .select('name')
+      .eq('id', user.id)
+      .single();
+    userName = profile?.name || '';
+  }
 
   // Now render the client component with pre-fetched data
   return (
@@ -82,6 +85,7 @@ export default async function CheckoutPage() {
       initialAddresses={initialAddresses}
       initialAgents={initialAgents}
       userEmail={userEmail}
+      userName={userName}
     />
   );
 } 

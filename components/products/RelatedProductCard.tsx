@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Star, ShoppingCart } from 'lucide-react';
 import { Button } from '../ui/button';
-import { addToCart } from '../../actions/cart';
+import { useCartActions } from '@/hooks/useCart';
 import { toast } from 'sonner';
 
 interface RelatedProduct {
@@ -26,6 +26,7 @@ interface RelatedProductCardProps {
 
 export function RelatedProductCard({ product }: RelatedProductCardProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const { add } = useCartActions();
 
   const handleAddToCart = async () => {
     setIsAdding(true);
@@ -38,14 +39,8 @@ export function RelatedProductCard({ product }: RelatedProductCardProps) {
         return;
       }
       
-      const result = await addToCart({ productId: product.id, quantity: 1 });
-      if (result.success) {
-        toast.success(`${product.name} added to cart!`);
-        // Dispatch custom event to notify header about cart update
-        window.dispatchEvent(new Event('cart-updated'));
-      } else {
-        toast.error(result.error || 'Could not add item to cart.');
-      }
+      add(product.id, 1);
+      toast.success(`${product.name} added to cart!`);
     } catch (error) {
       console.error("Error adding related product to cart:", error);
       toast.error("An unexpected error occurred.");

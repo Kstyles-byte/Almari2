@@ -28,11 +28,14 @@ const formSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
-// Inner component that uses the hook
-function SignInFormContent() {
+interface SignInFormContentProps {
+  callbackUrlOverride?: string;
+}
+
+function SignInFormContent({ callbackUrlOverride }: SignInFormContentProps) {
   const [isPending, startTransition] = useTransition();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams?.get('callbackUrl') || undefined;
+  const callbackUrl = callbackUrlOverride ?? (searchParams?.get('callbackUrl') || undefined);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -130,10 +133,10 @@ function SignInFormContent() {
 }
 
 // Exported component that wraps the form content with Suspense
-export function SignInForm() {
+export function SignInForm({ callbackUrl }: { callbackUrl?: string }) {
   return (
-    <Suspense fallback={<div className="w-full max-w-sm"><Card><CardHeader><CardTitle>Loading...</CardTitle></CardHeader><CardContent><Loader2 className="h-8 w-8 animate-spin text-center" /></CardContent></Card></div>}> 
-      <SignInFormContent />
+    <Suspense fallback={<div className="w-full max-w-sm"><Card><CardHeader><CardTitle>Loading...</CardTitle></CardHeader><CardContent><Loader2 className="h-8 w-8 animate-spin text-center" /></CardContent></Card></div>}>
+      <SignInFormContent callbackUrlOverride={callbackUrl} />
     </Suspense>
   );
 } 

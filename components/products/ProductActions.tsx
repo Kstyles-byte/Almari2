@@ -6,7 +6,8 @@ import { useFormStatus } from 'react-dom';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ShoppingCart } from 'lucide-react';
-import { addToCart } from '../../actions/cart'; // Assuming addToCart is correctly set up
+import { addToCart } from '../../actions/cart';
+import { useCartActions } from '@/hooks/useCart';
 import { toast } from 'sonner'; // Assuming sonner for notifications
 
 interface ProductActionsProps {
@@ -41,6 +42,9 @@ export function ProductActions({ productId, productName, inventory }: ProductAct
   const [quantity, setQuantity] = useState(1);
   // Use the wrapper function with useActionState
   const [state, formAction] = useActionState(addToCartActionWrapper, initialState);
+
+  // Cart actions from context (updates guest cart/local storage)
+  const { add } = useCartActions();
   // const { pending } = useFormStatus(); // Remove this line, useFormStatus must be used INSIDE the form component
 
   useEffect(() => {
@@ -49,6 +53,9 @@ export function ProductActions({ productId, productName, inventory }: ProductAct
     }
     if (state.success) {
       toast.success(`${productName} added to cart!`);
+      // Also push into client cart for guest users – this guarantees
+      // that the localStorage cart exists even when the server skipped DB write.
+      add(productId, quantity);
       // Dispatch custom event to notify header about cart update
       window.dispatchEvent(new Event('cart-updated'));
       // Optionally reset quantity or form state here

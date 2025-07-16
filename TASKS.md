@@ -1179,7 +1179,7 @@ When implementing features within each phase, the following priority framework w
 - [ ] **Cart Page (`app/cart/page.tsx`)**
   - [ ] Convert to Server Component wrapper + Client `CartClient`.
   - [ ] If guest & cart empty ⇒ show empty state.
-  - [ ] On “Checkout” button click:
+  - [ ] On "Checkout" button click:
     - [ ] If unauthenticated, redirect to `/login?callbackUrl=/checkout`.
     - [ ] Else continue to `/checkout`.
   - [ ] Handle coupon, clear, update qty via store; if authenticated propagate mutations to server.
@@ -1222,7 +1222,7 @@ When implementing features within each phase, the following priority framework w
 #### 10. Documentation & Diagrams
 - [ ] Update `database-schema.mermaid` to include guest-cart flow annotation.
 - [ ] Add sequence diagram (`docs/cart-merge-flow.mmd`) showing Guest → Auth merge.
-- [ ] Write README section “Guest Cart & Persistence”.
+- [ ] Write README section "Guest Cart & Persistence".
 
 #### 11. Cleanup / Deletions
 - [ ] Remove obsolete mocks: `components/cart/CartItems.tsx` mock list, vestigial images.

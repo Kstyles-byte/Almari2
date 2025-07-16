@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 // import { createClient } from '@/lib/supabase/server' 
 
 // Define paths that REQUIRE authentication
-const protectedPaths = ['/admin', '/vendor', '/agent', '/cart', '/checkout', '/account', '/customer']; // Added /customer
+const protectedPaths = ['/admin', '/vendor', '/agent', '/account', '/customer']; // /cart removed to allow guest
 
 // Define paths that are explicitly public (like auth pages) even if logic changes
 // const publicAuthPaths = ['/login', '/signup', '/auth/confirm', '/error']; // We might not strictly need this if logic below works

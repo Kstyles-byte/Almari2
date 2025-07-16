@@ -20,8 +20,10 @@ type Address = Tables<'Address'>;
 // Form schema using Zod
 const checkoutInformationSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
+  // Keep first & last names in schema (used internally) but validation will be satisfied
+  // automatically once they are fetched. The user will no longer input these fields.
   firstName: z.string().min(1, { message: "First name is required." }),
-  lastName: z.string().min(1, { message: "Last name is required." }),
+  lastName: z.string().optional(),
   phone: z.string().optional(),
   deliveryMethod: z.enum(['pickup', 'delivery']),
   // Address fields are optional at the top level
@@ -57,13 +59,19 @@ interface CheckoutInformationFormProps {
   onSuccess: (email: string) => void;
   addresses: Address[];
   initialData?: Partial<InformationFormData>;
+  readOnlyName?: string | null;
+  readOnlyEmail?: string | null;
+  profileLoading?: boolean;
 }
 
 export function CheckoutInformationForm({ 
   onSave,
   onSuccess, 
   addresses, 
-  initialData 
+  initialData,
+  readOnlyName,
+  readOnlyEmail,
+  profileLoading = false,
 }: CheckoutInformationFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -76,7 +84,7 @@ export function CheckoutInformationForm({
     getValues,
     formState: { errors, isValid },
   } = useForm<InformationFormData>({
-    resolver: zodResolver(checkoutInformationSchema),
+    resolver: zodResolver(checkoutInformationSchema as any),
     defaultValues: {
       deliveryMethod: 'pickup',
       saveAddress: 'false',
@@ -92,6 +100,20 @@ export function CheckoutInformationForm({
   useEffect(() => {
     console.log('CheckoutInformationForm - Mounted with addresses:', addresses?.length || 0);
   }, []);
+
+  // Populate hidden first/last name fields once the profile name is available
+  useEffect(() => {
+    if (readOnlyName) {
+      const parts = readOnlyName.split(' ');
+      const first = parts.shift() || '';
+      const last = parts.join(' ');
+      setValue('firstName', first, { shouldValidate: false });
+      setValue('lastName', last, { shouldValidate: false });
+    }
+    if (readOnlyEmail) {
+      setValue('email', readOnlyEmail, { shouldValidate: false });
+    }
+  }, [readOnlyName, readOnlyEmail, setValue]);
 
   const handleFormSubmit = async (data: InformationFormData) => {
     console.log('CheckoutInformationForm - Form submitted:', data);
@@ -154,22 +176,20 @@ export function CheckoutInformationForm({
           {/* Contact Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Contact Information</h3>
+            {/* Show read-only full name fetched from profile */}
             <div>
-              <Label htmlFor="email">Email Address</Label>
-              <Input id="email" {...register('email')} placeholder="you@example.com" />
-              {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>}
+              <Label htmlFor="fullName">Full Name</Label>
+              <div className="relative">
+                <Input id="fullName" value={readOnlyName || ''} disabled />
+                {profileLoading && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin border-2 border-t-transparent rounded-full"></span>
+                )}
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="firstName">First Name</Label>
-                <Input id="firstName" {...register('firstName')} placeholder="John" />
-                {errors.firstName && <p className="text-sm text-red-500 mt-1">{errors.firstName.message}</p>}
-              </div>
-              <div>
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input id="lastName" {...register('lastName')} placeholder="Doe" />
-                {errors.lastName && <p className="text-sm text-red-500 mt-1">{errors.lastName.message}</p>}
-              </div>
+            {/* Read-only email */}
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" value={readOnlyEmail || ''} disabled />
             </div>
             <div>
               <Label htmlFor="phone">Phone Number (Optional)</Label>
@@ -279,9 +299,9 @@ export function CheckoutInformationForm({
                 </div>
               )}
               {/* Display the custom refine error */}
-              {(errors.selectedAddressId && deliveryMethod === 'delivery') && 
+              {(errors.selectedAddressId && deliveryMethod === 'delivery' && (
                 <p className="text-sm text-red-500 mt-1">{errors.selectedAddressId.message}</p>
-              }
+              ))}
             </div>
           )}
           
@@ -297,7 +317,7 @@ export function CheckoutInformationForm({
             <Button 
               type="submit" 
               className="w-full md:w-auto" 
-              disabled={isSubmitting}
+              disabled={isSubmitting || profileLoading}
             >
               {isSubmitting ? (
                 <>

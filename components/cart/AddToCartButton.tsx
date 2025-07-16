@@ -3,9 +3,8 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart } from 'lucide-react';
-import { useCustomLoader } from '@/hooks/useCustomLoader';
-import { ActionLoader } from '@/components/ui/loader';
 import { toast } from 'sonner';
+import { useCartActions } from '@/hooks/useCart';
 
 interface AddToCartButtonProps {
   productId: string;
@@ -22,59 +21,32 @@ export function AddToCartButton({
   size = 'default',
   className,
 }: AddToCartButtonProps) {
-  const {
-    startButtonLoading,
-    stopButtonLoading,
-    isButtonLoadingById,
-    startActionLoading,
-    stopActionLoading,
-    isActionLoading,
-    actionLoadingText
-  } = useCustomLoader();
-  
-  const buttonId = `add-to-cart-${productId}`;
-  
+  const { add } = useCartActions();
+  const [loading, setLoading] = React.useState(false);
+
   const handleAddToCart = async () => {
-    // Start button loading state
-    startButtonLoading(buttonId);
-    
+    setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      // Show processing loader
-      startActionLoading(`Adding ${productName} to your cart...`);
-      
-      // Simulate adding to cart
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Show success
-      stopActionLoading();
+      add(productId, 1);
       toast.success(`${productName} added to cart!`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to add item to cart');
     } finally {
-      stopButtonLoading(buttonId);
+      setLoading(false);
     }
   };
-  
+
   return (
-    <>
-      <Button
-        variant={variant}
-        size={size}
-        className={className}
-        onClick={handleAddToCart}
-        isLoading={isButtonLoadingById(buttonId)}
-        loadingText="Adding..."
-      >
-        <ShoppingCart className="mr-2 h-4 w-4" />
-        Add to Cart
-      </Button>
-      
-      {isActionLoading && (
-        <ActionLoader text={actionLoadingText} />
-      )}
-    </>
+    <Button
+      variant={variant}
+      size={size}
+      className={className}
+      onClick={handleAddToCart}
+      isLoading={loading}
+      loadingText="Adding..."
+    >
+      <ShoppingCart className="mr-2 h-4 w-4" />
+      Add to Cart
+    </Button>
   );
 } 
