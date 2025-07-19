@@ -4,6 +4,8 @@ import React, { useEffect, useState, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { ShoppingBag, ArrowRight } from "lucide-react";
 import { useCart, useCartActions } from "@/components/providers/CartProvider";
+import { useContext } from 'react';
+import { CartContext } from '@/components/providers/CartProvider';
 import { getProductsByIds, BasicProduct } from "@/lib/services/products";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -19,8 +21,13 @@ export const CartPageClient: React.FC = () => {
   const [hydrated, setHydrated] = useState(false);
   const [productMap, setProductMap] = useState<Record<string, BasicProduct>>({});
   const [isClearing, startClear] = useTransition();
-  const [discount, setDiscount] = useState(0);
-  const [discountCode, setDiscountCode] = useState<string | null>(null);
+  const cartCtx = useContext(CartContext) as any;
+  const providerDiscount = cartCtx?.discount ?? 0;
+  const providerCode = cartCtx?.couponCode ?? null;
+  const setProviderDiscount = cartCtx?.setDiscount ?? (() => {});
+
+  const [discount, setDiscountLocal] = useState(providerDiscount);
+  const [discountCode, setDiscountCodeLocal] = useState<string | null>(providerCode);
 
   // Fetch product details
   useEffect(() => {
@@ -51,8 +58,9 @@ export const CartPageClient: React.FC = () => {
   const total = Math.max(0, subtotal + taxes + pickupFee - discount);
 
   const handleCouponApply = (d: number, code: string | null) => {
-    setDiscount(d);
-    setDiscountCode(code);
+    setDiscountLocal(d);
+    setDiscountCodeLocal(code);
+    setProviderDiscount(d, code);
   };
 
   if (!hydrated) return <PageTransitionLoader text="Loading your cart..." />;

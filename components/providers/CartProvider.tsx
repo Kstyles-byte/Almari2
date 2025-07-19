@@ -43,13 +43,33 @@ interface CartContextValue {
   remove: (productId: string) => void;
   updateQty: (productId: string, qty: number) => void;
   clear: () => void;
+  discount: number;
+  couponCode: string | null;
+  setDiscount: (d: number, code: string | null) => void;
 }
 
-const CartContext = createContext<CartContextValue | null>(null);
+export const CartContext = createContext<CartContextValue | null>(null);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [items, dispatch] = useReducer(reducer, []);
+  // Initialize reducer with any items already stored in localStorage (guest cart)
+  const [items, dispatch] = useReducer(reducer, [], () => readGuestCart());
   const [hydrated, setHydrated] = useState(false);
+
+  // Coupon state (persisted to localStorage)
+  const [discount, setDiscountState] = useState(0);
+  const [couponCode, setCouponCodeState] = useState<string | null>(null);
+
+  const setDiscount = (d: number, code: string | null) => {
+    setDiscountState(d);
+    setCouponCodeState(code);
+    if (typeof window !== 'undefined') {
+      if (code) {
+        window.localStorage.setItem('zervia_coupon_code', code);
+      } else {
+        window.localStorage.removeItem('zervia_coupon_code');
+      }
+    }
+  };
 
   // Helper actions
   const add = (productId: string, qty: number = 1) => dispatch({ type: 'ADD', productId, qty });
@@ -63,11 +83,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
+  // Holds the most recent server-cart subtotal (used when re-hydrating coupon discount)
+  let latestCartSubtotal: number | null = null;
+
   async function performMergeAndLoad(session: any) {
     // ---------------------------------------------
     // STEP 1 – Attempt to merge local guest cart → server
     // ---------------------------------------------
     const guestItems = readGuestCart();
+    // Attempt merge whenever we have guest-cart items
     if (guestItems.length) {
       console.log('[CartProvider] Guest cart has', guestItems.length, 'items – attempting merge');
       try {
@@ -81,6 +105,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[CartProvider] /api/cart/merge response status:', res.status);
         const data = await res.json().catch(() => ({}));
         console.log('[CartProvider] /api/cart/merge response body:', data);
+        // Clear the local guest cart only when merge succeeded
         if (data?.success) {
           clearGuestCart();
         }
@@ -105,27 +130,50 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       let serverItems: CartItem[] = [];
 
-      if (customer?.id) {
-        const { data: cart, error: cartError } = await supabase
-          .from('Cart')
-          .select('CartItem(product_id, quantity)')
-          .eq('customer_id', customer.id)
-          .maybeSingle();
+      // Fetch server cart via API to avoid client-side cookie parsing issues
+      try {
+        const res = await fetch('/api/cart', { credentials: 'include' });
+        if (res.ok) {
+          const cartJson = await res.json();
+          latestCartSubtotal = typeof cartJson.cartTotal === 'number' ? cartJson.cartTotal : null;
 
-        if (cartError) {
-          console.error('[CartProvider] Error fetching cart:', cartError.message);
+          serverItems = (cartJson.items || []).map((i: any) => ({
+            productId: i.productId ?? i.product_id,
+            qty: i.quantity ?? i.qty ?? 1,
+          }));
+        } else {
+          console.error('[CartProvider] Failed to GET /api/cart – status', res.status);
         }
-
-        serverItems =
-          cart?.CartItem?.map((i: any) => ({
-            productId: i.product_id,
-            qty: i.quantity,
-          })) ?? [];
+      } catch (err) {
+        console.error('[CartProvider] Error fetching /api/cart', err);
       }
 
       dispatch({ type: 'SET', items: serverItems });
     } else {
-      // Fallback to local guest cart
+      // We may still be authenticated via HttpOnly cookies even if Supabase
+      // browser client hasn't been hydrated yet (e.g. after a server-side
+      // sign-in + redirect). In that case, fall back to calling our API which
+      // uses cookie-based auth to return the cart.
+
+      try {
+        const res = await fetch('/api/cart', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          latestCartSubtotal = typeof data.cartTotal === 'number' ? data.cartTotal : latestCartSubtotal;
+          if (Array.isArray(data?.items)) {
+            const serverItems = data.items.map((i: any) => ({
+              productId: i.productId || i.product_id,
+              qty: i.quantity || i.qty || 1,
+            }));
+            dispatch({ type: 'SET', items: serverItems });
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('[CartProvider] Fallback /api/cart fetch failed:', err);
+      }
+
+      // Fallback to local guest cart if cookie-based fetch also failed
       dispatch({ type: 'SET', items: readGuestCart() });
     }
   }
@@ -154,6 +202,34 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await performMergeAndLoad(session);
+
+      // Hydrate coupon from localStorage
+      if (typeof window !== 'undefined') {
+        const storedCode = window.localStorage.getItem('zervia_coupon_code');
+        if (storedCode) {
+          // No discount value persisted; will be recalculated when applying again.
+          try {
+            const bodyPayload: any = { code: storedCode };
+            if (typeof latestCartSubtotal === 'number') {
+              bodyPayload.cartSubtotal = latestCartSubtotal;
+            }
+
+            const res = await fetch('/api/coupon/preview', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(bodyPayload),
+            });
+            const data = await res.json();
+            if (data.valid) {
+              setCouponCodeState(storedCode);
+              setDiscountState(data.discount ?? 0);
+            } else {
+              // invalid – clear stored code
+              window.localStorage.removeItem('zervia_coupon_code');
+            }
+          } catch {}
+        }
+      }
       setHydrated(true);
     })();
     // Listen for future auth changes (e.g. guest → signed-in within same tab)
@@ -174,7 +250,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Persist/sync cart whenever it changes – but only *after* initial hydration
   useEffect(() => {
-    if (!hydrated) return; // skip the very first run
+    if (!hydrated) return;          // 1) don't run before first real render
+    if (items.length === 0) return; // 2) <-- ADD THIS GUARD
 
     (async () => {
       const {
@@ -202,7 +279,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   if (!hydrated) return null;
 
-  const value: CartContextValue = { items, add, remove, updateQty, clear };
+  const value: CartContextValue = {
+    items,
+    add,
+    remove,
+    updateQty,
+    clear,
+    discount,
+    couponCode,
+    setDiscount,
+  };
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 

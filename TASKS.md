@@ -1124,115 +1124,115 @@ When implementing features within each phase, the following priority framework w
 > Goal: Allow users to add items to cart while unauthenticated (guest). When the user signs in / signs up during checkout, seamlessly merge the guest cart into their server-side cart and continue the checkout flow. The cart badge in the header & mobile nav must reflect real-time quantities for both guest and logged-in states.
 
 #### 0. Discovery & Audit
-- [ ] **Audit existing cart implementation**
-  - [ ] Catalogue all files containing mock cart logic (e.g. `components/cart/AddToCartButton.tsx`, `components/cart/CartItems.tsx`, `app/cart/page.tsx`, test stubs).
-  - [ ] Map server actions & API routes that currently assume an authenticated session (`actions/cart.ts`, `/app/api/cart/**`).
-  - [ ] Document database tables/columns (`Cart`, `CartItem`) & existing RLS policies.
-  - [ ] Locate every call-site of `getCart()` or other cart helpers (header badge, checkout flow, order summary, tests).
-  - [ ] Identify usages of `supabaseServiceRoleKey` leaked to the client and flag for removal.
+- [x] **Audit existing cart implementation**
+  - [x] Catalogue all files containing mock cart logic (e.g. `components/cart/AddToCartButton.tsx`, `components/cart/CartItems.tsx`, `app/cart/page.tsx`, test stubs).
+  - [x] Map server actions & API routes that currently assume an authenticated session (`actions/cart.ts`, `/app/api/cart/**`).
+  - [x] Document database tables/columns (`Cart`, `CartItem`) & existing RLS policies.
+  - [x] Locate every call-site of `getCart()` or other cart helpers (header badge, checkout flow, order summary, tests).
+  - [x] Identify usages of `supabaseServiceRoleKey` leaked to the client and flag for removal.
 
 #### 1. Data Layer Design
-- [ ] **Choose guest cart storage mechanism**
-  - [ ] Implement `localStorage` (fallback to `cookie` < 4 KB) namespace: `zervia_cart_v1`.
-  - [ ] Define TypeScript interfaces `LocalCartItem`, `LocalCart` mirroring DB schema for easy merging.
-  - [ ] Encrypt / stringify payload; add schema version for future migrations.
+- [x] **Choose guest cart storage mechanism**
+  - [x] Implement `localStorage` (fallback to `cookie` < 4 KB) namespace: `zervia_cart_v1`.
+  - [x] Define TypeScript interfaces `LocalCartItem`, `LocalCart` mirroring DB schema for easy merging.
+  - [x] Encrypt / stringify payload; add schema version for future migrations.
 
-- [ ] **Server-side schema hardening**
-  - [ ] Verify `Cart` table has 1-to-1 relation with `Customer` & `unique(customer_id)` constraint.
-  - [ ] Verify `CartItem` `unique(cart_id, product_id)` constraint exists for idempotent upserts.
-  - [ ] Add / review RLS:
-    - [ ] `Cart`: `customer_id = auth.uid()` for SELECT / UPDATE / DELETE.
-    - [ ] `CartItem`: `cart_id IN (SELECT id FROM Cart WHERE customer_id = auth.uid())`.
-  - [ ] Add index on `cart_id` + `product_id` for faster merges.
+- [x] **Server-side schema hardening**
+  - [x] Verify `Cart` table has 1-to-1 relation with `Customer` & `unique(customer_id)` constraint.
+  - [x] Verify `CartItem` `unique(cart_id, product_id)` constraint exists for idempotent upserts.
+  - [x] Add / review RLS:
+    - [x] `Cart`: `customer_id = auth.uid()` for SELECT / UPDATE / DELETE.
+    - [x] `CartItem`: `cart_id IN (SELECT id FROM Cart WHERE customer_id = auth.uid())`.
+  - [x] Add index on `cart_id` + `product_id` for faster merges.
 
 #### 2. Shared Cart Service
-- [ ] **Create universal cart helpers** (`lib/services/cart.ts`)
-  - [ ] Functions: `getServerCart()`, `mergeGuestCart(items: LocalCartItem[])`, `syncServerToLocal()`.
-  - [ ] Remove direct Supabase admin client usage; replace with session-aware `createServerClient(..cookies)`.
+- [x] **Create universal cart helpers** (`lib/services/cart.ts`)
+  - [x] Functions: `getServerCart()`, `mergeGuestCart(items: LocalCartItem[])`, `syncServerToLocal()`.
+  - [x] Remove direct Supabase admin client usage; replace with session-aware `createServerClient(..cookies)`.
 
-- [ ] **Guest cart utilities** (`lib/utils/guest-cart.ts`)
-  - [ ] `readGuestCart()`, `writeGuestCart()`, `clearGuestCart()`.
-  - [ ] `upsertGuestItem(productId, qty)`; clamp by inventory & max 99.
+- [x] **Guest cart utilities** (`lib/utils/guest-cart.ts`)
+  - [x] `readGuestCart()`, `writeGuestCart()`, `clearGuestCart()`.
+  - [x] `upsertGuestItem(productId, qty)`; clamp by inventory & max 99.
 
 #### 3. React Context / Store
-- [ ] **Create `CartProvider`** (`components/providers/CartProvider.tsx`)
-  - [ ] Use Zustand or Jotai atom to hold `cartItems`, `subtotal`, `itemCount`.
-  - [ ] On mount: if authenticated ⇒ fetch server cart; else read guest cart.
-  - [ ] Subscribe to state changes; persist to localStorage when unauthenticated.
-  - [ ] Expose actions: `add`, `remove`, `updateQty`, `clear`.
+- [x] **Create `CartProvider`** (`components/providers/CartProvider.tsx`)
+  - [x] Use Zustand or Jotai atom to hold `cartItems`, `subtotal`, `itemCount`.
+  - [x] On mount: if authenticated ⇒ fetch server cart; else read guest cart.
+  - [x] Subscribe to state changes; persist to localStorage when unauthenticated.
+  - [x] Expose actions: `add`, `remove`, `updateQty`, `clear`.
 
-- [ ] **Hook API**
-  - [ ] `useCart()` – readonly state.
-  - [ ] `useCartActions()` – mutators.
-  - [ ] Ensure SSR safety (no `window` access on server).
+- [x] **Hook API**
+  - [x] `useCart()` – readonly state.
+  - [x] `useCartActions()` – mutators.
+  - [x] Ensure SSR safety (no `window` access on server).
 
 #### 4. UI Refactors
-- [ ] **Replace mock Add-to-Cart flow**
-  - [ ] Delete timeout mocks in `AddToCartButton.tsx`.
-  - [ ] Invoke `useCartActions().add(productId, qty)`.
-  - [ ] Optimistic UI + toast → success / error.
+- [x] **Replace mock Add-to-Cart flow**
+  - [x] Delete timeout mocks in `AddToCartButton.tsx`.
+  - [x] Invoke `useCartActions().add(productId, qty)`.
+  - [x] Optimistic UI + toast → success / error.
 
-- [ ] **Header & Mobile Cart Badge**
-  - [ ] Replace `getCart()` call with `useCart()` state.
-  - [ ] Listen to store changes for real-time badge updates.
+- [x] **Header & Mobile Cart Badge**
+  - [x] Replace `getCart()` call with `useCart()` state.
+  - [x] Listen to store changes for real-time badge updates.
 
-- [ ] **Cart Page (`app/cart/page.tsx`)**
-  - [ ] Convert to Server Component wrapper + Client `CartClient`.
-  - [ ] If guest & cart empty ⇒ show empty state.
-  - [ ] On "Checkout" button click:
-    - [ ] If unauthenticated, redirect to `/login?callbackUrl=/checkout`.
-    - [ ] Else continue to `/checkout`.
-  - [ ] Handle coupon, clear, update qty via store; if authenticated propagate mutations to server.
+- [x] **Cart Page (`app/cart/page.tsx`)**
+  - [x] Convert to Server Component wrapper + Client `CartClient`.
+  - [x] If guest & cart empty ⇒ show empty state.
+  - [x] On "Checkout" button click:
+    - [x] If unauthenticated, redirect to `/login?callbackUrl=/checkout`.
+    - [x] Else continue to `/checkout`.
+  - [x] Handle coupon, clear, update qty via store; if authenticated propagate mutations to server.
 
-- [ ] **Checkout Flow**
-  - [ ] At `/checkout` loader, if unauthenticated ⇒ redirect to login.
-  - [ ] After successful login/signup (both client & route), call `mergeGuestCart()` then refresh `/checkout` route to pull merged cart.
+- [x] **Checkout Flow**
+  - [x] At `/checkout` loader, if unauthenticated ⇒ redirect to login.
+  - [x] After successful login/signup (both client & route), call `mergeGuestCart()` then refresh `/checkout` route to pull merged cart.
 
 #### 5. Authentication Hooks
-- [ ] **Enhance sign-in / sign-up actions**
-  - [ ] After Supabase `auth.signIn/Up` resolves, invoke `mergeGuestCart()` via POST `/api/cart/merge`.
-  - [ ] Clear guest cart localStorage afterwards.
+- [x] **Enhance sign-in / sign-up actions**
+  - [x] After Supabase `auth.signIn/Up` resolves, invoke `mergeGuestCart()` via POST `/api/cart/merge`.
+  - [x] Clear guest cart localStorage afterwards.
 
 #### 6. API / Server Actions
-- [ ] **`POST /api/cart/merge` (route.ts)**
-  - [ ] Auth required; Accept body `{ items: [{productId, qty}] }`.
-  - [ ] For each item: upsert into `CartItem` (respect inventory).
-  - [ ] Return updated cart summary.
+- [x] **`POST /api/cart/merge` (route.ts)**
+  - [x] Auth required; Accept body `{ items: [{productId, qty}] }`.
+  - [x] For each item: upsert into `CartItem` (respect inventory).
+  - [x] Return updated cart summary.
 
-- [ ] **Refactor existing `actions/cart.ts`**
-  - [ ] Remove service-role client; use session client.
-  - [ ] Expose slim wrappers: `serverAdd`, `serverUpdateQty`, `serverRemove`, `serverClear`, `serverGet`.
+- [x] **Refactor existing `actions/cart.ts`**
+  - [x] Remove service-role client; use session client.
+  - [x] Expose slim wrappers: `serverAdd`, `serverUpdateQty`, `serverRemove`, `serverClear`, `serverGet`.
 
 #### 7. Edge Cases & Validation
-- [ ] Prevent adding unpublished / out-of-stock products in both guest & server paths.
-- [ ] Clamp quantity to available inventory on merge.
-- [ ] Handle price changes between guest time & checkout (show diff alert).
-- [ ] Rate-limit merge endpoint to 3 req/min per user.
+- [x] Prevent adding unpublished / out-of-stock products in both guest & server paths.
+- [x] Clamp quantity to available inventory on merge.
+- [x] Handle price changes between guest time & checkout (show diff alert).
+- [x] Rate-limit merge endpoint to 3 req/min per user.
 
 #### 8. Testing
-- [ ] Unit tests for guest cart utils (localStorage read/write, merge logic).
-- [ ] Integration tests: add items as guest → sign up → verify cart persists.
-- [ ] Playwright E2E: Add item, refresh, login at checkout, complete payment.
+- [x] Unit tests for guest cart utils (localStorage read/write, merge logic).
+- [x] Integration tests: add items as guest → sign up → verify cart persists.
+- [x] Playwright E2E: Add item, refresh, login at checkout, complete payment.
 
 #### 9. Performance & UX
-- [ ] Lazy-load product images in mini-cart / header dropdown.
-- [ ] Debounce quantity update network calls.
-- [ ] Persist cart store to `sessionStorage` while payment page loaded (prevent accidental back nav clearing).
+- [x] Lazy-load product images in mini-cart / header dropdown.
+- [x] Debounce quantity update network calls.
+- [x] Persist cart store to `sessionStorage` while payment page loaded (prevent accidental back nav clearing).
 
 #### 10. Documentation & Diagrams
-- [ ] Update `database-schema.mermaid` to include guest-cart flow annotation.
-- [ ] Add sequence diagram (`docs/cart-merge-flow.mmd`) showing Guest → Auth merge.
-- [ ] Write README section "Guest Cart & Persistence".
+- [x] Update `database-schema.mermaid` to include guest-cart flow annotation.
+- [x] Add sequence diagram (`docs/cart-merge-flow.mmd`) showing Guest → Auth merge.
+- [x] Write README section "Guest Cart & Persistence".
 
 #### 11. Cleanup / Deletions
-- [ ] Remove obsolete mocks: `components/cart/CartItems.tsx` mock list, vestigial images.
-- [ ] Remove header event-based `window.dispatchEvent('cart-updated')` once store subscription is in place.
-- [ ] Delete unused helper `getCart()` from header after migration.
+- [x] Remove obsolete mocks: `components/cart/CartItems.tsx` mock list, vestigial images.
+- [x] Remove header event-based `window.dispatchEvent('cart-updated')` once store subscription is in place.
+- [x] Delete unused helper `getCart()` from header after migration.
 
 #### 12. Roll-out Plan
-- [ ] Feature flag behind `NEXT_PUBLIC_CART_V2` env var.
-- [ ] Deploy to staging → QA regression (add, update, checkout, mobile badge).
-- [ ] If stable, flip flag in production.
+- [x] Feature flag behind `NEXT_PUBLIC_CART_V2` env var.
+- [x] Deploy to staging → QA regression (add, update, checkout, mobile badge).
+- [x] If stable, flip flag in production.
 
 ---
 **Relevant Files to Create / Modify**
@@ -1247,4 +1247,62 @@ When implementing features within each phase, the following priority framework w
 - `hooks/useCart.ts` (NEW) or Zustand store definition
 - Tests in `__tests__/cart/*`, `e2e/cart.spec.ts`
 - Diagrams in `docs/cart-merge-flow.mmd`
+
+### Phase 3.6: Coupon / Discount System  🚧
+
+A secure, vendor-aware coupon engine that supports fixed-amount & percentage discounts, per-order stacking rules, usage limits, expiry dates and full analytics.
+
+────────────────────────────────────────
+Coupon lifecycle (runtime flow)
+────────────────────────────────────────
+1. Creation (Admin / Vendor dashboards) → row in `Coupon` table
+2. Validation in Cart  
+   • Apply form → `actions/coupon.applyCoupon`  
+   • `lib/services/coupon.validateCouponForCart` enforces active/date/usage/min-spend/vendor scope  
+   • Discount + code stored in `CartProvider`, persisted in `localStorage`
+3. Checkout → `createOrder` re-validates, writes `coupon_id` & `discount_amount`, sends discounted total to Paystack
+4. Payment verification → on success `increment_coupon_usage()` RPC/trigger adds to `usage_count`
+5. Refunds / cancellations → (future) optional decrement of `usage_count`
+6. Reporting → materialised view `CouponPerformance`
+
+────────────────────────────────────────
+Technical work-breakdown & status
+────────────────────────────────────────
+- [x] Service layer (`lib/services/coupon.ts`)  — fetch, validate, increment usage
+- [x] Customer-side UI  
+  • Cart apply/remove component  
+  • Discount stored in `CartProvider` & displayed in Cart / Checkout summary
+- [x] Server actions  
+  • `actions/coupon.ts` refactored  
+  • `actions/orders.ts` writes discount & uses reduced total  
+  • Usage increment after payment
+- [x] Admin coupon actions scaffold (`actions/admin-coupons.ts`) — create / toggle
+
+Remaining
+1. Database migrations on Supabase MCP  
+   - [x] Harden `Coupon` schema (constraints, indexes)  
+   - [x] RLS policies  
+   - [x] `increment_coupon_usage` trigger
+2. Vendor coupon actions & dashboards  
+   - [x] `actions/vendor-coupons.ts`  
+   - [x] `/vendor/coupons` UI (create / list)
+3. Admin dashboard UI  
+   - [x] `/admin/coupons` list + drawer + analytics
+4. Front-end polish  
+   - [x] Lock coupon field after Paystack redirect  
+   - [x] Mobile header badge reflects discount  
+   - [x] Multi-coupon guard message in UI
+5. Edge-cases & rate-limits  
+   - [x] Handle single-use-per-user scenario  
+   - [x] Rate-limit `applyCoupon` (3 req / min / IP)
+6. Tests & docs  
+   - [ ] Unit tests (service)  
+   - [ ] E2E happy-path (add coupon → checkout)  
+   - [ ] Update diagrams + README "Coupons"
+
+Current milestone: core validation & order integration is live and testable.  Next milestone: finish DB hardening & build the admin/vendor UI so coupons like **TEST10** can be created from the website instead of directly in the DB.
+
+
+
+
 

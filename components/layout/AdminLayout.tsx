@@ -13,7 +13,8 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  X
+  X,
+  Percent
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       icon: <ShoppingBag className="h-5 w-5" />
     },
     {
+      title: 'Coupons',
+      href: '/admin/coupons',
+      icon: <Percent className="h-5 w-5" />
+    },
+    {
       title: 'Users',
       href: '/admin/users',
       icon: <Users className="h-5 w-5" />
@@ -61,6 +67,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       href: '/admin/settings',
       icon: <Settings className="h-5 w-5" />
     },
+    
   ];
 
   const handleSignOut = async () => {

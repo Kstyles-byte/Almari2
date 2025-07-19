@@ -35,7 +35,7 @@ const SpecialOffersBanner = async () => {
       <div className="container mx-auto px-4">
         <div className="relative bg-gradient-to-r from-zervia-800 to-zervia-600 rounded-2xl overflow-hidden">
           <div
-            className="absolute inset-0 opacity-10"
+            className="absolute inset-0 opacity-10 pointer-events-none"
             style={{
               backgroundImage: 'url("/images/pattern-bg.png")',
               backgroundSize: 'cover',

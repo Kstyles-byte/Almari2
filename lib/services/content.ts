@@ -92,6 +92,8 @@ export async function getActiveSpecialOffer() {
       priority: (data as any).priority,
       startDate: (data as any).startdate,
       endDate: (data as any).enddate,
+      discountType: (data as any).discounttype,
+      discountValue: Number((data as any).discountvalue ?? 0),
       createdAt: (data as any).createdat,
       updatedAt: (data as any).updatedat,
     } as any;

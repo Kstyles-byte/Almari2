@@ -27,7 +27,7 @@ const formSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
-export function SignUpForm() {
+export function SignUpForm({ callbackUrl, hideLinks = false }: { callbackUrl?: string; hideLinks?: boolean } = {}) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -45,7 +45,7 @@ export function SignUpForm() {
       try {
         // Call the server action
         // The action handles redirection on success/error
-        await signUpWithSupabase(values);
+        await signUpWithSupabase(values, callbackUrl);
       } catch (err) {
         // Handle unexpected errors during the action call itself
         console.error("Unexpected error during sign up:", err);
@@ -129,18 +129,22 @@ export function SignUpForm() {
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? 'Signing Up...' : 'Sign Up'}
             </Button>
-            <div className="mt-4 text-center text-sm">
-              Already have an account?{" "}
-              <Link href="/login" className="underline">
-                Sign in
-              </Link>
-            </div>
-            <div className="mt-2 text-center text-sm">
-              Are you a vendor?{" "}
-              <Link href="/signup/vendor" className="underline">
-                Sign up here
-              </Link>
-            </div>
+            {!hideLinks && (
+              <>
+                <div className="mt-4 text-center text-sm">
+                  Already have an account?{' '}
+                  <Link href="/login" className="underline">
+                    Sign in
+                  </Link>
+                </div>
+                <div className="mt-2 text-center text-sm">
+                  Are you a vendor?{' '}
+                  <Link href="/signup/vendor" className="underline">
+                    Sign up here
+                  </Link>
+                </div>
+              </>
+            )}
           </CardFooter>
         </form>
       </Form>

@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Users, ShoppingCart, TrendingUp, Package, ImageIcon } from 'lucide-react';
+import { Users, ShoppingCart, TrendingUp, Package, ImageIcon, Percent } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -126,6 +126,16 @@ export default async function AdminDashboard() {
                     Categories
                   </span>
                   <span className="text-xs bg-zervia-100 text-zervia-700 px-2 py-1 rounded-full">5 Active</span>
+                </Button>
+              </Link>
+
+              {/* Coupons Link */}
+              <Link href="/admin/coupons">
+                <Button variant="outline" className="w-full flex items-center justify-between">
+                  <span className="flex items-center">
+                    <Percent className="mr-2 h-4 w-4" />
+                    Coupons
+                  </span>
                 </Button>
               </Link>
             </div>

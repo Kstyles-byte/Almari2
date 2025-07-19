@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { LocalCartItem } from '@/lib/utils/guest-cart';
 import { createClient } from '@supabase/supabase-js';
+// auth import removed – we rely solely on Supabase session
 
 export interface ServerCartItem {
   product_id: string;
@@ -70,31 +71,42 @@ export async function mergeGuestCart(items: LocalCartItem[]): Promise<boolean> {
   // Nothing to merge
   if (!items.length) return false;
 
-  const supabase = await getServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  // -----------------------------------------------
+  // Determine the currently signed-in Supabase user
+  // -----------------------------------------------
+  const supabaseRLS = await getServerClient();
+  const {
+    data: { session },
+  } = await supabaseRLS.auth.getSession();
+
+  const userId = session?.user?.id;
 
   // If the user is not authenticated, we cannot merge – signal failure
-  if (!session?.user) {
-    console.warn('[mergeGuestCart] No authenticated user – skipping merge');
+  if (!userId) {
+    console.warn('[mergeGuestCart] No authenticated Supabase user – skipping merge');
     return false;
   }
 
   // --------------------------------------------------------
   // 1. Resolve the Customer profile that belongs to the user
   // --------------------------------------------------------
-  const { data: customerInitial, error: customerErrInitial } = await supabase
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  const { data: customerInitial, error: customerErrInitial } = await supabaseAdmin
     .from('Customer')
     .select('id')
-    .eq('user_id', session.user.id)
+    .eq('user_id', userId)
     .maybeSingle();
 
   // Fallback: try camelCase `userId` column if not found
   let customer = customerInitial;
   if (!customer && !customerErrInitial) {
-    const { data: customerFallback, error: customerErrFallback } = await supabase
+    const { data: customerFallback, error: customerErrFallback } = await supabaseAdmin
       .from('Customer')
       .select('id')
-      .eq('userId', session.user.id)
+      .eq('userId', userId)
       .maybeSingle();
     if (customerErrFallback) throw customerErrFallback;
     customer = customerFallback ?? null;
@@ -103,19 +115,14 @@ export async function mergeGuestCart(items: LocalCartItem[]): Promise<boolean> {
   if (customerErrInitial) throw customerErrInitial;
   if (!customer) {
     // If no Customer row exists we cannot merge the cart yet – bail silently but indicate not merged
-    console.warn('[mergeGuestCart] No customer profile found for user', session.user.id);
+    console.warn('[mergeGuestCart] No customer profile found for user', userId);
     return false;
   }
 
   // --------------------------------------------
   // 2. Get (or create) the cart for this customer
   // --------------------------------------------
-  // Use a service-role client for any writes to bypass RLS safely
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-
+  // supabaseAdmin already created above – reuse the same client for writes
   let { data: cart, error: cartErr } = await supabaseAdmin
     .from('Cart')
     .select('id')
@@ -152,6 +159,21 @@ export async function mergeGuestCart(items: LocalCartItem[]): Promise<boolean> {
   if (upsertErr) {
     console.error('[mergeGuestCart] Failed to upsert CartItem rows:', upsertErr.message);
     throw upsertErr;
+  }
+
+  // -----------------------------
+  // 4. Remove items not in payload
+  // -----------------------------
+  const productIds = items.map((i) => i.productId);
+  if (productIds.length) {
+    const deleteRes = await supabaseAdmin
+      .from('CartItem')
+      .delete()
+      .eq('cart_id', cart!.id)
+      .not('product_id', 'in', `(${productIds.join(',')})`);
+    if (deleteRes.error) {
+      console.error('[mergeGuestCart] Failed to prune removed items:', deleteRes.error.message);
+    }
   }
 
   return true;

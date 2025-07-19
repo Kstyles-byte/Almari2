@@ -39,6 +39,9 @@ export function CouponInputForm({ cartSubtotal, onCouponApply }: CouponInputForm
     if (state?.success && state.discount !== undefined && state.couponCode) {
        // Pass discount and code up to parent
       onCouponApply(state.discount, state.couponCode);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('zervia_coupon_code', state.couponCode);
+      }
       setAppliedCouponCode(state.couponCode); // Set the successfully applied code
       // Clear the input field *after* successful application if desired
       // setCouponCodeInput(""); 
@@ -53,6 +56,9 @@ export function CouponInputForm({ cartSubtotal, onCouponApply }: CouponInputForm
   // Handler to remove the applied coupon
   const handleRemoveCoupon = () => {
     onCouponApply(0, null); // Reset discount in parent
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('zervia_coupon_code');
+    }
     setAppliedCouponCode(null); // Clear applied code state
     setCouponCodeInput(""); // Clear the input field
      // Reset form state if needed, although not strictly necessary here

@@ -31,6 +31,10 @@ export interface SpecialOffer {
   priority: number; // Higher numbers take precedence when selecting the active offer
   startDate: string | null; // ISO date string
   endDate: string | null;   // ISO date string
+
+  // New coupon-related fields
+  discountType?: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  discountValue?: number;
   // Postgres columns are lowercase; keep aliases for type safety
   startdate?: string | null;
   enddate?: string | null;

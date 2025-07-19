@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useFormStatus, useFormState } from 'react-dom';
+import { useFormStatus } from 'react-dom';
 import { SpecialOffer } from '@/types/content';
 import { createSpecialOffer, updateSpecialOffer } from '@/actions/content';
+import { createCoupon } from '@/actions/admin-coupons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -48,31 +49,71 @@ const formatDateInput = (date: string | null | undefined) => {
 
 export const AdminSpecialOfferForm: React.FC<AdminSpecialOfferFormProps> = ({ offer }) => {
   const formReducer = async (prev: any, formData: FormData) => {
-      // decide create or update based on presence of offer id
       const id = formData.get('offerId')?.toString();
-      const payload = {
+
+      // Extract coupon fields separately (needed for both coupon creation and offer persistence)
+      const couponType = formData.get('discountType')?.toString() || 'PERCENTAGE';
+      const couponValue = Number(formData.get('discountValue') || 0);
+
+      const specialOfferPayload = {
         title: formData.get('title')?.toString() || '',
         subtitle: formData.get('subtitle')?.toString() || undefined,
-        discountCode: formData.get('discountCode')?.toString() || undefined,
+        discountCode: formData.get('discountCode')?.toString().trim().toUpperCase() || undefined,
         discountDescription: formData.get('discountDescription')?.toString() || undefined,
         buttonText: formData.get('buttonText')?.toString() || undefined,
         buttonLink: formData.get('buttonLink')?.toString() || undefined,
         isActive: formData.get('isActive') === 'on',
         priority: Number(formData.get('priority') || 0),
+        discountType: couponType === 'FIXED_AMOUNT' ? 'FIXED_AMOUNT' : 'PERCENTAGE',
+        discountValue: couponValue,
         startDate: formData.get('startDate') ? new Date(formData.get('startDate')!.toString()).toISOString() : undefined,
         endDate: formData.get('endDate') ? new Date(formData.get('endDate')!.toString()).toISOString() : undefined,
       };
+
       if (id && id !== 'new') {
         // @ts-ignore
-        await updateSpecialOffer(id, payload);
+        await updateSpecialOffer(id, specialOfferPayload);
       } else {
         // @ts-ignore
-        await createSpecialOffer(payload);
+        await createSpecialOffer(specialOfferPayload);
+      }
+
+      // If a discount code and value are provided, attempt to create a matching coupon (admin-level)
+      if (specialOfferPayload.discountCode && couponValue > 0) {
+        try {
+          const couponPayload: any = {
+            code: specialOfferPayload.discountCode?.trim().toUpperCase(),
+            discount_type: couponType === 'FIXED_AMOUNT' ? 'FIXED_AMOUNT' : 'PERCENTAGE',
+            discount_value: couponValue,
+            usage_limit: null,
+            min_purchase_amount: null,
+            is_active: true,
+          };
+
+          if (specialOfferPayload.discountDescription) {
+            couponPayload.description = specialOfferPayload.discountDescription;
+          }
+          if (specialOfferPayload.startDate) {
+            couponPayload.starts_at = specialOfferPayload.startDate;
+          }
+          if (specialOfferPayload.endDate) {
+            couponPayload.expiry_date = specialOfferPayload.endDate;
+          }
+
+          const result = await createCoupon(couponPayload, true);
+          if (!result?.success) {
+            console.error('Coupon creation failed:', result?.error, result?.fieldErrors);
+          }
+        } catch (e) {
+          console.error('Coupon creation skipped or failed:', e);
+        }
       }
       return {};
   };
 
-  const [state, formAction] = useFormState(formReducer, {});
+  // React 18+ recommends using React.useActionState instead of useFormState
+  // @ts-ignore
+  const [state, formAction] = (React as any).useActionState ? (React as any).useActionState(formReducer, {}) : (require('react-dom') as any).useFormState(formReducer, {});
 
   useEffect(() => {
     if (state) {
@@ -107,6 +148,21 @@ export const AdminSpecialOfferForm: React.FC<AdminSpecialOfferFormProps> = ({ of
             <div className="space-y-1">
               <Label htmlFor="discountDescription">Discount Description</Label>
               <Input id="discountDescription" name="discountDescription" defaultValue={offer?.discountDescription || ''} />
+            </div>
+          </div>
+
+          {/* Coupon Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="discountType">Discount Type</Label>
+              <select id="discountType" name="discountType" defaultValue={offer?.discountType ?? 'PERCENTAGE'} className="border p-2 rounded w-full">
+                <option value="PERCENTAGE">Percentage (%)</option>
+                <option value="FIXED_AMOUNT">Fixed Amount</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="discountValue">Discount Value</Label>
+              <Input id="discountValue" name="discountValue" type="number" step="0.01" defaultValue={offer?.discountValue ?? 0} />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

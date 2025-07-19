@@ -241,7 +241,7 @@ export async function signInWithSupabase(
 }
 
 // New function for Supabase sign-up
-export async function signUpWithSupabase(values: z.infer<typeof SignUpSchema>) {
+export async function signUpWithSupabase(values: z.infer<typeof SignUpSchema>, callbackUrl?: string) {
   // Server-side validation
   const validatedFields = SignUpSchema.safeParse(values);
   if (!validatedFields.success) {
@@ -280,7 +280,7 @@ export async function signUpWithSupabase(values: z.infer<typeof SignUpSchema>) {
   }
   
   // Redirect to the customer dashboard after signup
-  return redirect('/customer/dashboard');
+  return redirect(callbackUrl || '/customer/dashboard');
 }
 
 // New function for Supabase sign-out

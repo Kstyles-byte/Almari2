@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -8,12 +8,14 @@ import { toast } from 'sonner';
 import { CheckoutStepper } from '@/components/checkout/checkout-stepper';
 import { CheckoutInformationForm } from '@/components/checkout/checkout-information-form';
 import { SignInForm } from '@/components/auth/SignInForm';
+import { SignUpForm } from '@/components/auth/SignUpForm';
 import { AgentLocationSelector } from '@/components/checkout/agent-location-selector';
 import { getActiveAgents as fetchActiveAgents } from '@/actions/agent-actions';
 import { CheckoutSummary } from '@/components/checkout/checkout-summary';
 import { CheckoutPaymentForm } from '@/components/checkout/checkout-payment-form';
 import { PageTransitionLoader } from '@/components/ui/loader';
 import { useCart } from '@/components/providers/CartProvider';
+import { CartContext } from '@/components/providers/CartProvider';
 import { getProductsByIds, BasicProduct } from '@/lib/services/products';
 
 // Types
@@ -76,6 +78,9 @@ export function CheckoutClient({
   
   const isGuest = !userEmail;
 
+  // Toggle between sign-in and sign-up when guest
+  const [authMode, setAuthMode] = useState<'signIn' | 'signUp'>('signIn');
+
   const [profileLoading, setProfileLoading] = useState<boolean>(false);
 
   // Keep default contact info in state so it can react to updates in
@@ -118,8 +123,16 @@ export function CheckoutClient({
     }
   }, [agents.length]);
   
+  // ------------------------------------------------------------------
+  // Cart & Coupon Context
+  // ------------------------------------------------------------------
   // Unified cart coming from the CartProvider – contains guest items or the authenticated user's server cart
   const liveCart = useCart();
+
+  // Access discount & coupon information persisted in CartProvider (set from Cart page)
+  const cartCtx = useContext(CartContext);
+  const discount = cartCtx?.discount ?? 0;
+  const couponCode = cartCtx?.couponCode ?? null;
 
   // Local state for product details (guest or fallback)
   const [productMap, setProductMap] = useState<Record<string, BasicProduct>>({});
@@ -184,8 +197,7 @@ export function CheckoutClient({
   // Calculate totals from cart state
   const subtotal = cartItems.reduce((acc, item) => acc + (item.product?.price || 0) * item.quantity, 0);
   
-  // For now these are placeholders
-  const discount = 0;
+  // Shipping/tax currently static – discount comes from CartProvider
   const shipping = 0.00; // Pickup is free
   const tax = subtotal * 0.0; // Placeholder tax rate
   const total = Math.max(0, subtotal + shipping + tax - discount);
@@ -256,6 +268,14 @@ export function CheckoutClient({
     // Any UI state changes for payment initialization
   }, []);
 
+  // ------------------------------------------------------------------
+  // Coupon code is sourced from CartProvider (falls back to localStorage if provider missing)
+  // ------------------------------------------------------------------
+  // In rare cases (e.g., hard reload on checkout page) the CartProvider may not yet
+  // have the discount recalculated.  If we have a coupon code but zero discount,
+  // the server will still re-validate it when creating the order, ensuring the
+  // correct amount is charged.
+
   // Handle payment completion
   const handlePaymentComplete = useCallback((reference: string) => {
     console.log('Payment completed with reference:', reference);
@@ -300,8 +320,29 @@ export function CheckoutClient({
             <>
               {isGuest ? (
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">Sign In or Sign Up to Continue Checkout</h3>
-                  <SignInForm callbackUrl="/checkout" />
+                  <h3 className="text-lg font-medium mb-4">
+                    {authMode === 'signIn' ? 'Sign In to Continue Checkout' : 'Create an Account to Continue Checkout'}
+                  </h3>
+                  {authMode === 'signIn' ? (
+                    <SignInForm callbackUrl="/checkout" hideLinks />
+                  ) : (
+                    <SignUpForm callbackUrl="/checkout" hideLinks />
+                  )}
+                  <p className="mt-4 text-center text-sm">
+                    {authMode === 'signIn' ? (
+                      <>Don&apos;t have an account?{' '}
+                        <button type="button" onClick={() => setAuthMode('signUp')} className="underline text-zervia-600 hover:text-zervia-700">
+                          Sign up
+                        </button>
+                      </>
+                    ) : (
+                      <>Already have an account?{' '}
+                        <button type="button" onClick={() => setAuthMode('signIn')} className="underline text-zervia-600 hover:text-zervia-700">
+                          Sign in
+                        </button>
+                      </>
+                    )}
+                  </p>
                 </div>
               ) : (
                 <CheckoutInformationForm
@@ -391,6 +432,11 @@ export function CheckoutClient({
     
     // Add selected agent
     formData.append('agentId', selectedAgentId);
+
+    // Add coupon code (if any)
+    if (couponCode) {
+      formData.append('couponCode', couponCode);
+    }
     
     return formData;
   }

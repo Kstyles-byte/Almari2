@@ -13,7 +13,8 @@ import {
   FileText, 
   Settings, 
   UserCog,
-  RefreshCw
+  RefreshCw,
+  Percent
 } from 'lucide-react';
 import { Icons } from '../icons';
 
@@ -27,6 +28,7 @@ const navItems = [
   { name: 'Settings', href: '/admin/settings', icon: Settings },
   { name: 'Agents', href: '/admin/agents', icon: UserCog },
   { name: 'Returns', href: '/admin/returns', icon: RefreshCw },
+  { name: 'Coupons', href: '/admin/coupons', icon: Percent },
 ];
 
 export function Sidebar() {

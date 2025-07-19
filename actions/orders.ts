@@ -234,13 +234,39 @@ export async function createOrder(formData: FormData) {
     console.log("Inventory check passed.");
     
     // Calculate total (using the new cartItems structure)
-    const total = cartItems.reduce((sum, item) => {
+    const subtotal = cartItems.reduce((sum, item) => {
         const product = item.product;
         // Ensure price is a number, default to 0 if not
         const price = typeof product?.price === 'number' ? product.price : 0;
         return sum + (item.quantity * price);
       }, 0);
-    console.log("Calculated total:", total);
+
+    console.log("Calculated subtotal:", subtotal);
+
+    // --------------------------------------
+    // Coupon handling
+    // --------------------------------------
+    let discountAmount = 0;
+    let appliedCouponId: string | null = null;
+    const couponCode = formData.get("couponCode") as string | undefined;
+
+    if (couponCode) {
+      try {
+        const couponResult = await import("@/lib/services/coupon").then(m => m.validateCouponForCart(couponCode, subtotal, user.id));
+        if (couponResult.valid && couponResult.discount !== undefined) {
+          discountAmount = parseFloat(couponResult.discount.toFixed(2));
+          appliedCouponId = couponResult.coupon?.id ?? null;
+          console.log(`Coupon ${couponCode} applied – discount:`, discountAmount);
+        } else {
+          console.warn(`[createOrder] Coupon ${couponCode} invalid:`, couponResult.reason);
+        }
+      } catch (couponErr) {
+        console.error('[createOrder] Failed to validate coupon:', couponErr);
+      }
+    }
+
+    const total = subtotal - discountAmount;
+    console.log("Total after discount:", total);
     
     // Find nearest agent (using migrated service)
     // const agent = await findNearestAgent(shippingAddress);
@@ -262,14 +288,15 @@ export async function createOrder(formData: FormData) {
         customer_id: customer.id,
         agent_id: selectedAgent.id,
         total_amount: total,
-        subtotal: total,
-        discount_amount: 0,
+        subtotal: subtotal,
+        discount_amount: discountAmount,
         tax_amount: 0,
         shipping_amount: 0,
         payment_status: "PENDING",
         status: "PENDING",
         pickup_status: "PENDING",
         pickup_code: pickupCode,
+        ...(appliedCouponId ? { coupon_id: appliedCouponId } : {}),
       })
       .select()
       .single();
@@ -416,7 +443,7 @@ export async function verifyOrderPayment(formData: FormData) {
     // Get the order using Supabase
     const { data: order, error: orderFetchError } = await supabase
       .from('Order')
-      .select('id, status, payment_status, total_amount')
+      .select('id, status, payment_status, total_amount, coupon_id')
       .eq('id', orderId)
       .single();
 
@@ -473,6 +500,17 @@ export async function verifyOrderPayment(formData: FormData) {
           // Critical error, payment received but DB update failed
           // TODO: Implement retry or alert mechanism
           return { error: "Failed to update order status after payment confirmation.", status: "error" };
+      }
+
+      // Increment coupon usage count if an order-level coupon exists
+      if (order.coupon_id) {
+        try {
+          const couponModule = await import("@/lib/services/coupon");
+          await couponModule.incrementCouponUsage(order.coupon_id);
+          console.log(`[verifyOrderPayment] Coupon usage incremented for ${order.coupon_id}`);
+        } catch (incErr) {
+          console.error('[verifyOrderPayment] Failed to increment coupon usage:', incErr);
+        }
       }
 
       // 2. Update product inventory
@@ -967,8 +1005,12 @@ export async function getOrderById(orderId: string) {
       tax: order.tax_amount,
       shippingFee: order.shipping_amount,
       pickupCode: order.pickup_code,
-      pickupLocation: order.Agent?.name || '',
-      pickupAddress: order.Agent ? `${order.Agent.address_line1}, ${order.Agent.city}` : '',
+      pickupLocation: Array.isArray(order.Agent) ? order.Agent[0]?.name ?? '' : (order.Agent as any)?.name ?? '',
+      pickupAddress: Array.isArray(order.Agent)
+        ? `${order.Agent[0]?.address_line1 ?? ''}, ${order.Agent[0]?.city ?? ''}`
+        : order.Agent
+        ? `${(order.Agent as any).address_line1}, ${(order.Agent as any).city}`
+        : '',
       expectedDeliveryDate: order.estimated_pickup_date,
       deliveredDate: order.actual_pickup_date,
       // Default return eligibility based on order status and date

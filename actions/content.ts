@@ -713,27 +713,44 @@ export async function createSpecialOffer(data: {
   buttonLink?: string;
   isActive?: boolean;
   priority?: number;
-  startDate?: Date;
-  endDate?: Date;
+  discountType?: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  discountValue?: number;
+  startDate?: Date | string;
+  endDate?: Date | string;
 }): Promise<SpecialOffer | null> {
-  const supabase = await createServerActionClient();
+  // Use service-role client (bypass RLS for admin)
+  const supabase = await import('../lib/supabase/action').then(m => m.createSupabaseServerActionClient(false));
   try {
-    const formattedData = {
-      ...data,
-      startDate: data.startDate ? data.startDate.toISOString() : null,
-      endDate: data.endDate ? data.endDate.toISOString() : null,
-      updatedAt: new Date().toISOString(),
+    // Map camelCase keys to snake_case DB columns
+    const formattedData: Record<string, any> = {
+      title: data.title,
+      subtitle: data.subtitle ?? null,
+      discountcode: data.discountCode ? data.discountCode.trim().toUpperCase() : null,
+      discountdescription: data.discountDescription ?? null,
+      buttontext: data.buttonText ?? null,
+      buttonlink: data.buttonLink ?? null,
+      isactive: data.isActive ?? true,
+      priority: data.priority ?? 0,
+      discounttype: data.discountType ?? 'PERCENTAGE',
+      discountvalue: data.discountValue ?? 0,
+      startdate: data.startDate ? (data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate) : null,
+      enddate: data.endDate ? (data.endDate instanceof Date ? data.endDate.toISOString() : data.endDate) : null,
+      updatedat: new Date().toISOString(),
+      createdat: new Date().toISOString(),
     };
 
     const { data: newOffer, error } = await supabase
       .from('SpecialOffer')
-      .insert([formattedData])
+      // cast as any to satisfy TS generic expectations
+      .insert([formattedData as any])
       .select()
       .single();
 
     if (error) throw error;
 
-    revalidatePath('/'); // refresh homepage offers banner
+    // Revalidate homepage and admin offers page
+    revalidatePath('/');
+    revalidatePath('/admin/content/offers');
     // @ts-ignore – casting DB row to interface with different case mapping
     return newOffer as unknown as SpecialOffer;
   } catch (error) {
@@ -746,14 +763,31 @@ export async function createSpecialOffer(data: {
  * Update an existing special offer
  */
 export async function updateSpecialOffer(id: string, data: Partial<Omit<SpecialOffer, 'id' | 'createdAt' | 'updatedAt'>>): Promise<SpecialOffer | null> {
-  const supabase = await createServerActionClient();
+  // Use service-role client for admin upsert
+  const supabase = await import('../lib/supabase/action').then(m => m.createSupabaseServerActionClient(false));
   try {
-    const updatePayload = {
-      ...data,
-      startDate: ((data.startDate as any) instanceof Date) ? (data.startDate as any).toISOString() : data.startDate ?? null,
-      endDate: ((data.endDate as any) instanceof Date) ? (data.endDate as any).toISOString() : data.endDate ?? null,
-      updatedAt: new Date().toISOString(),
-    } as Partial<SpecialOffer>;
+    const updatePayload: Record<string, any> = {
+      updatedat: new Date().toISOString(),
+    };
+
+    if (data.title !== undefined) updatePayload.title = data.title;
+    if (data.subtitle !== undefined) updatePayload.subtitle = data.subtitle;
+    if (data.discountCode !== undefined) updatePayload.discountcode = data.discountCode ? data.discountCode.trim().toUpperCase() : null;
+    if (data.discountDescription !== undefined) updatePayload.discountdescription = data.discountDescription;
+    if (data.discountType !== undefined) updatePayload.discounttype = data.discountType;
+    if (data.discountValue !== undefined) updatePayload.discountvalue = data.discountValue;
+    if (data.buttonText !== undefined) updatePayload.buttontext = data.buttonText;
+    if (data.buttonLink !== undefined) updatePayload.buttonlink = data.buttonLink;
+    if (data.isActive !== undefined) updatePayload.isactive = data.isActive;
+    if (data.priority !== undefined) updatePayload.priority = data.priority;
+    if (data.startDate !== undefined)
+      updatePayload.startdate = ((data.startDate as any) instanceof Date)
+        ? (data.startDate as any).toISOString()
+        : data.startDate ?? null;
+    if (data.endDate !== undefined)
+      updatePayload.enddate = ((data.endDate as any) instanceof Date)
+        ? (data.endDate as any).toISOString()
+        : data.endDate ?? null;
 
     const { data: updatedOffer, error } = await supabase
       .from('SpecialOffer')
@@ -765,6 +799,7 @@ export async function updateSpecialOffer(id: string, data: Partial<Omit<SpecialO
     if (error) throw error;
 
     revalidatePath('/');
+    revalidatePath('/admin/content/offers');
     // @ts-ignore – casting DB row to interface with different case mapping
     return updatedOffer as unknown as SpecialOffer;
   } catch (error) {
@@ -777,7 +812,7 @@ export async function updateSpecialOffer(id: string, data: Partial<Omit<SpecialO
  * Delete a special offer
  */
 export async function deleteSpecialOffer(id: string): Promise<boolean> {
-  const supabase = await createServerActionClient();
+  const supabase = await import('../lib/supabase/action').then(m => m.createSupabaseServerActionClient(false));
   try {
     const { error } = await supabase
       .from('SpecialOffer')
@@ -787,6 +822,7 @@ export async function deleteSpecialOffer(id: string): Promise<boolean> {
     if (error) throw error;
 
     revalidatePath('/');
+    revalidatePath('/admin/content/offers');
     return true;
   } catch (error) {
     console.error('Error deleting special offer:', error);

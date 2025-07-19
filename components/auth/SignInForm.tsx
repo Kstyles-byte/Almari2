@@ -30,9 +30,10 @@ const formSchema = z.object({
 
 interface SignInFormContentProps {
   callbackUrlOverride?: string;
+  hideLinks?: boolean;
 }
 
-function SignInFormContent({ callbackUrlOverride }: SignInFormContentProps) {
+function SignInFormContent({ callbackUrlOverride, hideLinks = false }: SignInFormContentProps) {
   const [isPending, startTransition] = useTransition();
   const searchParams = useSearchParams();
   const callbackUrl = callbackUrlOverride ?? (searchParams?.get('callbackUrl') || undefined);
@@ -111,20 +112,30 @@ function SignInFormContent({ callbackUrlOverride }: SignInFormContentProps) {
           </CardContent>
           <CardFooter className="flex flex-col">
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...</> : 'Sign In'}
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </Button>
-            <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <Link href="/signup" className="underline">
-                Sign up
-              </Link>
-            </div>
-            <div className="mt-2 text-center text-sm">
-              Want to sell?{" "}
-              <Link href="/signup/vendor" className="underline">
-                Sign up as a Vendor
-              </Link>
-            </div>
+            {!hideLinks && (
+              <>
+                <div className="mt-4 text-center text-sm">
+                  Don&apos;t have an account?{' '}
+                  <Link href="/signup" className="underline">
+                    Sign up
+                  </Link>
+                </div>
+                <div className="mt-2 text-center text-sm">
+                  Want to sell?{' '}
+                  <Link href="/signup/vendor" className="underline">
+                    Sign up as a Vendor
+                  </Link>
+                </div>
+              </>
+            )}
           </CardFooter>
         </form>
       </Form>
@@ -133,10 +144,23 @@ function SignInFormContent({ callbackUrlOverride }: SignInFormContentProps) {
 }
 
 // Exported component that wraps the form content with Suspense
-export function SignInForm({ callbackUrl }: { callbackUrl?: string }) {
+export function SignInForm({ callbackUrl, hideLinks }: { callbackUrl?: string; hideLinks?: boolean }) {
   return (
-    <Suspense fallback={<div className="w-full max-w-sm"><Card><CardHeader><CardTitle>Loading...</CardTitle></CardHeader><CardContent><Loader2 className="h-8 w-8 animate-spin text-center" /></CardContent></Card></div>}>
-      <SignInFormContent callbackUrlOverride={callbackUrl} />
+    <Suspense
+      fallback={
+        <div className="w-full max-w-sm">
+          <Card>
+            <CardHeader>
+              <CardTitle>Loading...</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Loader2 className="h-8 w-8 animate-spin text-center" />
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <SignInFormContent callbackUrlOverride={callbackUrl} hideLinks={hideLinks} />
     </Suspense>
   );
 } 

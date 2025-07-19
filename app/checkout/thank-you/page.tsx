@@ -1,17 +1,31 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, useContext } from 'react';
 import { CheckCircle, ShoppingBag, Clock, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { CartContext } from '@/components/providers/CartProvider';
+import { clearGuestCart } from '@/lib/utils/guest-cart';
 
 // Define the inner component that uses the hook
 function ThankYouContent() {
+  const cartCtx = useContext(CartContext);
   const searchParams = useSearchParams();
   const [orderId, setOrderId] = useState<string | null>(null);
   const [reference, setReference] = useState<string | null>(null);
+
+  // Clear cart & coupon exactly once on mount
+  useEffect(() => {
+    cartCtx?.clear();
+    cartCtx?.setDiscount(0, null);
+    // Ensure guest cart & coupon code are removed from localStorage as well
+    clearGuestCart();
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('zervia_coupon_code');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Get order information from URL parameters

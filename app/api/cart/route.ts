@@ -1,28 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "../../../auth";
-import { createClient } from '@supabase/supabase-js';
-import { getCustomerByUserId, getCustomerCart } from "../../../lib/services/customer";
-import type { Cart } from '../../../types/supabase';
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { getCustomerByUserId, getCustomerCart } from '@/lib/services/customer';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  console.error("Supabase URL/Key missing in cart API route.");
-}
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
+    // Create a Supabase server client that can read the cookies from the request
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return req.cookies.get(name)?.value;
+          },
+          set() {},
+          remove() {},
+        },
+      },
+    );
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
-    
+
     const customer = await getCustomerByUserId(session.user.id);
     
     if (!customer) {
