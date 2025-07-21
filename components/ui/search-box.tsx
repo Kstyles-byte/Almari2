@@ -46,8 +46,10 @@ export function SearchBox({
     if (!showSuggestions) return
     
     if (debouncedQuery.trim().length < 2) {
-      setSuggestions([])
-      setShowSuggestionsDropdown(isFocused)
+      // Only clear suggestions if they actually exist to avoid redundant state updates
+      if (suggestions.length > 0) setSuggestions([])
+      // Only update the dropdown visibility when the value would change
+      setShowSuggestionsDropdown(prev => (prev !== isFocused ? isFocused : prev))
       return
     }
     
@@ -66,7 +68,7 @@ export function SearchBox({
     
     fetchSuggestions()
     setShowSuggestionsDropdown(true)
-  }, [debouncedQuery, showSuggestions, isFocused])
+  }, [debouncedQuery, showSuggestions, isFocused, suggestions.length])
   
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault()

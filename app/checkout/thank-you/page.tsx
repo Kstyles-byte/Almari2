@@ -5,6 +5,7 @@ import { CheckCircle, ShoppingBag, Clock, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { verifyOrderPayment } from '@/actions/orders';
 import { Card, CardContent } from '@/components/ui/card';
 import { CartContext } from '@/components/providers/CartProvider';
 import { clearGuestCart } from '@/lib/utils/guest-cart';
@@ -36,16 +37,29 @@ function ThankYouContent() {
     if (orderIdParam) {
       setOrderId(orderIdParam);
       // Fetch order details to obtain pickup code
-      fetch(`/api/orders/${orderIdParam}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.pickupCode) {
-            setPickupCode(data.pickupCode);
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to fetch order for pickup code:', err);
-        });
+      const fetchOrder = () => {
+        fetch(`/api/orders/${orderIdParam}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data) {
+              const code = (data.pickupCode || data.pickup_code) as string | undefined;
+              if (code) setPickupCode(code);
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to fetch order for pickup code:', err);
+          });
+      };
+
+      // If we have a reference param (meaning Paystack redirect), verify payment first
+      if (referenceParam) {
+        const form = new FormData();
+        form.append('orderId', orderIdParam);
+        form.append('paymentReference', referenceParam);
+        verifyOrderPayment(form).finally(fetchOrder);
+      } else {
+        fetchOrder();
+      }
     }
 
     if (referenceParam) {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { OrderDetail, Order, OrderItem } from '@/components/customer/order-detail';
 import ReturnRequestForm from '@/components/customer/return-request-form';
 
@@ -19,11 +20,11 @@ export function OrderDetailWrapper({ order }: OrderDetailWrapperProps) {
     price: number;
   } | null>(null);
 
+  const router = useRouter();
+
   // Define all event handlers here in the client component
   const handleTrackOrder = () => {
-    // Implement track order functionality
-    console.log('Tracking order', order.id);
-    // You could open a modal here or navigate to tracking page
+    router.push(`/customer/orders/${order.id}/tracking`);
   };
 
   const handleRequestReturn = (orderId: string) => {
@@ -58,9 +59,7 @@ export function OrderDetailWrapper({ order }: OrderDetailWrapperProps) {
   };
 
   const handleDownloadInvoice = (orderId: string) => {
-    // Implement invoice download functionality
-    console.log('Downloading invoice for order', orderId);
-    // You could trigger an invoice download here
+    router.push(`/customer/orders/${orderId}/invoice`);
   };
 
   return (
