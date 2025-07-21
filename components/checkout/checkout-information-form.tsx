@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useFormStatus } from 'react-dom';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+// Delivery method selection removed – no need for RadioGroup
 import { Label } from '../ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Loader2 } from 'lucide-react';
@@ -198,25 +198,7 @@ export function CheckoutInformationForm({
             </div>
           </div>
           
-          {/* Delivery Method */}
-          <div className="space-y-4 border-t pt-6">
-            <h3 className="text-lg font-medium">Delivery Method</h3>
-            <RadioGroup 
-              defaultValue="pickup" 
-              onValueChange={(value) => setValue('deliveryMethod', value as 'pickup' | 'delivery')} 
-              className="flex flex-col sm:flex-row gap-4"
-            >
-              <Label htmlFor="pickup" className="flex items-center space-x-2 border rounded-md p-4 cursor-pointer hover:border-zervia-500 flex-1 data-[state=checked]:border-zervia-600 data-[state=checked]:bg-zervia-50">
-                <RadioGroupItem value="pickup" id="pickup" />
-                <span>Campus Pickup (Free)</span>
-              </Label>
-              <Label htmlFor="delivery" className="flex items-center space-x-2 border rounded-md p-4 cursor-pointer hover:border-zervia-500 flex-1 data-[state=checked]:border-zervia-600 data-[state=checked]:bg-zervia-50">
-                <RadioGroupItem value="delivery" id="delivery" />
-                <span>Local Delivery (Coming Soon)</span> 
-              </Label>
-            </RadioGroup>
-            {errors.deliveryMethod && <p className="text-sm text-red-500 mt-1">{errors.deliveryMethod.message}</p>}
-          </div>
+          {/* Delivery method selection removed – defaulting to pickup */}
           
           {/* Address Section (Conditional) */}
           {deliveryMethod === 'delivery' && (
@@ -325,7 +307,7 @@ export function CheckoutInformationForm({
                   Saving...
                 </>
               ) : (
-                deliveryMethod === 'pickup' ? 'Continue to Pickup Location' : 'Continue to Payment'
+                'Continue to Pickup Location'
               )}
             </Button>
           </div>

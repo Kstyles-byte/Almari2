@@ -15,6 +15,7 @@ function ThankYouContent() {
   const searchParams = useSearchParams();
   const [orderId, setOrderId] = useState<string | null>(null);
   const [reference, setReference] = useState<string | null>(null);
+  const [pickupCode, setPickupCode] = useState<string | null>(null);
 
   // Clear cart & coupon exactly once on mount
   useEffect(() => {
@@ -34,6 +35,17 @@ function ThankYouContent() {
 
     if (orderIdParam) {
       setOrderId(orderIdParam);
+      // Fetch order details to obtain pickup code
+      fetch(`/api/orders/${orderIdParam}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && data.pickupCode) {
+            setPickupCode(data.pickupCode);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch order for pickup code:', err);
+        });
     }
 
     if (referenceParam) {
@@ -63,6 +75,12 @@ function ThankYouContent() {
         {reference && (
           <p className="text-sm text-gray-500">
             Payment Reference: <span className="font-semibold">{reference}</span>
+          </p>
+        )}
+
+        {pickupCode && (
+          <p className="mt-2 text-sm text-gray-700">
+            Pickup Code: <code className="font-mono font-semibold bg-zervia-50 px-2 py-0.5 rounded">{pickupCode}</code>
           </p>
         )}
       </div>

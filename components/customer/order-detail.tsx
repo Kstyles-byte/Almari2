@@ -236,10 +236,6 @@ export function OrderDetail({
                   <span>${order.subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm mt-2">
-                  <span>Shipping Fee</span>
-                  <span>${order.shippingFee.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-2">
                   <span>Tax</span>
                   <span>${order.tax.toFixed(2)}</span>
                 </div>

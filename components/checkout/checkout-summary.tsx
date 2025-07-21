@@ -14,12 +14,11 @@ interface CheckoutSummaryProps {
   items: CartItem[];
   subtotal: number;
   discount: number;
-  shipping: number;
   tax: number;
   total: number;
 }
 
-export function CheckoutSummary({ items, subtotal, discount, shipping, tax, total }: CheckoutSummaryProps) {
+export function CheckoutSummary({ items, subtotal, discount, tax, total }: CheckoutSummaryProps) {
   return (
     <Card className="bg-white shadow-sm">
       <CardHeader>
@@ -59,10 +58,7 @@ export function CheckoutSummary({ items, subtotal, discount, shipping, tax, tota
             <span>Discount</span>
             <span>₦{discount.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span>Shipping</span>
-            <span>{shipping > 0 ? `₦${shipping.toFixed(2)}` : 'Free'}</span>
-          </div>
+          {/* Shipping removed – pickup is always free */}
           <div className="flex justify-between text-sm">
             <span>Tax</span>
             <span>₦{tax.toFixed(2)}</span>

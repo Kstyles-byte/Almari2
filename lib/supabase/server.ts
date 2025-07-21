@@ -1,6 +1,7 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { Database } from '@/types/supabase';
+import { decodeSupabaseCookie } from './cookie-utils';
 
 /**
  * Creates a Supabase client for Server Components and Server Actions.
@@ -28,7 +29,8 @@ export async function createServerActionClient() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value;
+          const raw = cookieStore.get(name)?.value;
+          return decodeSupabaseCookie(raw);
         },
         set(name: string, value: string, options: CookieOptions) {
           try {

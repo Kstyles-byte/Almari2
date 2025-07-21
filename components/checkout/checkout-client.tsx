@@ -197,10 +197,9 @@ export function CheckoutClient({
   // Calculate totals from cart state
   const subtotal = cartItems.reduce((acc, item) => acc + (item.product?.price || 0) * item.quantity, 0);
   
-  // Shipping/tax currently static – discount comes from CartProvider
-  const shipping = 0.00; // Pickup is free
+  // Shipping removed – pickup is always free
   const tax = subtotal * 0.0; // Placeholder tax rate
-  const total = Math.max(0, subtotal + shipping + tax - discount);
+  const total = Math.max(0, subtotal + tax - discount);
   
   // Convert cart items to summary format
   const summaryItems = cartItems.map(item => {
@@ -391,7 +390,6 @@ export function CheckoutClient({
             items={summaryItems}
             subtotal={subtotal}
             discount={discount}
-            shipping={shipping}
             tax={tax}
             total={total}
           />

@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
 import { refreshSession } from './refresh-session';
+import { decodeSupabaseCookie } from './cookie-utils';
 
 /**
  * Creates a Supabase client for server actions with automatic session refresh capabilities.
@@ -19,7 +20,8 @@ export async function createSupabaseServerActionClient(trySessionRefresh = true)
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value;
+          const raw = cookieStore.get(name)?.value;
+          return decodeSupabaseCookie(raw);
         },
         set(name: string, value: string, options: CookieOptions) {
           // Use the correct syntax for mutating cookies in server actions
@@ -78,7 +80,8 @@ export async function createActionClient() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value;
+          const raw = cookieStore.get(name)?.value;
+          return decodeSupabaseCookie(raw);
         },
         set(name: string, value: string, options: CookieOptions) {
           cookieStore.set({ name, value, ...options });

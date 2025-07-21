@@ -346,7 +346,8 @@ export async function createOrder(formData: FormData) {
     const host = process.env.PRIMARY_DOMAIN || process.env.VERCEL_URL || 'localhost:3000'; 
     const baseUrl = `${protocol}${host}`;
     
-    const callback_url = `${baseUrl}/checkout/complete?orderId=${newOrder.id}`;
+    // Redirect directly to thank-you page after successful payment
+    const callback_url = `${baseUrl}/checkout/thank-you?orderId=${newOrder.id}`;
     console.log("Using Paystack Callback URL:", callback_url);
     
     try {

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { decodeSupabaseCookie } from '@/lib/supabase/cookie-utils';
 import { CheckoutClient } from '@/components/checkout/checkout-client';
 import { getCart } from '@/actions/cart';
 import { getUserAddresses } from '@/actions/profile';
@@ -18,14 +19,17 @@ export default async function CheckoutPage() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value;
+          const raw = cookieStore.get(name)?.value;
+          return decodeSupabaseCookie(raw);
         },
-        set(name: string, value: string, options: any) {
-          cookieStore.set({ name, value, ...options });
-        },
-        remove(name: string, options: any) {
-          cookieStore.set({ name, value: '', ...options });
-        },
+        // In a Server Component we cannot modify cookies; provide no-ops so
+        // Supabase won't throw, but cookies remain unchanged.
+        set() {},
+        remove() {},
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
     }
   );
