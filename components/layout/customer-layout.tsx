@@ -260,7 +260,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
           <header className="bg-white shadow-sm py-4 px-8">
             <h1 className="text-lg font-medium text-zervia-900">My Account</h1>
           </header>
-          <main className="p-6">
+          <main className="py-6 px-6">
             {children}
           </main>
         </div>
@@ -268,7 +268,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
       
       {/* Mobile Main Content */}
       <div className="md:hidden">
-        <main className="p-4">
+        <main className="py-4 px-4">
           {children}
         </main>
       </div>

@@ -39,48 +39,148 @@ export default async function VendorAnalyticsPage() {
     return <div>Loading...</div>;
   }
 
-  const metrics = [
-    { 
-      label: 'Total Sales', 
-      value: '₦175,500', 
-      change: '12%', 
-      trend: 'up',
-      icon: DollarSign,
-      color: 'bg-green-500'
-    },
-    { 
-      label: 'Orders', 
-      value: '42', 
-      change: '8%', 
-      trend: 'up',
-      icon: ShoppingCart,
-      color: 'bg-blue-500'
-    },
-    { 
-      label: 'Customers', 
-      value: '28', 
-      change: '5%', 
-      trend: 'up',
-      icon: Users,
-      color: 'bg-purple-500'
-    },
-    { 
-      label: 'Conversion Rate', 
-      value: '2.4%', 
-      change: '0.5%', 
-      trend: 'down',
-      icon: TrendingDown,
-      color: 'bg-red-500'
+  // Get vendor ID for current user
+  const { data: vendorData, error: vendorError } = await supabase
+    .from('Vendor')
+    .select('id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (vendorError || !vendorData) {
+    return <div>Error loading vendor data</div>;
+  }
+
+  // Use service-role key for unrestricted reads (aggregations)
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        get() { return undefined },
+        set() {},
+        remove() {},
+      },
     }
+  );
+
+  // Define periods for growth comparison (last 30 days vs previous 30 days)
+  const now = new Date();
+  const startCurrent = new Date();
+  startCurrent.setDate(now.getDate() - 30);
+  const startPrev = new Date();
+  startPrev.setDate(now.getDate() - 60);
+
+  // Fetch order items for the last 60 days (for revenue + product breakdown)
+  const { data: orderItemsLast60 } = await supabaseAdmin
+    .from('OrderItem')
+    .select('order_id, price_at_purchase, quantity, created_at, product_id, Product:product_id(name), status')
+    .eq('vendor_id', vendorData.id)
+    .not('status', 'eq', 'CANCELLED')
+    .gte('created_at', startPrev.toISOString());
+
+  // We only need the last 60 days for analytics below; no need to fetch all historical rows here
+
+  // Fetch corresponding orders to determine customers & status
+  const orderIdsLast60 = Array.from(new Set((orderItemsLast60 || []).map((i: any) => i.order_id)));
+  const { data: ordersLast60 } = orderIdsLast60.length
+    ? await supabaseAdmin
+        .from('Order')
+        .select('id, customer_id, created_at, status')
+        .in('id', orderIdsLast60)
+    : { data: [] as any[] } as any;
+
+  // Helper to split current vs previous period
+  const splitByPeriod = <T extends { created_at: string }>(rows: T[]) => {
+    const current: T[] = [];
+    const prev: T[] = [];
+    rows.forEach((r) => {
+      const d = new Date(r.created_at);
+      if (d >= startCurrent) current.push(r);
+      else prev.push(r);
+    });
+    return { current, prev };
+  };
+
+  // Revenue calculations
+  const { current: orderCurr, prev: orderPrev } = splitByPeriod(orderItemsLast60 || []);
+
+  const sumRevenue = (items: any[]) => items.reduce((acc, i) => acc + i.price_at_purchase * i.quantity, 0);
+  const revenueCurrent = sumRevenue(orderCurr);
+  const revenuePrev = sumRevenue(orderPrev);
+
+  const revenueChange = revenuePrev === 0 ? 0 : ((revenueCurrent - revenuePrev) / revenuePrev) * 100;
+
+  // Orders metric
+  const ordersSplit = splitByPeriod((ordersLast60 || []) as any[]);
+  const ordersCurrentCount = ordersSplit.current.length;
+  const ordersPrevCount = ordersSplit.prev.length;
+  const ordersChange = ordersPrevCount === 0 ? 0 : ((ordersCurrentCount - ordersPrevCount) / ordersPrevCount) * 100;
+
+  // Customers metric (unique customer_id)
+  const uniqueCustomers = (orders: any[]) => new Set(orders.map((o) => o.customer_id)).size;
+  const customersCurrent = uniqueCustomers(ordersSplit.current);
+  const customersPrev = uniqueCustomers(ordersSplit.prev);
+  const customersChange = customersPrev === 0 ? 0 : ((customersCurrent - customersPrev) / customersPrev) * 100;
+
+  // Conversion rate (completed / total), based on current period
+  const completedStatuses = ['DELIVERED', 'COMPLETED'];
+  const convCurrentOrders = ordersSplit.current;
+  const convPrevOrders = ordersSplit.prev;
+  const convRateCurr = convCurrentOrders.length === 0 ? 0 : (convCurrentOrders.filter((o) => completedStatuses.includes(o.status)).length / convCurrentOrders.length) * 100;
+  const convRatePrev = convPrevOrders.length === 0 ? 0 : (convPrevOrders.filter((o) => completedStatuses.includes(o.status)).length / convPrevOrders.length) * 100;
+  const convChange = convRatePrev === 0 ? 0 : ((convRateCurr - convRatePrev) / convRatePrev) * 100;
+
+  const trend = (val: number) => (val >= 0 ? 'up' : 'down');
+
+  const metrics = [
+    {
+      label: 'Total Sales',
+      value: `₦${revenueCurrent.toLocaleString()}`,
+      change: `${Math.abs(revenueChange).toFixed(1)}%`,
+      trend: trend(revenueChange),
+      icon: DollarSign,
+      color: 'bg-green-500',
+    },
+    {
+      label: 'Orders',
+      value: ordersCurrentCount.toString(),
+      change: `${Math.abs(ordersChange).toFixed(1)}%`,
+      trend: trend(ordersChange),
+      icon: ShoppingCart,
+      color: 'bg-blue-500',
+    },
+    {
+      label: 'Customers',
+      value: customersCurrent.toString(),
+      change: `${Math.abs(customersChange).toFixed(1)}%`,
+      trend: trend(customersChange),
+      icon: Users,
+      color: 'bg-purple-500',
+    },
+    {
+      label: 'Conversion Rate',
+      value: `${convRateCurr.toFixed(1)}%`,
+      change: `${Math.abs(convChange).toFixed(1)}%`,
+      trend: trend(convChange),
+      icon: convChange >= 0 ? TrendingUp : TrendingDown,
+      color: convChange >= 0 ? 'bg-green-500' : 'bg-red-500',
+    },
   ];
 
-  const topProducts = [
-    { name: 'Wireless Earbuds', sales: 24, revenue: '₦48,000' },
-    { name: 'Smart Watch X2', sales: 18, revenue: '₦36,000' },
-    { name: 'Bluetooth Speaker', sales: 15, revenue: '₦30,000' },
-    { name: 'USB-C Fast Charger', sales: 12, revenue: '₦24,000' },
-    { name: 'Phone Case', sales: 10, revenue: '₦20,000' }
-  ];
+  // Top products (current 30 days)
+  const productMap: Record<string, { name: string; sales: number; revenue: number }> = {};
+  orderCurr.forEach((item: any) => {
+    if (!productMap[item.product_id]) {
+      productMap[item.product_id] = { name: item.Product?.name || 'Product', sales: 0, revenue: 0 };
+    }
+    productMap[item.product_id].sales += item.quantity;
+    productMap[item.product_id].revenue += item.price_at_purchase * item.quantity;
+  });
+
+  const topProducts = Object.values(productMap)
+    .sort((a, b) => b.sales - a.sales)
+    .slice(0, 5)
+    .map((p) => ({ ...p, revenueFormatted: `₦${p.revenue.toLocaleString()}` }));
 
   return (
     <div>
@@ -175,7 +275,7 @@ export default async function VendorAnalyticsPage() {
                     {product.sales} units
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {product.revenue}
+                    {product.revenueFormatted}
                   </td>
                 </tr>
               ))}

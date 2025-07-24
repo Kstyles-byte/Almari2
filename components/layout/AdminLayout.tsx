@@ -146,7 +146,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       </aside>
 
       {/* Main content */}
-      <div className="md:ml-64 pt-20 p-4 md:p-8">
+      <div className="md:ml-64 pt-20 py-4 md:py-8 px-4 md:px-8">
         {children}
       </div>
     </div>

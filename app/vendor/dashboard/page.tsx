@@ -78,11 +78,39 @@ export default async function VendorDashboardPage() {
 
   const totalRevenue = revenue?.reduce((acc, item) => acc + (item.price_at_purchase * item.quantity), 0) || 0;
 
+  // NEW: calculate sales growth (current 30 days vs previous 30 days)
+  const now = new Date();
+  const startCurrent = new Date();
+  startCurrent.setDate(now.getDate() - 30);
+  const startPrev = new Date();
+  startPrev.setDate(now.getDate() - 60);
+
+  const { data: revenueLast60 } = await supabaseAdmin
+    .from('OrderItem')
+    .select('price_at_purchase, quantity, created_at')
+    .eq('vendor_id', vendorData.id)
+    .not('status', 'eq', 'CANCELLED')
+    .gte('created_at', startPrev.toISOString());
+
+  let revCurrent = 0;
+  let revPrev = 0;
+  if (revenueLast60) {
+    for (const item of revenueLast60) {
+      const created = new Date(item.created_at);
+      const value = item.price_at_purchase * item.quantity;
+      if (created >= startCurrent) revCurrent += value;
+      else revPrev += value;
+    }
+  }
+
+  let growthPercent = revPrev === 0 ? 0 : ((revCurrent - revPrev) / revPrev) * 100;
+  const salesGrowthValue = `${growthPercent >= 0 ? '↑' : '↓'} ${Math.abs(growthPercent).toFixed(1)}%`;
+
   const stats = [
     { name: 'Total Products', value: products?.length || 0, icon: ShoppingBag, color: 'bg-blue-500' },
     { name: 'Pending Orders', value: pendingOrders?.length || 0, icon: Package, color: 'bg-yellow-500' },
     { name: 'Total Revenue', value: `₦${totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'bg-green-500' },
-    { name: 'Sales Growth', value: '↑ 12%', icon: TrendingUp, color: 'bg-purple-500' },
+    { name: 'Sales Growth', value: salesGrowthValue, icon: TrendingUp, color: growthPercent >= 0 ? 'bg-purple-500' : 'bg-red-500' },
   ];
 
   return (
@@ -121,47 +149,29 @@ export default async function VendorDashboardPage() {
       
       {/* Quick Action Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100">
+        <Link href="/vendor/products" className="block bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100 hover:bg-gray-50">
           <div className="bg-zervia-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
             <ShoppingBag className="text-zervia-600" size={20} />
           </div>
           <h3 className="font-semibold text-gray-900 mb-2">Manage Products</h3>
-          <p className="text-sm text-gray-500 mb-4">Add, edit or delete your products and manage inventory.</p>
-          <Link 
-            href="/vendor/products" 
-            className="block text-center text-sm bg-white border border-zervia-600 text-zervia-600 px-4 py-2 rounded-md hover:bg-zervia-50"
-          >
-            View Products
-          </Link>
-        </div>
+          <p className="text-sm text-gray-500">Add, edit or delete your products and manage inventory.</p>
+        </Link>
         
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100">
+        <Link href="/vendor/orders" className="block bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100 hover:bg-gray-50">
           <div className="bg-zervia-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
             <BoxIcon className="text-zervia-600" size={20} />
           </div>
           <h3 className="font-semibold text-gray-900 mb-2">Process Orders</h3>
-          <p className="text-sm text-gray-500 mb-4">View and manage customer orders and update their status.</p>
-          <Link 
-            href="/vendor/orders" 
-            className="block text-center text-sm bg-white border border-zervia-600 text-zervia-600 px-4 py-2 rounded-md hover:bg-zervia-50"
-          >
-            View Orders
-          </Link>
-        </div>
+          <p className="text-sm text-gray-500">View and manage customer orders and update their status.</p>
+        </Link>
         
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100">
+        <Link href="/vendor/analytics" className="block bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100 hover:bg-gray-50">
           <div className="bg-zervia-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
             <BarChart3 className="text-zervia-600" size={20} />
           </div>
           <h3 className="font-semibold text-gray-900 mb-2">View Analytics</h3>
-          <p className="text-sm text-gray-500 mb-4">Track your sales performance and customer insights.</p>
-          <Link 
-            href="/vendor/analytics" 
-            className="block text-center text-sm bg-white border border-zervia-600 text-zervia-600 px-4 py-2 rounded-md hover:bg-zervia-50"
-          >
-            View Analytics
-          </Link>
-        </div>
+          <p className="text-sm text-gray-500">Track your sales performance and customer insights.</p>
+        </Link>
       </div>
     </div>
   );

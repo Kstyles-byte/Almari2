@@ -1,11 +1,13 @@
 "use client";
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAtom } from 'jotai';
 import { vendorOrdersAtom } from '@/lib/atoms';
 import React from 'react';
 
 export default function RecentOrdersWidget() {
+  const router = useRouter();
   const [orders] = useAtom(vendorOrdersAtom);
   const recent = orders.slice(0, 5);
 
@@ -31,10 +33,12 @@ export default function RecentOrdersWidget() {
           <tbody className="bg-white divide-y divide-gray-200">
             {recent.length ? (
               recent.map((order) => (
-                <tr key={order.id} className={`hover:bg-gray-50 ${order.isNew ? 'animate-pulse' : ''}`}>
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-zervia-600">
-                    <Link href={`/vendor/orders/${order.id}`}>#{order.orderNumber}</Link>
-                  </td>
+                <tr
+                  key={order.id}
+                  onClick={() => router.push(`/vendor/orders/${order.id}`)}
+                  className={`cursor-pointer hover:bg-gray-50 ${order.isNew ? 'animate-pulse' : ''}`}
+                >
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-zervia-600">#{order.orderNumber}</td>
                   <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">{order.customerName}</td>
                   <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(order.createdAt).toLocaleDateString()}

@@ -91,7 +91,11 @@ export default function AgentDashboard() {
         ) : (
           <ul className="divide-y bg-white rounded-md shadow">
             {readyOrders.slice(0, 5).map((order) => (
-              <li key={order.id} className="p-4 flex items-center justify-between">
+              <li key={order.id} className="relative p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+                {/* Full-card clickable overlay */}
+                <Link href={`/agent/orders/${order.id}`} className="absolute inset-0" aria-label="View order">
+                  <span className="sr-only">View Order</span>
+                </Link>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium">
@@ -111,9 +115,8 @@ export default function AgentDashboard() {
                     </p>
                   )}
                 </div>
-                <Link href={`/agent/orders/${order.id}`} className="text-sm text-zervia-600 hover:underline">
-                  Details
-                </Link>
+                {/* Visual cue */}
+                <span className="text-sm text-zervia-600">Details →</span>
               </li>
             ))}
           </ul>
@@ -134,7 +137,11 @@ export default function AgentDashboard() {
         ) : (
           <ul className="divide-y bg-white rounded-md shadow">
             {orders.slice(0, 5).map((order) => (
-              <li key={order.id} className="p-4 flex items-center justify-between">
+              <li key={order.id} className="relative p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+                {/* Full-card clickable overlay */}
+                <Link href={`/agent/orders/${order.id}`} className="absolute inset-0" aria-label="View order">
+                  <span className="sr-only">View Order</span>
+                </Link>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium">
@@ -150,9 +157,8 @@ export default function AgentDashboard() {
                   <p className="text-xs text-gray-500">Status: {order.pickup_status || order.status}</p>
                   <p className="text-xs text-gray-500">Total ₦{order.total_amount}</p>
                 </div>
-                <Link href={`/agent/orders/${order.id}`} className="text-sm text-zervia-600 hover:underline">
-                  Details
-                </Link>
+                {/* Visual cue */}
+                <span className="text-sm text-zervia-600">Details →</span>
               </li>
             ))}
           </ul>

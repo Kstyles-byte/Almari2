@@ -166,7 +166,7 @@ export default function AgentLayout({ children, agentData }: AgentLayoutProps) {
         </header>
 
         {/* Content */}
-        <main className="flex-1 p-4 md:p-6 bg-gray-50 pt-4 md:pt-6">{children}</main>
+        <main className="flex-1 py-4 md:py-6 bg-gray-50 pt-4 md:pt-6 px-4 md:px-6">{children}</main>
       </div>
     </div>
   );
