@@ -1,15 +1,15 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { 
-  BarChart3, 
-  LineChart, 
-  PieChart, 
-  TrendingUp, 
+import {
+  TrendingUp,
   TrendingDown,
   Users,
   ShoppingCart,
-  DollarSign
+  DollarSign,
 } from 'lucide-react';
+import LineChartWrapper from '@/components/vendor/analytics/LineChartWrapper';
+import PieChartWrapper from '@/components/vendor/analytics/PieChartWrapper';
+import BarChartWrapper from '@/components/vendor/analytics/BarChartWrapper';
 
 export const dynamic = 'force-dynamic';
 
@@ -182,6 +182,45 @@ export default async function VendorAnalyticsPage() {
     .slice(0, 5)
     .map((p) => ({ ...p, revenueFormatted: `₦${p.revenue.toLocaleString()}` }));
 
+  // Build daily revenue arrays for Sales Overview (last 30 days)
+  const dailyMap = new Map<string, number>();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(now.getDate() - i);
+    const key = d.toISOString().slice(0, 10); // yyyy-mm-dd
+    dailyMap.set(key, 0);
+  }
+  orderCurr.forEach((item: any) => {
+    const key = item.created_at.slice(0, 10);
+    dailyMap.set(key, (dailyMap.get(key) || 0) + item.price_at_purchase * item.quantity);
+  });
+  const salesDailyLabels = Array.from(dailyMap.keys()).map((k) => {
+    const d = new Date(k);
+    return `${d.getDate()}/${d.getMonth() + 1}`;
+  });
+  const salesDailyData = Array.from(dailyMap.values());
+
+  // Revenue by Product (topProducts already computed)
+  const revenueByProductLabels = topProducts.map((p) => p.name);
+  const revenueByProductData = topProducts.map((p) => p.revenue);
+
+  // Order status distribution (current period)
+  const statusCountsMap: Record<string, number> = {};
+  ordersSplit.current.forEach((o: any) => {
+    statusCountsMap[o.status] = (statusCountsMap[o.status] || 0) + 1;
+  });
+  const orderStatusLabels = Object.keys(statusCountsMap);
+  const orderStatusData = Object.values(statusCountsMap);
+
+  // Sales by time of day (hour buckets)
+  const hourCounts = new Array(24).fill(0);
+  orderCurr.forEach((item: any) => {
+    const h = new Date(item.created_at).getHours();
+    hourCounts[h] += item.price_at_purchase * item.quantity; // or count of sales; revenue per hour
+  });
+  const hourLabels = hourCounts.map((_, i) => `${i}:00`);
+  const hourData = hourCounts;
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Analytics</h1>
@@ -226,21 +265,15 @@ export default async function VendorAnalyticsPage() {
               <button className="px-3 py-1 text-xs bg-zervia-100 text-zervia-600 rounded-md">Month</button>
             </div>
           </div>
-          <div className="flex items-center justify-center h-60 bg-gray-50 rounded-lg">
-            <div className="text-center text-gray-500">
-              <LineChart size={48} className="mx-auto text-gray-300" />
-              <p className="mt-2">Sales chart data will be shown here</p>
-            </div>
+          <div className="h-60">
+            <LineChartWrapper labels={salesDailyLabels} data={salesDailyData} label="Revenue" />
           </div>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-          <h2 className="font-semibold text-gray-900 mb-6">Revenue by Category</h2>
-          <div className="flex items-center justify-center h-60 bg-gray-50 rounded-lg">
-            <div className="text-center text-gray-500">
-              <PieChart size={48} className="mx-auto text-gray-300" />
-              <p className="mt-2">Category distribution will be shown here</p>
-            </div>
+          <h2 className="font-semibold text-gray-900 mb-6">Revenue by Product</h2>
+          <div className="h-60">
+            <PieChartWrapper labels={revenueByProductLabels} data={revenueByProductData} />
           </div>
         </div>
       </div>
@@ -288,21 +321,15 @@ export default async function VendorAnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
           <h2 className="font-semibold text-gray-900 mb-6">Order Status Distribution</h2>
-          <div className="flex items-center justify-center h-60 bg-gray-50 rounded-lg">
-            <div className="text-center text-gray-500">
-              <BarChart3 size={48} className="mx-auto text-gray-300" />
-              <p className="mt-2">Order status chart will be shown here</p>
-            </div>
+          <div className="h-60">
+            <BarChartWrapper labels={orderStatusLabels} data={orderStatusData} label="Orders" />
           </div>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
           <h2 className="font-semibold text-gray-900 mb-6">Sales by Time of Day</h2>
-          <div className="flex items-center justify-center h-60 bg-gray-50 rounded-lg">
-            <div className="text-center text-gray-500">
-              <BarChart3 size={48} className="mx-auto text-gray-300" />
-              <p className="mt-2">Time distribution chart will be shown here</p>
-            </div>
+          <div className="h-60">
+            <BarChartWrapper labels={hourLabels} data={hourData} label="Revenue" />
           </div>
         </div>
       </div>
