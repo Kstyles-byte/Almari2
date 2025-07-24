@@ -22,4 +22,29 @@ export interface VendorOrder {
 export const vendorOrdersAtom = atom<VendorOrder[]>([]);
 
 // Count of orders that have isUnread=true
-export const unreadVendorOrdersCountAtom = atom<number>(0); 
+export const unreadVendorOrdersCountAtom = atom<number>(0);
+
+// Agent orders atoms
+export interface AgentOrder {
+  id: string; // order id
+  short_id?: string;
+  created_at: string;
+  status: string;
+  payment_status: string;
+  total_amount: number;
+  customer_name: string;
+  pickup_code?: string;
+  dropoff_code?: string;
+  pickup_status?: string;
+  items: {
+    id: string;
+    name?: string;
+    quantity: number;
+    price: number;
+  }[];
+  isNew?: boolean;
+  isUnread?: boolean;
+}
+
+export const agentOrdersAtom = atom<AgentOrder[]>([]);
+export const unreadAgentOrdersCountAtom = atom<number>(0);

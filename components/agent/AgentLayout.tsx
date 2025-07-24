@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'sonner';
+import { useAtom } from 'jotai';
+import { unreadAgentOrdersCountAtom } from '@/lib/atoms';
 
 interface AgentLayoutProps {
   children: React.ReactNode;
@@ -29,6 +31,7 @@ export default function AgentLayout({ children, agentData }: AgentLayoutProps) {
   const supabase = createClientComponentClient();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [unreadCount] = useAtom(unreadAgentOrdersCountAtom);
 
   const navItems = [
     { name: 'Dashboard', href: '/agent/dashboard', icon: Home },
@@ -71,6 +74,11 @@ export default function AgentLayout({ children, agentData }: AgentLayoutProps) {
           >
             <item.icon size={18} className="mr-2" />
             {item.name}
+            {item.name === 'Orders' && unreadCount > 0 && (
+              <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {unreadCount}
+              </span>
+            )}
           </Link>
         );
       })}

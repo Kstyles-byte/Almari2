@@ -1,41 +1,203 @@
 'use client';
 
-import OrderList from './order-list';
-import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import useSWR from 'swr';
+import { useAtom, useSetAtom } from 'jotai';
+import { agentOrdersAtom, unreadAgentOrdersCountAtom } from '@/lib/atoms';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-interface Props {
-  pickupStatus?: string;
-  query?: string;
-}
+const filters = [
+  { label: 'All', value: '' },
+  { label: 'Pending', value: 'PENDING' },
+  { label: 'Ready', value: 'READY_FOR_PICKUP' },
+  { label: 'Picked Up', value: 'PICKED_UP' },
+];
 
-export default function AgentOrdersTable({ pickupStatus = '', query = '' }: Props) {
-  // Fallback to client-side fetch for safety if some page still imports this component
-  const supabase = createClientComponentClient();
+export default function AgentOrdersTable() {
+  const [orders] = useAtom(agentOrdersAtom);
+  const [, setUnreadCount] = useAtom(unreadAgentOrdersCountAtom);
+  const setOrders = useSetAtom(agentOrdersAtom);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchOrders = async () => {
-    let q = supabase.from('Order').select('*').eq('agent_id', (await supabase.auth.getUser()).data.user?.id || '');
-    if (pickupStatus) q = q.eq('pickup_status', pickupStatus);
-    if (query) {
-      const term = query.replace(/\s+/g, '');
-      if (term.startsWith('D-')) {
-        q = q.ilike('dropoff_code', `%${term}%`);
-      } else if (/^[0-9]{4,}$/.test(term)) {
-        q = q.eq('pickup_code', term);
-      } else if (/^[0-9a-fA-F-]{36}$/.test(term)) {
-        q = q.eq('id', term);
-      } else {
-        q = q.or(`dropoff_code.ilike.%${term}%,pickup_code.ilike.%${term}%`);
-      }
+  const pickupStatus = searchParams.get('status') || '';
+  const query = searchParams.get('q') || '';
+
+  useEffect(() => {
+    setSearchQuery(query);
+  }, [query]);
+
+  // Filter orders based on status and search query
+  const filteredOrders = orders.filter(order => {
+    // Status filter
+    if (pickupStatus && order.pickup_status !== pickupStatus) {
+      return false;
     }
-    const { data, error } = await q;
-    if (error) throw error;
-    return data || [];
+
+    // Search filter
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        order.id.toLowerCase().includes(searchLower) ||
+        order.short_id?.toLowerCase().includes(searchLower) ||
+        order.customer_name.toLowerCase().includes(searchLower) ||
+        order.pickup_code?.toLowerCase().includes(searchLower) ||
+        order.dropoff_code?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return true;
+  });
+
+  const buildLink = (status: string) => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (searchQuery) params.set('q', searchQuery);
+    const qs = params.toString();
+    return qs ? `?${qs}` : '/agent/orders';
   };
 
-  const { data: orders = [], isLoading, error } = useSWR(['agent-orders-fallback', pickupStatus, query], fetchOrders);
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    const params = new URLSearchParams();
+    if (pickupStatus) params.set('status', pickupStatus);
+    if (value) params.set('q', value);
+    const qs = params.toString();
+    router.push(qs ? `/agent/orders?${qs}` : '/agent/orders');
+  };
 
-  if (error) return <p className="text-red-600 text-sm">{error.message}</p>;
-  return <OrderList orders={isLoading ? [] : orders} />;
-} 
+  const markAsRead = (orderId: string) => {
+    setOrders(prevOrders => {
+      const updated = prevOrders.map(o =>
+        o.id === orderId ? { ...o, isUnread: false } : o
+      );
+      return updated;
+    });
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        {filters.map((f) => {
+          const active = pickupStatus === f.value || (!pickupStatus && f.value === '');
+          return (
+            <Link
+              key={f.value}
+              href={buildLink(f.value)}
+              className={`px-4 py-2 rounded-md text-sm border transition-colors ${
+                active ? 'bg-zervia-600 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {f.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Search */}
+      <div className="mt-4">
+        <input
+          type="text"
+          placeholder="Search by order ID, customer name, or codes..."
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-zervia-500 focus:border-transparent"
+        />
+      </div>
+
+      {/* Orders Table or Empty */}
+      {filteredOrders.length > 0 ? (
+        <>
+          {/* Mobile (<=sm) – card/list layout */}
+          <ul className="sm:hidden divide-y bg-white rounded-md shadow">
+            {filteredOrders.map((order) => (
+              <li key={order.id} className="p-4 space-y-1 relative">
+                {order.isNew && (
+                  <span className="absolute top-2 right-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                    New
+                  </span>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm">
+                    #{order.short_id || order.id.substring(0, 8)}
+                  </span>
+                  <span className="text-xs text-gray-600">₦{order.total_amount}</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  <p>Customer: {order.customer_name}</p>
+                  <p>Status: {order.status}</p>
+                  <p>Pickup: {order.pickup_status || 'N/A'}</p>
+                  {order.pickup_code && <p>Pickup Code: {order.pickup_code}</p>}
+                </div>
+                <Link
+                  href={`/agent/orders/${order.id}`}
+                  onClick={() => markAsRead(order.id)}
+                  className="inline-block text-xs text-zervia-600 hover:underline mt-1"
+                >
+                  View details
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop/tablet table layout */}
+          <div className="hidden sm:block bg-white shadow rounded-md overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Order ID</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Customer</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Status</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Pickup Status</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Codes</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-600">Total</th>
+                  <th className="px-4 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-gray-50 relative">
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {order.short_id || order.id.substring(0, 8)}
+                      {order.isNew && (
+                        <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                          New
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">{order.customer_name}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{order.status}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{order.pickup_status || 'N/A'}</td>
+                    <td className="px-4 py-2">
+                      <div className="text-xs">
+                        {order.pickup_code && <div>Pickup: {order.pickup_code}</div>}
+                        {order.dropoff_code && <div>Dropoff: {order.dropoff_code}</div>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">₦{order.total_amount}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right">
+                      <Link 
+                        href={`/agent/orders/${order.id}`}
+                        onClick={() => markAsRead(order.id)}
+                        className="text-zervia-600 hover:underline"
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-8 bg-white rounded-md shadow">
+          <p className="text-gray-500">No orders found.</p>
+        </div>
+      )}
+    </div>
+  );
+}
