@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { BarChart3, BoxIcon, DollarSign, Package, ShoppingBag, TrendingUp, Users } from 'lucide-react';
+import RecentOrdersWidget from '@/components/vendor/RecentOrdersWidget';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,37 +43,34 @@ export default async function VendorDashboardPage() {
     return <div>Error loading vendor data</div>;
   }
 
-  // Get stats
-  const { data: products } = await supabase
+  // Use service-role key to bypass RLS for vendor's own aggregated stats
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        // We are only reading with the service role so cookie helpers can be no-ops
+        get() { return undefined },
+        set() {},
+        remove() {},
+      },
+    }
+  );
+
+  // Get stats (service role ensures visibility even if RLS policies change)
+  const { data: products } = await supabaseAdmin
     .from('Product')
     .select('id')
     .eq('vendor_id', vendorData.id);
 
-  const { data: pendingOrders } = await supabase
+  const { data: pendingOrders } = await supabaseAdmin
     .from('OrderItem')
     .select('id')
     .eq('vendor_id', vendorData.id)
     .eq('status', 'PENDING');
 
-  const { data: recentOrders } = await supabase
-    .from('OrderItem')
-    .select(`
-      id,
-      order_id,
-      product_id,
-      quantity,
-      price_at_purchase,
-      status,
-      created_at,
-      Product:product_id(name),
-      Order:order_id(customer_id, created_at)
-    `)
-    .eq('vendor_id', vendorData.id)
-    .order('created_at', { ascending: false })
-    .limit(5);
-
   // Calculate revenue from orders (simplified version)
-  const { data: revenue } = await supabase
+  const { data: revenue } = await supabaseAdmin
     .from('OrderItem')
     .select('price_at_purchase, quantity')
     .eq('vendor_id', vendorData.id)
@@ -119,74 +117,7 @@ export default async function VendorDashboardPage() {
       </div>
 
       {/* Recent Orders */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mb-8">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900">Recent Orders</h2>
-          <Link href="/vendor/orders" className="text-sm text-zervia-600 hover:text-zervia-700">
-            View All
-          </Link>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Order ID
-                </th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Product
-                </th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {recentOrders && recentOrders.length > 0 ? (
-                recentOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-zervia-600">
-                      <Link href={`/vendor/orders/${order.order_id}`}>
-                        #{order.order_id.substring(0, 8)}
-                      </Link>
-                    </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                      {order.Product?.[0]?.name}
-                    </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(order.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                      ₦{(order.price_at_purchase * order.quantity).toLocaleString()}
-                    </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : 
-                          order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' : 
-                          order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
-                          'bg-blue-100 text-blue-800'}`}>
-                        {order.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="px-3 sm:px-6 py-4 text-center text-sm text-gray-500">
-                    No recent orders found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <RecentOrdersWidget />
       
       {/* Quick Action Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

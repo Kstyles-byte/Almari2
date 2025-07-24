@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { ChevronLeft, Package, Clock, CheckCircle, XCircle, TruckIcon } from 'lucide-react';
@@ -7,8 +8,8 @@ import OrderStatusActions from '@/components/vendor/order-status-actions';
 
 export const dynamic = 'force-dynamic';
 
-export default async function OrderDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,8 +47,13 @@ export default async function OrderDetailPage({ params }: { params: { id: string
     return <div>Error loading vendor data</div>;
   }
 
-  // Get order information (including items from this vendor only)
-  const { data: orderItems, error: orderItemsError } = await supabase
+  // Use service role client to bypass RLS recursion issues on Order table policies.
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: orderItems, error: orderItemsError } = await supabaseAdmin
     .from('OrderItem')
     .select(`
       id,
@@ -68,14 +74,29 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         status,
         payment_status,
         total_amount,
-        shipping_address,
-        billing_address,
-        delivery_method,
+        ShippingAddress:shipping_address_id(
+          address_line1,
+          address_line2,
+          city,
+          state_province,
+          postal_code,
+          country,
+          phone_number
+        ),
+        BillingAddress:billing_address_id(
+          address_line1,
+          address_line2,
+          city,
+          state_province,
+          postal_code,
+          country,
+          phone_number
+        ),
         Customer:customer_id(
+          phone_number,
           User:user_id(
             name,
-            email,
-            phone
+            email
           )
         ),
         dropoff_code
@@ -102,7 +123,11 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const customerFromOrder = Array.isArray(orderData.Customer) ? orderData.Customer[0] : orderData.Customer;
   if (customerFromOrder) {
     const userFromCustomer = Array.isArray(customerFromOrder.User) ? customerFromOrder.User[0] : customerFromOrder.User;
-    customer = userFromCustomer;
+    customer = {
+      name: userFromCustomer?.name,
+      email: userFromCustomer?.email,
+      phone: customerFromOrder?.phone_number ?? null,
+    };
   }
 
   // Determine if all items have the same status
@@ -124,8 +149,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   // Helper function to format address
   const formatAddress = (address: any) => {
     if (!address) return 'No address provided';
-    
-    return `${address.street || ''}, ${address.city || ''}, ${address.state || ''} ${address.postal_code || ''}, ${address.country || ''}`.replace(/ , |, $/g, '');
+    const street = address.street || address.address_line1 || '';
+    const state = address.state || address.state_province || '';
+    return `${street}, ${address.city || ''}, ${state} ${address.postal_code || ''}, ${address.country || ''}`.replace(/ , |, $/g, '');
   };
 
   // Function to get status icon
@@ -291,12 +317,12 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <div className="p-6">
               <div className="mb-4">
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Delivery Method</h4>
-                <p className="text-sm text-gray-600">{orderData.delivery_method || 'Standard Delivery'}</p>
+                <p className="text-sm text-gray-600">{'Standard Delivery'}</p>
               </div>
-              {orderData.shipping_address && (
+              {orderData.ShippingAddress && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-1">Shipping Address</h4>
-                  <p className="text-sm text-gray-600">{formatAddress(orderData.shipping_address)}</p>
+                  <p className="text-sm text-gray-600">{formatAddress(Array.isArray(orderData.ShippingAddress) ? orderData.ShippingAddress[0] : orderData.ShippingAddress)}</p>
                 </div>
               )}
             </div>
@@ -317,10 +343,10 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 <p className="text-sm text-gray-600">{customer?.email || 'No email provided'}</p>
                 <p className="text-sm text-gray-600">{customer?.phone || 'No phone provided'}</p>
               </div>
-              {orderData.billing_address && (
+              {orderData.BillingAddress && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-1">Billing Address</h4>
-                  <p className="text-sm text-gray-600">{formatAddress(orderData.billing_address)}</p>
+                  <p className="text-sm text-gray-600">{formatAddress(Array.isArray(orderData.BillingAddress) ? orderData.BillingAddress[0] : orderData.BillingAddress)}</p>
                 </div>
               )}
             </div>

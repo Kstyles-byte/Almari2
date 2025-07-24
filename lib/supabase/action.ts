@@ -25,7 +25,7 @@ export async function createSupabaseServerActionClient(trySessionRefresh = true)
         },
         set(name: string, value: string, options: CookieOptions) {
           // Use the correct syntax for mutating cookies in server actions
-          cookieStore.set({ name, value, ...options });
+          cookieStore.set({ name, value: value.startsWith('base64-') ? decodeSupabaseCookie(value)! : value, ...options });
         },
         remove(name: string, options: CookieOptions) {
            // Use the correct syntax for mutating cookies in server actions

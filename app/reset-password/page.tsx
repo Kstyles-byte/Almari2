@@ -1,17 +1,15 @@
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 
-// Define the props type to include searchParams
-interface ResetPasswordPageProps {
-  searchParams?: {
-    message?: string;
-    code?: string; // Supabase might add a code param, though often handled by session
-    error?: string;
-  };
-}
-
-export default function ResetPasswordPage({ searchParams }: ResetPasswordPageProps) {
-  const message = searchParams?.message;
-  const error = searchParams?.error;
+export default async function ResetPasswordPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const rawMessage = params.message;
+  const rawError = params.error;
+  const message = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage;
+  const error = Array.isArray(rawError) ? rawError[0] : rawError;
 
   // Add a check here? If the user isn't in the special reset session,
   // they shouldn't really be on this page. However, protecting server pages
@@ -20,7 +18,7 @@ export default function ResetPasswordPage({ searchParams }: ResetPasswordPagePro
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 dark:bg-gray-950 p-4">
-      {/* Display message or error from redirects */}
+      {/* Display the message or error if present in the URL */}
       {message && (
         <p className="mb-4 rounded-md bg-yellow-100 p-3 text-center text-sm text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
           {message}

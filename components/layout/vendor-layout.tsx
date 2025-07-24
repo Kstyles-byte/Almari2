@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAtom } from 'jotai';
+import { unreadVendorOrdersCountAtom } from '@/lib/atoms';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
@@ -18,6 +20,7 @@ import {
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'sonner';
 import { NotificationCenter } from '../notifications/notification-center';
+import { useVendorOrdersSubscription } from '@/hooks/useVendorOrdersSubscription';
 
 interface VendorLayoutProps {
   children: React.ReactNode;
@@ -25,15 +28,19 @@ interface VendorLayoutProps {
     email?: string;
     storeName: string;
     logoUrl?: string;
+    vendorId?: string;
   };
 }
 
 export default function VendorLayout({ children, vendorData }: VendorLayoutProps) {
+  // Initialize vendor orders realtime subscription
+  useVendorOrdersSubscription(vendorData.vendorId);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponentClient();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [unreadOrders] = useAtom(unreadVendorOrdersCountAtom);
   
   const navItems = [
     { name: 'Dashboard', href: '/vendor/dashboard', icon: Home },
@@ -218,7 +225,14 @@ export default function VendorLayout({ children, vendorData }: VendorLayoutProps
                     isActive ? 'text-zervia-500' : 'text-gray-400'
                   }`}
                 />
-                {item.name}
+                <span className="relative">
+                  {item.name}
+                  {item.name === 'Orders' && unreadOrders > 0 && (
+                    <span className="absolute -top-1 -right-3 inline-flex items-center justify-center px-1 text-[10px] font-bold leading-none text-white bg-red-600 rounded-full">
+                      {unreadOrders}
+                    </span>
+                  )}
+                </span>
               </Link>
             );
           })}
@@ -238,7 +252,6 @@ export default function VendorLayout({ children, vendorData }: VendorLayoutProps
         </div>
       </div>
       
-      {/* Main Content */}
       <div className="flex">
         {/* Desktop Sidebar */}
         <div className="hidden md:block w-64 bg-white min-h-screen shadow-sm">
@@ -253,32 +266,35 @@ export default function VendorLayout({ children, vendorData }: VendorLayoutProps
               </div>
             </div>
           </div>
-          
+
           <nav className="px-4 py-2">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
-              
+
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   className={`flex items-center px-3 py-2 my-1 text-sm font-medium rounded-md ${
-                    isActive
-                      ? 'bg-zervia-50 text-zervia-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    isActive ? 'bg-zervia-50 text-zervia-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
                   <item.icon
-                    className={`mr-3 h-5 w-5 ${
-                      isActive ? 'text-zervia-500' : 'text-gray-400'
-                    }`}
+                    className={`mr-3 h-5 w-5 ${isActive ? 'text-zervia-500' : 'text-gray-400'}`}
                   />
-                  {item.name}
+                  <span className="relative">
+                    {item.name}
+                    {item.name === 'Orders' && unreadOrders > 0 && (
+                      <span className="absolute -top-1 -right-3 inline-flex items-center justify-center px-1 text-[10px] font-bold leading-none text-white bg-red-600 rounded-full">
+                        {unreadOrders}
+                      </span>
+                    )}
+                  </span>
                 </Link>
               );
             })}
           </nav>
-          
+
           <div className="mt-auto p-4 border-t sticky bottom-0 w-full bg-white">
             <button
               className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full"
@@ -289,12 +305,10 @@ export default function VendorLayout({ children, vendorData }: VendorLayoutProps
             </button>
           </div>
         </div>
-        
+
         {/* Main Content */}
         <main className="flex-1 overflow-auto">
-          <div className="p-6 pt-8">
-            {children}
-          </div>
+          <div className="p-6 pt-8">{children}</div>
         </main>
       </div>
     </div>

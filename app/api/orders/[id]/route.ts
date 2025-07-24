@@ -4,7 +4,14 @@ import { verifyPayment } from "../../../../lib/paystack";
 import { createClient } from '@supabase/supabase-js';
 import { getCustomerByUserId } from "../../../../lib/services/customer";
 import { getVendorByUserId } from "../../../../lib/services/vendor";
-import type { Order, OrderItem, Product, Vendor, Customer, UserProfile } from '../../../../types/supabase';
+import type { Database } from '../../../../types/supabase';
+
+type Order = Database['public']['Tables']['Order']['Row'];
+type OrderItem = Database['public']['Tables']['OrderItem']['Row'];
+type Product = Database['public']['Tables']['Product']['Row'];
+type Vendor = Database['public']['Tables']['Vendor']['Row'];
+type Customer = Database['public']['Tables']['Customer']['Row'];
+type UserProfile = Database['public']['Tables']['User']['Row'];
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;

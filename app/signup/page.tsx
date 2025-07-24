@@ -1,18 +1,17 @@
 import { SignUpForm } from '@/components/auth/SignUpForm';
 
-// Define the props type to include searchParams
-interface SignUpPageProps {
-  searchParams?: {
-    message?: string;
-  };
-}
-
-export default function SignUpPage({ searchParams }: SignUpPageProps) {
-  const message = searchParams?.message;
+export default async function SignUpPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const rawMessage = params.message;
+  const message = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 dark:bg-gray-950 p-4">
-      {/* Display the message if it exists */}
+      {/* Display the message if provided in the URL */}
       {message && (
         <p className="mb-4 rounded-md bg-yellow-100 p-3 text-center text-sm text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
           {message}

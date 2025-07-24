@@ -141,7 +141,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             productId: i.productId ?? i.product_id,
             qty: i.quantity ?? i.qty ?? 1,
           }));
-        } else {
+        } else if (res.status !== 401 && res.status !== 404) {
+          // Log unexpected errors but ignore 401 Unauthorized or 404 Not Found
           console.error('[CartProvider] Failed to GET /api/cart – status', res.status);
         }
       } catch (err) {

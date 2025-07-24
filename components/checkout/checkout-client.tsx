@@ -431,6 +431,9 @@ export function CheckoutClient({
     // Add selected agent
     formData.append('agentId', selectedAgentId);
 
+    // Add cart items (current live cart) to ensure server has latest data
+    formData.append('cartItems', JSON.stringify(liveCart.map(ci => ({ productId: ci.productId, quantity: ci.qty }))));
+
     // Add coupon code (if any)
     if (couponCode) {
       formData.append('couponCode', couponCode);

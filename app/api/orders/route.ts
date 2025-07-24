@@ -3,7 +3,17 @@ import { auth } from "../../../auth";
 import { initializePayment } from "../../../lib/paystack";
 import { getCustomerByUserId } from "../../../lib/services/customer";
 import { getVendorByUserId } from "../../../lib/services/vendor";
-import type { Order, OrderItem, Customer, Vendor, Product, UserProfile, CartItem } from '../../../types/supabase';
+import type { Database } from '../../../types/supabase';
+
+// Re-define table row types using generated Database
+type Order = Database['public']['Tables']['Order']['Row'];
+type OrderItem = Database['public']['Tables']['OrderItem']['Row'];
+type Customer = Database['public']['Tables']['Customer']['Row'];
+type Vendor = Database['public']['Tables']['Vendor']['Row'];
+type Product = Database['public']['Tables']['Product']['Row'];
+type CartItem = Database['public']['Tables']['CartItem']['Row'];
+type UserProfile = Database['public']['Tables']['User']['Row'];
+
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
@@ -223,13 +233,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Check inventory for all items
-    const inventoryUpdates: { productId: string; quantityChange: number }[] = [];
+    const inventoryUpdates: { product_id: string; quantityChange: number }[] = [];
     for (const item of typedCartItems) {
       if (!item.product) {
           // Should not happen if FK constraints are good, but good to check
           return NextResponse.json(
             { error: `Product details missing for item in cart.`,
-              productId: item.productId },
+              productId: (item as any).product_id },
             { status: 500 }
           );
       }
@@ -237,12 +247,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             error: `Not enough inventory for product: ${item.product.name}`,
-            productId: item.productId,
+            productId: (item as any).product_id,
           },
           { status: 400 }
         );
       }
-      inventoryUpdates.push({ productId: item.productId, quantityChange: -item.quantity });
+      inventoryUpdates.push({ product_id: (item as any).product_id, quantityChange: -item.quantity });
     }
 
     // Calculate total
@@ -251,15 +261,18 @@ export async function POST(req: NextRequest) {
       return sum + Number(item.product?.price || 0) * item.quantity;
     }, 0);
 
-    // Create order
+    // Create order (snake_case columns to match schema)
     const { data: newOrderData, error: orderError } = await supabase
       .from('Order')
       .insert({
-        customerId: customer.id,
-        total,
-        shippingAddress,
-        paymentStatus: "PENDING",
-        status: "PENDING",
+        customer_id: customer.id,
+        subtotal: total,
+        discount_amount: 0,
+        tax_amount: 0,
+        shipping_amount: 0,
+        total_amount: total,
+        status: 'PENDING',
+        payment_status: 'PENDING',
       })
       .select()
       .single();
@@ -272,15 +285,25 @@ export async function POST(req: NextRequest) {
 
     const newOrder = newOrderData; // Assign for use below
 
-    // Create order items
+    // Create order items (use snake_case column names to match DB schema)
     const orderItemInserts = typedCartItems.map(item => ({
-        orderId: newOrder.id,
-        productId: item.productId,
-        vendorId: item.product!.vendorId, // Assumes product is not null based on previous check
-        quantity: item.quantity,
-        price: Number(item.product?.price || 0),
-        status: "PENDING",
+      order_id: newOrder.id,
+      product_id: (item as any).product_id,
+      vendor_id: item.product ? (item.product as any).vendor_id ?? (item.product as any).vendorId : null,
+      quantity: item.quantity,
+      price_at_purchase: Number(item.product?.price || 0),
+      status: 'PENDING',
     }));
+
+    // Persist order items so that realtime subscriptions (e.g. vendor dashboard) receive INSERT events
+    const { error: orderItemsError } = await supabase
+      .from('OrderItem')
+      .insert(orderItemInserts);
+
+    if (orderItemsError) {
+      console.error('Failed to create order items:', orderItemsError.message);
+      return NextResponse.json({ error: 'Failed to create order items' }, { status: 500 });
+    }
 
     // Update inventory
     for (const update of inventoryUpdates) {
@@ -291,10 +314,10 @@ export async function POST(req: NextRequest) {
             decrement: update.quantityChange,
           },
         })
-        .eq('id', update.productId);
+        .eq('id', update.product_id);
 
       if (inventoryUpdateError) {
-        console.error(`Failed to update inventory for product ${update.productId}:`, inventoryUpdateError.message);
+        console.error(`Failed to update inventory for product ${update.product_id}:`, inventoryUpdateError.message);
         // TODO: Rollback or compensation logic
       }
     }

@@ -42,17 +42,7 @@ export async function getServerCart() {
     .eq('user_id', session.user.id)
     .maybeSingle();
 
-  // Try fallback lookup using camelCase `userId` if not found
-  let customer = customerInitial;
-  if (!customer && !customerErrInitial) {
-    const { data: customerFallback, error: customerErrFallback } = await supabase
-      .from('Customer')
-      .select('id')
-      .eq('userId', session.user.id)
-      .maybeSingle();
-    if (customerErrFallback) throw customerErrFallback;
-    customer = customerFallback ?? null;
-  }
+  const customer = customerInitial; // No camelCase fallback – DB uses snake_case
 
   if (customerErrInitial) throw customerErrInitial;
   if (!customer) return null;
@@ -100,17 +90,7 @@ export async function mergeGuestCart(items: LocalCartItem[]): Promise<boolean> {
     .eq('user_id', userId)
     .maybeSingle();
 
-  // Fallback: try camelCase `userId` column if not found
-  let customer = customerInitial;
-  if (!customer && !customerErrInitial) {
-    const { data: customerFallback, error: customerErrFallback } = await supabaseAdmin
-      .from('Customer')
-      .select('id')
-      .eq('userId', userId)
-      .maybeSingle();
-    if (customerErrFallback) throw customerErrFallback;
-    customer = customerFallback ?? null;
-  }
+  const customer = customerInitial; // keep snake_case column only
 
   if (customerErrInitial) throw customerErrInitial;
   if (!customer) {

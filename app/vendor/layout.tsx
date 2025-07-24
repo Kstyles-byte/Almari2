@@ -51,7 +51,7 @@ export default async function VendorRootLayout({
 
   const { data: userData, error: userError } = await supabaseAdmin
     .from('User')
-    .select('role, Vendor!inner(store_name, logo_url, is_approved)')
+    .select('role, Vendor!inner(id, store_name, logo_url, is_approved)')
     .eq('id', user.id)
     .single();
 
@@ -66,11 +66,22 @@ export default async function VendorRootLayout({
     return redirect(`/${role}/dashboard`);
   }
 
-  const vendorDetails = Array.isArray(userData.Vendor) ? userData.Vendor[0] : userData.Vendor;
+  let vendorDetails = Array.isArray(userData.Vendor) ? userData.Vendor[0] : userData.Vendor;
 
+  // Fallback: If join didn't return a Vendor row (e.g. policy or relation mis-match), fetch directly
   if (!vendorDetails) {
-    console.error("Vendor details not found for user:", user.id);
-    return redirect('/login?callbackUrl=/vendor/dashboard&message=Vendor+details+not+found.');
+    const { data: vendorRow, error: vendorFetchError } = await supabaseAdmin
+      .from('Vendor')
+      .select('id, store_name, logo_url, is_approved')
+      .eq('user_id', user.id)
+      .single();
+
+    if (vendorFetchError || !vendorRow) {
+      console.error("Vendor details not found for user:", user.id, vendorFetchError?.message);
+      return redirect('/login?callbackUrl=/vendor/dashboard&message=Vendor+details+not+found.');
+    }
+
+    vendorDetails = vendorRow;
   }
 
   // If vendor account is not approved, redirect to pending page
@@ -83,6 +94,7 @@ export default async function VendorRootLayout({
     email: user.email,
     storeName: vendorDetails.store_name || 'Your Store',
     logoUrl: vendorDetails.logo_url,
+    vendorId: vendorDetails.id,
   };
 
   return <VendorLayout vendorData={vendorData}>{children}</VendorLayout>;

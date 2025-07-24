@@ -135,87 +135,109 @@ export async function createOrder(formData: FormData) {
       shippingAddress = `Pickup at: ${selectedAgent.name}, ${selectedAgent.address_line1}, ${selectedAgent.city}`;
     }
     
-    // --- Fetch Cart Items and Products Separately ---
-    console.log("Fetching cart ID using customer_id:", customer.id);
-    
-    // 1. Get the Cart ID first
-    const { data: cartDetails, error: cartDetailsError } = await supabase
-      .from('Cart')
-      .select('id')
-      .eq('customer_id', customer.id)
-      .maybeSingle();
-
-    if (cartDetailsError) {
-      console.error("Error fetching cart details:", cartDetailsError.message);
-      return { error: `Failed to fetch cart details: ${cartDetailsError.message}` };
-    }
-    
-    if (!cartDetails) {
-      console.log("No active cart found for customer:", customer.id);
-      return { error: "Cart is empty" };
-    }
-    
-    const cartId = cartDetails.id;
-    console.log("Found Cart ID:", cartId);
-
-    // 2. Get CartItems associated with the Cart ID
-    console.log("Fetching CartItems for cart ID:", cartId);
-    const { data: rawCartItems, error: cartItemsError } = await supabase
-      .from('CartItem')
-      .select('id, quantity, product_id') 
-      .eq('cart_id', cartId);
-
-    if (cartItemsError) {
-      console.error("Error fetching cart items:", cartItemsError.message);
-      return { error: `Failed to fetch cart items: ${cartItemsError.message}` };
+    // --- Fetch Cart Items ---
+    // Prefer client-submitted cart items to avoid stale server cart issues
+    let clientCartItems: { productId: string; quantity: number }[] | null = null;
+    const cartItemsJson = formData.get("cartItems") as string | null;
+    if (cartItemsJson) {
+      try {
+        clientCartItems = JSON.parse(cartItemsJson);
+        if (!Array.isArray(clientCartItems)) {
+          clientCartItems = null;
+        }
+      } catch (err) {
+        console.error("Failed to parse cartItems JSON from formData:", err);
+        clientCartItems = null;
+      }
     }
 
-    if (!rawCartItems || rawCartItems.length === 0) {
-      console.log("Cart found but contains no items.");
-      return { error: "Cart is empty" };
+    // Helper vars that will be populated depending on the source of cart data
+    let cartItems: { id?: string; quantity: number; product_id: string; product?: any }[] = [];
+    let cartId: string | null = null;
+
+    // ------------------------------------------------------------------
+    // OPTION A: Use cart items supplied by the client (authoritative)
+    // ------------------------------------------------------------------
+    if (clientCartItems && clientCartItems.length) {
+      console.log("Using cart items from client payload (count:", clientCartItems.length, ")");
+      // Map to unified structure expected later
+      cartItems = clientCartItems.map((i) => ({ quantity: i.quantity, product_id: i.productId }));
+
+      // Fetch product details for these IDs (reuse logic below)
+      const productIds = [...new Set(clientCartItems.map((i) => i.productId))];
+      const { data: productsData, error: productsError } = await supabase
+        .from('Product')
+        .select('id, name, price, inventory, vendor_id')
+        .in('id', productIds);
+
+      if (productsError || !productsData) {
+        console.error("Error fetching product details (client cart path):", productsError?.message);
+        return { error: productsError?.message || 'Failed to fetch product details.' };
+      }
+
+      const productMap = new Map(productsData.map((p) => [p.id, p]));
+      cartItems = cartItems.map((ci) => ({ ...ci, product: productMap.get(ci.product_id) }));
+    } else {
+      // ------------------------------------------------------------------
+      // OPTION B: Fallback to fetching cart items from the server (legacy)
+      // ------------------------------------------------------------------
+      console.log("Fetching cart via server as fallback");
+      // Get the Cart ID first
+      const { data: cartDetails, error: cartDetailsError } = await supabase
+        .from('Cart')
+        .select('id')
+        .eq('customer_id', customer.id)
+        .order('created_at', { ascending: false }) // always pick the latest cart
+        .limit(1)
+        .maybeSingle();
+
+      if (cartDetailsError) {
+        console.error("Error fetching cart details:", cartDetailsError.message);
+        return { error: `Failed to fetch cart details: ${cartDetailsError.message}` };
+      }
+
+      if (!cartDetails) {
+        console.log("No active cart found for customer:", customer.id);
+        return { error: 'Cart is empty' };
+      }
+
+      cartId = cartDetails.id;
+      console.log("Found Cart ID:", cartId);
+
+      // 2. Fetch CartItems associated with the Cart ID
+      const { data: rawCartItems, error: cartItemsError } = await supabase
+        .from('CartItem')
+        .select('id, quantity, product_id')
+        .eq('cart_id', cartId);
+
+      if (cartItemsError) {
+        console.error("Error fetching cart items:", cartItemsError.message);
+        return { error: `Failed to fetch cart items: ${cartItemsError.message}` };
+      }
+
+      if (!rawCartItems || rawCartItems.length === 0) {
+        console.log('Cart found but contains no items.');
+        return { error: 'Cart is empty' };
+      }
+
+      // Extract unique product IDs
+      const productIds = [...new Set(rawCartItems.map((item) => item.product_id).filter((id) => id))];
+      const { data: productsData, error: productsError } = await supabase
+        .from('Product')
+        .select('id, name, price, inventory, vendor_id')
+        .in('id', productIds);
+
+      if (productsError || !productsData) {
+        console.error('Error fetching product details:', productsError?.message);
+        return { error: productsError?.message || 'Failed to fetch product details.' };
+      }
+
+      const productMap = new Map(productsData.map((p) => [p.id, p]));
+      cartItems = rawCartItems.map((item) => ({ ...item, product: productMap.get(item.product_id) }));
     }
-    
-    console.log("Raw CartItems fetched:", rawCartItems);
 
-    // 3. Extract unique Product IDs
-    const productIds = [...new Set(rawCartItems.map(item => item.product_id).filter(id => id))]; // <--- FIX: Use item.product_id
-    console.log("Unique Product IDs from cart:", productIds);
+    // ----- Validation of cart items (inventory, etc.) stays the same -----
 
-    if (productIds.length === 0) {
-        console.error("Cart items found, but no valid product IDs associated.");
-        return { error: "Cart contains items with missing product references." };
-    }
-
-    // 4. Fetch Product details for those IDs
-    console.log("Fetching product details for IDs:", productIds);
-    const { data: productsData, error: productsError } = await supabase
-      .from('Product')
-      .select('id, name, price, inventory, vendor_id') // Select needed fields
-      .in('id', productIds);
-
-    if (productsError) {
-      console.error("Error fetching product details:", productsError.message);
-      return { error: `Failed to fetch product details: ${productsError.message}` };
-    }
-    
-    if (!productsData || productsData.length === 0) {
-        console.error("Failed to fetch details for products in cart, product IDs:", productIds);
-        return { error: "Could not retrieve information for products in cart." };
-    }
-
-    // Create a map for easy lookup: productId -> product data
-    const productMap = new Map(productsData.map(p => [p.id, p]));
-    console.log("Product details map created.");
-
-    // 5. Combine CartItems with Product data
-    const cartItems = rawCartItems.map(item => ({
-      ...item,
-      product: productMap.get(item.product_id) // <--- FIX: Use item.product_id for lookup
-    }));
-    
-    console.log("Combined cart items with product data:", cartItems);
-    // --- End of new fetching logic ---
-    
     // Check inventory for all items (using the new cartItems structure)
     for (const item of cartItems) {
       const product = item.product; // Access product directly

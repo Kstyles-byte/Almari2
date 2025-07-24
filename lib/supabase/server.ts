@@ -1,7 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Database } from '@/types/supabase';
-import { decodeSupabaseCookie } from './cookie-utils';
 
 /**
  * Creates a Supabase client for Server Components and Server Actions.
@@ -29,16 +28,15 @@ export async function createServerActionClient() {
     {
       cookies: {
         get(name: string) {
-          const raw = cookieStore.get(name)?.value;
-          return decodeSupabaseCookie(raw);
+          return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
           try {
-            // The `set` method needs modification if called from a Server Component
-            // However, in Server Actions, it should work fine to set cookies for the response
+            // Write the cookie exactly as Supabase provides it.
+            // Decoding here corrupts the value (it may contain JSON and invalid cookie chars)
+            // which prevents the browser from sending it back, causing auth loss.
             cookieStore.set({ name, value, ...options });
           } catch (error) {
-            // Handle potential errors, e.g., if called from a context where cookies cannot be set
             console.error('Error setting cookie in Supabase client:', error);
           }
         },

@@ -42,23 +42,17 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is updated, update the request and response cookies
+          // Mutate the request cookie so subsequent middleware logic sees the fresh value
           request.cookies.set({ name, value, ...options })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
+
+          // IMPORTANT: do NOT create a brand-new NextResponse every time ‑ that would
+          // discard cookies previously written during this request lifecycle.
+          // Re-use the existing response object so that multiple cookies (e.g. access
+          // and refresh tokens) are preserved together.
           response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          // If the cookie is removed, update the request and response cookies
           request.cookies.set({ name, value: '', ...options })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
           response.cookies.set({ name, value: '', ...options })
         },
       },
