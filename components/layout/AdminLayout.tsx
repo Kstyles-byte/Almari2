@@ -14,7 +14,11 @@ import {
   LogOut,
   Menu,
   X,
-  Percent
+  Percent,
+  Shield,
+  UserCog,
+  Store,
+  ChevronDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -27,48 +31,38 @@ interface AdminLayoutProps {
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ Users: true });
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponentClient();
 
-  const navItems = [
+  const navSections = [
     {
-      title: 'Dashboard',
-      href: '/admin',
-      icon: <LayoutDashboard className="h-5 w-5" />
+      header: null,
+      items: [
+        { title: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="h-5 w-5" /> },
+        { title: 'Content', href: '/admin/content', icon: <ImageIcon className="h-5 w-5" /> },
+        { title: 'Products', href: '/admin/products', icon: <Package className="h-5 w-5" /> },
+        { title: 'Orders', href: '/admin/orders', icon: <ShoppingBag className="h-5 w-5" /> },
+        { title: 'Coupons', href: '/admin/coupons', icon: <Percent className="h-5 w-5" /> },
+      ],
     },
     {
-      title: 'Content',
-      href: '/admin/content',
-      icon: <ImageIcon className="h-5 w-5" />
+      header: 'Users',
+      items: [
+        { title: 'Admins', href: '/admin/users?role=ADMIN', icon: <Shield className="h-4 w-4" /> },
+        { title: 'Agents', href: '/admin/agents', icon: <UserCog className="h-4 w-4" /> },
+        { title: 'Vendors', href: '/admin/vendors', icon: <Store className="h-4 w-4" /> },
+        { title: 'Customers', href: '/admin/users?role=CUSTOMER', icon: <Users className="h-4 w-4" /> },
+      ],
     },
     {
-      title: 'Products',
-      href: '/admin/products',
-      icon: <Package className="h-5 w-5" />
+      header: null,
+      items: [
+        { title: 'Settings', href: '/admin/settings', icon: <Settings className="h-5 w-5" /> },
+      ],
     },
-    {
-      title: 'Orders',
-      href: '/admin/orders',
-      icon: <ShoppingBag className="h-5 w-5" />
-    },
-    {
-      title: 'Coupons',
-      href: '/admin/coupons',
-      icon: <Percent className="h-5 w-5" />
-    },
-    {
-      title: 'Users',
-      href: '/admin/users',
-      icon: <Users className="h-5 w-5" />
-    },
-    {
-      title: 'Settings',
-      href: '/admin/settings',
-      icon: <Settings className="h-5 w-5" />
-    },
-    
-  ];
+  ] as const;
 
   const handleSignOut = async () => {
     try {
@@ -105,7 +99,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] transition-transform bg-white border-r border-gray-200 shadow-md",
+          "fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] transition-transform bg-white border-r border-gray-200 shadow-md overflow-y-auto",
           sidebarOpen ? "transform-none" : "-translate-x-full md:translate-x-0"
         )}
       >
@@ -115,21 +109,47 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               <h1 className="text-xl font-bold text-zervia-700">Zervia Admin</h1>
             </div>
             <nav className="space-y-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center px-3 py-2 text-sm font-medium rounded-md",
-                    pathname === item.href
-                      ? "bg-zervia-100 text-zervia-700"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-zervia-700"
+              {navSections.map(section => {
+                const open = section.header ? expanded[section.header] !== false : true;
+                return (
+                <div key={section.header ?? Math.random()} className="mb-2">
+                  {section.header && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpanded(prev => ({
+                          ...prev,
+                          [section.header as string]: !prev[section.header as string],
+                        }))
+                      }
+                      className="flex w-full items-center justify-between px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-700"
+                    >
+                      {section.header}
+                      <ChevronDown
+                        className={cn(
+                          "h-3 w-3 transition-transform",
+                          open ? "rotate-0" : "-rotate-90"
+                        )}
+                      />
+                    </button>
                   )}
-                >
-                  {item.icon}
-                  <span className="ml-3">{item.title}</span>
-                </Link>
-              ))}
+                  {open && section.items.map(item => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center px-3 py-2 text-sm font-medium rounded-md",
+                        pathname === item.href.split('?')[0]
+                          ? "bg-zervia-100 text-zervia-700"
+                          : "text-gray-600 hover:bg-gray-100 hover:text-zervia-700"
+                      )}
+                    >
+                      {item.icon}
+                      <span className="ml-3">{item.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              );})}
             </nav>
           </div>
           <div className="mt-6 px-3">
