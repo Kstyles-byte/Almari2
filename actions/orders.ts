@@ -289,149 +289,162 @@ export async function createOrder(formData: FormData) {
 
     const total = subtotal - discountAmount;
     console.log("Total after discount:", total);
-    
-    // Find nearest agent (using migrated service)
-    // const agent = await findNearestAgent(shippingAddress);
-    
-    // if (!agent) {
-    //   return { error: "No available agent found for your location" };
-    // }
-    
-    // --- Transaction Logic Start (Conceptual - Supabase doesn't have direct transactions like Prisma) ---
-    // We need to perform multiple inserts/updates. If one fails, we should ideally roll back.
-    // This usually requires creating a Supabase Database Function (using PL/pgSQL) to handle the logic atomically.
-    // For simplicity here, we proceed step-by-step, but be aware of potential partial failures.
 
-    // 1. Create order
-    const pickupCode = generatePickupCode(); // Generate pickup code
-    const { data: newOrder, error: orderError } = await supabase
-      .from('Order')
+    /* ------------------------------------------------------------------
+       1. Create an OrderGroup record (groups all vendor-specific orders)
+       ------------------------------------------------------------------ */
+    const { data: orderGroup, error: groupError } = await supabase
+      .from('OrderGroup')
       .insert({
         customer_id: customer.id,
-        agent_id: selectedAgent.id,
         total_amount: total,
-        subtotal: subtotal,
-        discount_amount: discountAmount,
-        tax_amount: 0,
-        shipping_amount: 0,
-        payment_status: "PENDING",
-        status: "PENDING",
-        pickup_status: "PENDING",
-        pickup_code: pickupCode,
-        ...(appliedCouponId ? { coupon_id: appliedCouponId } : {}),
       })
       .select()
       .single();
 
-    if (orderError || !newOrder) {
-        console.error("Error creating order record:", orderError?.message);
-        // TODO: Potential rollback logic needed if using DB function
-        throw new Error(`Failed to create order: ${orderError?.message}`);
+    if (groupError || !orderGroup) {
+      console.error('Error creating OrderGroup:', groupError?.message);
+      throw new Error(groupError?.message || 'Failed to create order group');
     }
 
-    // 2. Create order items
-    const orderItemInserts = cartItems.map(item => {
-        const product = item.product;
-        if (!product) {
-            // This should be caught earlier, but adding a safeguard
-            throw new Error(`Cannot create order item, product data missing for product_id: ${item.product_id}`); // <--- FIX: Use product_id in error
-        }
+    /* ------------------------------------------------------------------
+       2. Group cart items by vendor so we can create one Order per vendor
+       ------------------------------------------------------------------ */
+    const itemsByVendor = new Map<string, typeof cartItems>();
+    cartItems.forEach((item) => {
+      const vendorId = item.product?.vendor_id as string;
+      if (!itemsByVendor.has(vendorId)) itemsByVendor.set(vendorId, [] as any);
+      (itemsByVendor.get(vendorId) as any).push(item);
+    });
+
+    // Helper to generate random codes
+    const genNumericCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+    /* ------------------------------------------------------------------
+       3. Iterate vendors – create Order rows + OrderItem rows
+       ------------------------------------------------------------------ */
+    const orderIds: string[] = [];
+    for (const [vendorId, vendorItems] of itemsByVendor.entries()) {
+      // Vendor-specific subtotal / discount split proportionally by subtotal share
+      const vendorSubtotal = vendorItems.reduce((s, i) => s + (i.quantity * (i.product?.price || 0)), 0);
+      const vendorDiscount = subtotal > 0 ? (discountAmount * vendorSubtotal) / subtotal : 0;
+      const vendorTotal = vendorSubtotal - vendorDiscount;
+
+      // Codes
+      const pickupCode = generatePickupCode();
+      const dropoffCode = `D-${vendorId.slice(0, 4).toUpperCase()}-${genNumericCode()}`;
+
+      // Insert order
+      const { data: orderRow, error: orderError } = await supabase
+        .from('Order')
+        .insert({
+          customer_id: customer.id,
+          agent_id: selectedAgent.id,
+          order_group_id: orderGroup.id,
+          total_amount: vendorTotal,
+          subtotal: vendorSubtotal,
+          discount_amount: vendorDiscount,
+          tax_amount: 0,
+          shipping_amount: 0,
+          payment_status: 'PENDING',
+          status: 'PENDING',
+          pickup_status: 'PENDING',
+          pickup_code: pickupCode,
+          dropoff_code: dropoffCode,
+          ...(appliedCouponId ? { coupon_id: appliedCouponId } : {}),
+        })
+        .select()
+        .single();
+
+      if (orderError || !orderRow) {
+        console.error('Failed to create vendor order:', orderError?.message);
+        // Rollback the whole transaction – delete any previous orders + group
+        await supabase.from('Order').delete().eq('order_group_id', orderGroup.id);
+        await supabase.from('OrderGroup').delete().eq('id', orderGroup.id);
+        throw new Error(orderError?.message || 'Failed to create vendor order');
+      }
+
+      orderIds.push(orderRow.id);
+
+      // Insert order items for this vendor
+      const orderItemRecords = vendorItems.map((ci) => {
+        const p = ci.product!;
         return {
-            order_id: newOrder.id,
-            product_id: product.id,
-            vendor_id: product.vendor_id,
-            quantity: item.quantity,
-            price_at_purchase: typeof product.price === 'number' ? product.price : 0, // <--- FIX: Use price_at_purchase
-            status: "PENDING",
+          order_id: orderRow.id,
+          product_id: p.id,
+          vendor_id: vendorId,
+          quantity: ci.quantity,
+          price_at_purchase: p.price as number,
+          status: 'PENDING',
         };
       });
 
-    const { data: insertedItems, error: itemError } = await supabase
-        .from('OrderItem')
-        .insert(orderItemInserts)
-        .select(); // Select inserted items if needed
-
-    if (itemError || !insertedItems || insertedItems.length !== cartItems.length) {
-        console.error("Error creating order items:", itemError?.message);
-        // TODO: Rollback needed - Delete the created Order record
-        await supabase.from('Order').delete().eq('id', newOrder.id);
-        throw new Error(`Failed to create order items: ${itemError?.message}`);
+      const { error: itemsErr } = await supabase.from('OrderItem').insert(orderItemRecords);
+      if (itemsErr) {
+        console.error('Failed to insert order items:', itemsErr.message);
+        // Same rollback logic
+        await supabase.from('Order').delete().eq('order_group_id', orderGroup.id);
+        await supabase.from('OrderGroup').delete().eq('id', orderGroup.id);
+        throw new Error(itemsErr.message);
+      }
     }
 
-    // 3. Initialize payment with Paystack (external call, less critical for rollback)
+    const primaryOrderId = orderIds[0];
+
+    /* ------------------------------------------------------------------
+       4. Initialize payment (one transaction per group)
+       ------------------------------------------------------------------ */
     let paymentReference: string | null = null;
     let authorizationUrl: string | null = null;
-    
-    // Determine the base URL dynamically for the callback
+
     const protocol = process.env.NODE_ENV === 'production' ? 'https://' : 'http://';
-    // Use the primary domain in production, or VERCEL_URL if set, or localhost for development
-    const host = process.env.PRIMARY_DOMAIN || process.env.VERCEL_URL || 'localhost:3000'; 
+    const host = process.env.PRIMARY_DOMAIN || process.env.VERCEL_URL || 'localhost:3000';
     const baseUrl = `${protocol}${host}`;
-    
-    // Redirect directly to thank-you page after successful payment
-    const callback_url = `${baseUrl}/checkout/thank-you?orderId=${newOrder.id}`;
-    console.log("Using Paystack Callback URL:", callback_url);
-    
+    const callback_url = `${baseUrl}/checkout/thank-you?orderId=${primaryOrderId}&orderGroupId=${orderGroup.id}`;
+    console.log('Using Paystack Callback URL:', callback_url);
+
     try {
       const paymentResponse = await initializePayment({
         email: user.email as string,
-            amount: Math.round(total * 100), // Kobo
+        amount: Math.round(total * 100),
         metadata: {
-              orderId: newOrder.id,
+          orderGroupId: orderGroup.id,
+          primaryOrderId: primaryOrderId,
           customerId: customer.id,
           agentId: selectedAgent.id,
         },
-            // Use the dynamically generated callback URL
-            callback_url: callback_url,
-          });
-        if (paymentResponse?.status && paymentResponse?.data?.reference) {
-            paymentReference = paymentResponse.data.reference;
-            authorizationUrl = paymentResponse.data.authorization_url;
+        callback_url,
+      });
 
-            // Optionally, update the order with the payment reference immediately
-            await supabase.from('Order').update({ payment_reference: paymentReference }).eq('id', newOrder.id);
-        } else {
-             console.error("Paystack initialization failed:", paymentResponse?.message);
-             // Decide if this should stop the process or allow proceeding without payment URL
-             // For now, we allow proceeding but log the error.
-        }
-    } catch(payError: any) {
-        console.error("Error initializing Paystack payment:", payError);
-        // Allow proceeding without payment URL if initialization fails?
+      if (paymentResponse?.status && paymentResponse?.data?.reference) {
+        paymentReference = paymentResponse.data.reference;
+        authorizationUrl = paymentResponse.data.authorization_url;
+
+        // Store reference on the OrderGroup (could also store on first Order)
+        await supabase
+          .from('OrderGroup')
+          .update({}) // no dedicated field yet – future improvement
+          .eq('id', orderGroup.id);
+      } else {
+        console.error('Paystack initialization failed:', paymentResponse?.message);
+      }
+    } catch (payError: any) {
+      console.error('Error initializing Paystack payment:', payError);
     }
 
-    // 4. Clear cart (use cartData.id from the fetch earlier)
-    if (cartId) { 
-        console.log("Clearing cart with ID:", cartId);
-        const { error: clearCartError } = await supabase
-            .from('CartItem')
-            .delete()
-            .eq('cart_id', cartId);
-        if (clearCartError) {
-             console.error("Error clearing cart items:", clearCartError.message);
-        }
-    } else {
-         console.warn("Could not clear cart, cart ID was not determined earlier.");
+    // OPTIONAL: clear cart after order creation if using server cart
+    if (cartId) {
+      await supabase.from('CartItem').delete().eq('cart_id', cartId);
     }
 
-    // --- Transaction Logic End --- 
-    
-    revalidatePath("/cart");
-    revalidatePath("/customer/orders");
-    
+    console.log('Orders created:', orderIds);
     return {
       success: true,
-      order: {
-        id: newOrder.id,
-        total,
-        agent: {
-          name: selectedAgent.name,
-          address: `${selectedAgent.address_line1}, ${selectedAgent.city}`,
-        },
-      },
+      orderGroupId: orderGroup.id,
+      paymentReference,
+      authorizationUrl, // keep flat for new consumers
       payment: {
-        reference: paymentReference, // May be null if Paystack failed
-        authorizationUrl: authorizationUrl, // May be null if Paystack failed
+        authorizationUrl, // legacy structure expected by front-end
       },
     };
   } catch (error) {

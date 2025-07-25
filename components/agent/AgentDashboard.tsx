@@ -114,6 +114,11 @@ export default function AgentDashboard() {
                       Pickup Code: {order.pickup_code}
                     </p>
                   )}
+                  {order.dropoff_code && (
+                    <p className="text-xs text-gray-600 font-medium mt-1">
+                      Drop-off Code(s): {order.dropoff_code}
+                    </p>
+                  )}
                 </div>
                 {/* Visual cue */}
                 <span className="text-sm text-zervia-600">Details →</span>

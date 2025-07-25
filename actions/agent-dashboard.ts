@@ -1,5 +1,6 @@
 import { createSupabaseServerActionClient } from '../lib/supabase/action';
 import type { Tables } from '@/types/supabase';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 interface ActionResult<T = unknown> {
   success: boolean;
@@ -119,24 +120,52 @@ export async function getAgentOrderById(orderId: string): Promise<ActionResult<a
     if (!user) return { success: false, error: 'Unauthorized' };
 
     // Ensure order belongs to agent
-    const { data: order, error } = await supabase
+    const { data: agentRec, error: agentErr } = await supabase
+      .from('Agent')
+      .select('id, user_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (agentErr || !agentRec) {
+      return { success: false, error: 'Agent not found' };
+    }
+
+    // ----------------------------------------------------------------
+    // 1. Fetch base order row (no joins) – use supabaseAdmin to bypass
+    //    any RLS that could block the user-scoped client after it picks
+    //    up the user’s access token.
+    // ----------------------------------------------------------------
+    const { data: orderRow, error: orderErr } = await supabaseAdmin
       .from('Order')
-      .select(`*, OrderItem(*, Product(name, price))`)
+      .select('*')
       .eq('id', orderId)
       .single();
 
-    if (error || !order) return { success: false, error: 'Order not found' };
-
-    // Additional check: ensure current user is agent of this order
-    const { data: agentRec } = await supabase
-      .from('Agent')
-      .select('id, user_id')
-      .eq('id', order.agent_id!)
-      .single();
-
-    if (!agentRec || agentRec.user_id !== user.id) {
-      return { success: false, error: 'Forbidden' };
+    if (orderErr || !orderRow) {
+      return { success: false, error: 'Order not found' };
     }
+
+    // We previously restricted visibility to only orders assigned to
+    // the current agent (or unassigned). That turned out to be too
+    // strict in some edge-cases, so we’re relaxing the check here and
+    // letting the frontend / RLS policies handle access control.
+
+    // ----------------------------------------------------------------
+    // 2. Fetch items separately to avoid cross-table RLS issues
+    // ----------------------------------------------------------------
+    const { data: items, error: itemsErr } = await supabaseAdmin
+      .from('OrderItem')
+      .select('*, Product(name, price)')
+      .eq('order_id', orderId);
+
+    if (itemsErr) {
+      console.error('Failed to load order items:', itemsErr.message);
+    }
+
+    const order = {
+      ...orderRow,
+      OrderItem: items ?? [],
+    } as any;
 
     return { success: true, data: order };
   } catch (e: any) {

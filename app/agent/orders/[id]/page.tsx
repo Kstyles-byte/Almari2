@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getAgentOrderById } from '@/actions/agent-dashboard';
 import Link from 'next/link';
 import VerifyPickupForm from '@/components/agent/VerifyPickupForm';

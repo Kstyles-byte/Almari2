@@ -15,6 +15,7 @@ function ThankYouContent() {
   const cartCtx = useContext(CartContext);
   const searchParams = useSearchParams();
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderIds, setOrderIds] = useState<string[]>([]);
   const [reference, setReference] = useState<string | null>(null);
   const [pickupCode, setPickupCode] = useState<string | null>(null);
 
@@ -32,6 +33,7 @@ function ThankYouContent() {
   useEffect(() => {
     // Get order information from URL parameters
     const orderIdParam = searchParams.get('orderId');
+    const orderGroupParam = searchParams.get('orderGroupId');
     const referenceParam = searchParams.get('reference');
 
     if (orderIdParam) {
@@ -62,6 +64,18 @@ function ThankYouContent() {
       }
     }
 
+    // Fetch all orders in group if param present
+    if (orderGroupParam) {
+      fetch(`/api/order-groups/${orderGroupParam}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.orders) {
+            setOrderIds(data.orders.map((o: any) => o.id));
+          }
+        })
+        .catch((err) => console.error('Failed to fetch order group:', err));
+    }
+
     if (referenceParam) {
       setReference(referenceParam);
     }
@@ -80,11 +94,11 @@ function ThankYouContent() {
           Your payment has been processed successfully. We've sent a confirmation email with all the details.
         </p>
         
-        {orderId && (
-          <p className="mt-4 text-sm text-gray-500">
-            Order ID: <span className="font-semibold">{orderId}</span>
+        {(orderIds.length > 1 ? orderIds : orderId ? [orderId] : []).map((oid) => (
+          <p key={oid} className="mt-4 text-sm text-gray-500">
+            Order ID: <span className="font-semibold">{oid}</span>
           </p>
-        )}
+        ))}
         
         {reference && (
           <p className="text-sm text-gray-500">
