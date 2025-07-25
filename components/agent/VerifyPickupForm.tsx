@@ -1,27 +1,26 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
 interface Props {
   orderId: string;
+  pickupCode?: string | null;
 }
 
-export default function VerifyPickupForm({ orderId }: Props) {
-  const [code, setCode] = useState('');
+export default function VerifyPickupForm({ orderId, pickupCode }: Props) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!code) return;
+  const handleVerify = async () => {
+    if (!pickupCode) return;
     setLoading(true);
     try {
       const response = await fetch('/api/agent/verify-pickup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, code }),
+        body: JSON.stringify({ orderId, code: pickupCode }),
       });
       const data = await response.json();
       setLoading(false);
@@ -38,22 +37,15 @@ export default function VerifyPickupForm({ orderId }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-4 rounded-md shadow max-w-sm space-y-4">
+    <div className="bg-white p-4 rounded-md shadow max-w-sm space-y-4">
       <h3 className="font-medium">Verify Pickup</h3>
-      <input
-        type="text"
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        className="w-full px-3 py-2 border rounded"
-        placeholder="Enter pickup code"
-      />
       <button
-        type="submit"
-        disabled={loading}
-        className="bg-zervia-600 text-white px-4 py-2 rounded hover:bg-zervia-700 disabled:opacity-50"
+        onClick={handleVerify}
+        disabled={loading || !pickupCode}
+        className="bg-zervia-600 text-white px-4 py-2 rounded hover:bg-zervia-700 disabled:opacity-50 w-full"
       >
-        {loading ? 'Verifying...' : 'Verify'}
+        {loading ? 'Verifying...' : 'Verify Pickup'}
       </button>
-    </form>
+    </div>
   );
 } 

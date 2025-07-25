@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerActionClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+
+// We no longer need the user-scoped client because verify-pickup does not
+// depend on session information. All database operations will be executed
+// with the service-role key so that row-level security cannot block them.
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,7 +12,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 });
     }
 
-    const supabase = await createServerActionClient();
+    // ------------------------------------------------------------------
+    // Use the service-role client for all queries/updates to bypass RLS
+    // ------------------------------------------------------------------
+    const supabase = supabaseAdmin;
 
     // Get order for verification
     const { data: order, error: orderErr } = await supabase

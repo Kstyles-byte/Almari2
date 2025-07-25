@@ -79,7 +79,7 @@ export default async function AgentOrderDetailPage({ params }: Props & { params:
       )}
 
       {order.pickup_status === 'READY_FOR_PICKUP' && (
-        <VerifyPickupForm orderId={order.id} />
+        <VerifyPickupForm orderId={order.id} pickupCode={order.pickup_code} />
       )}
     </div>
   );
