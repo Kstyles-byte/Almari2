@@ -1,4 +1,5 @@
 import { createSupabaseServerActionClient } from '@/lib/supabase/action';
+import { createClient } from '@supabase/supabase-js';
 
 interface DashboardStats {
   userCount: number;
@@ -13,7 +14,26 @@ interface DashboardStats {
  */
 export async function getDashboardStats(): Promise<{ success: true; data: DashboardStats } | { success: false; error: string }> {
   try {
-    const supabase = await createSupabaseServerActionClient(false);
+    // For dashboard stats we want *system-level* access (service-role key)
+    // and we explicitly *avoid* attaching user cookies/session so that the
+    // request is executed with the service role and bypasses any RLS rules
+    // that might reference auth.uid(), which previously caused an
+    // "infinite recursion detected in policy" error on the Order table.
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      }
+    );
+
+    // NOTE: If you later need a client that *does* respect the current user
+    // session inside a server action, continue using
+    // `createSupabaseServerActionClient()`. This override is only for admin
+    // dashboard metrics.
 
     // --- Users ---
     const { count: userCount, error: userErr } = await supabase
@@ -28,12 +48,12 @@ export async function getDashboardStats(): Promise<{ success: true; data: Dashbo
     if (orderErr) throw new Error(orderErr.message);
 
     const completedOrders = orderRows?.filter(
-      (o) => o.status === 'DELIVERED'
+      (o: any) => o.status === 'DELIVERED'
     ) ?? [];
 
     const orderCount = completedOrders.length;
     const totalRevenue = completedOrders.reduce(
-      (acc, cur) => acc + (cur.total_amount as number),
+      (acc: number, cur: any) => acc + (cur.total_amount as number),
       0
     );
 
