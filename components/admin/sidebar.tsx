@@ -80,7 +80,8 @@ export function Sidebar() {
         {navSections.map((section) => (
           <div key={section.header ?? Math.random()} className="mb-2">
             {section.header && (
-              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <div className="flex items-center px-3 py-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <Users className="mr-3 h-4 w-4" />
                 {section.header}
               </div>
             )}
