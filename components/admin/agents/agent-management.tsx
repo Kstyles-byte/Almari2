@@ -58,78 +58,105 @@ interface Agent {
   updated_at: string;
 }
 
-// Mock function to fetch agents - to be replaced with actual API call
+import { getAgents as getAgentsAction, createAgent as createAgentAction, updateAgent as updateAgentAction, deleteAgent as deleteAgentAction, toggleAgentStatus as toggleAgentStatusAction } from '@/actions/admin-agents';
+
+// Function to fetch agents from database
 async function fetchAgents(): Promise<Agent[]> {
-  // In production, this would call the actual service
-  // For now, return mock data
-  return [
-    {
-      id: '1',
-      name: 'John Smith',
-      email: 'john.smith@example.com',
-      phone_number: '08012345678',
-      address_line1: 'Campus Gate, Ikeja',
-      operating_hours: '9AM - 5PM',
-      capacity: 20,
-      is_active: true,
-      created_at: '2023-05-01T10:00:00Z',
-      updated_at: '2023-06-15T14:30:00Z'
-    },
-    {
-      id: '2',
-      name: 'Mary Johnson',
-      email: 'mary.johnson@example.com',
-      phone_number: '08087654321',
-      address_line1: 'Student Union Building, Lagos',
-      operating_hours: '10AM - 6PM',
-      capacity: 15,
-      is_active: true,
-      created_at: '2023-05-05T11:00:00Z',
-      updated_at: '2023-06-20T09:15:00Z'
-    },
-    {
-      id: '3',
-      name: 'David Wilson',
-      email: 'david.wilson@example.com',
-      phone_number: '08023456789',
-      address_line1: 'Faculty of Science, Abuja',
-      operating_hours: '9AM - 4PM',
-      capacity: 10,
-      is_active: false,
-      created_at: '2023-06-10T09:30:00Z',
-      updated_at: '2023-07-01T16:45:00Z'
+  try {
+    const result = await getAgentsAction({ limit: 0 }); // Get all agents
+    if (result?.data) {
+      // Map the database structure to our component structure
+      return result.data.map((agent: any) => ({
+        id: agent.id,
+        name: agent.name,
+        email: agent.email,
+        phone_number: agent.phone_number,
+        address_line1: agent.address_line1,
+        operating_hours: agent.operating_hours || 'Not specified',
+        capacity: agent.capacity,
+        is_active: agent.is_active,
+        created_at: agent.created_at,
+        updated_at: agent.updated_at
+      }));
     }
-  ];
+    return [];
+  } catch (error) {
+    console.error('Error fetching agents:', error);
+    return [];
+  }
 }
 
-// Mock function for creating a new agent
+// Function for creating a new agent
 async function createAgent(agent: Omit<Agent, 'id' | 'created_at' | 'updated_at'>): Promise<Agent> {
-  // In production, this would call the actual service
-  // For now, return mock data with generated ID
-  return {
-    ...agent,
-    id: Math.random().toString(36).substring(2, 9),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
+  // This is a simplified version - in a real implementation you'd need to create a user first
+  // For now, we'll create a mock user_id
+  const mockUserId = 'temp-user-id';
+  
+  const result = await createAgentAction({
+    userId: mockUserId,
+    name: agent.name,
+    email: agent.email,
+    phone: agent.phone_number,
+    location: agent.address_line1,
+    operatingHours: agent.operating_hours,
+    capacity: agent.capacity
+  });
+  
+  if (result.success && result.agent) {
+    return {
+      id: result.agent.id,
+      name: result.agent.name,
+      email: result.agent.email,
+      phone_number: result.agent.phone_number,
+      address_line1: result.agent.address_line1,
+      operating_hours: result.agent.operating_hours || 'Not specified',
+      capacity: result.agent.capacity,
+      is_active: result.agent.is_active,
+      created_at: result.agent.created_at,
+      updated_at: result.agent.updated_at
+    };
+  }
+  
+  throw new Error(result.error || 'Failed to create agent');
 }
 
-// Mock function for updating an agent
+// Function for updating an agent
 async function updateAgent(id: string, agent: Partial<Agent>): Promise<Agent> {
-  // In production, this would call the actual service
-  // For now, return mock data
-  return {
-    ...agent,
-    id,
-    updated_at: new Date().toISOString()
-  } as Agent;
+  const result = await updateAgentAction(id, {
+    name: agent.name,
+    email: agent.email,
+    phone: agent.phone_number,
+    location: agent.address_line1,
+    operatingHours: agent.operating_hours,
+    capacity: agent.capacity,
+    isActive: agent.is_active
+  });
+  
+  if (result.success && result.agent) {
+    return {
+      id: result.agent.id,
+      name: result.agent.name,
+      email: result.agent.email,
+      phone_number: result.agent.phone_number,
+      address_line1: result.agent.address_line1,
+      operating_hours: result.agent.operating_hours || 'Not specified',
+      capacity: result.agent.capacity,
+      is_active: result.agent.is_active,
+      created_at: result.agent.created_at,
+      updated_at: result.agent.updated_at
+    };
+  }
+  
+  throw new Error(result.error || 'Failed to update agent');
 }
 
-// Mock function for deleting an agent
+// Function for deleting an agent
 async function deleteAgent(id: string): Promise<boolean> {
-  // In production, this would call the actual service
-  // For now, just return success
-  return true;
+  const result = await deleteAgentAction(id);
+  if (result.success) {
+    return true;
+  }
+  throw new Error(result.error || 'Failed to delete agent');
 }
 
 export function AgentManagementUI() {

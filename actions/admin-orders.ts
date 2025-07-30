@@ -64,20 +64,44 @@ export async function getOrders({
   status?: string;
   paymentStatus?: string;
 }) {
-  await checkAdminPermission();
-  const supabase = await createSupabaseServerActionClient();
+  try {
+    await checkAdminPermission();
+  } catch (error) {
+    console.error('Admin permission check failed:', error);
+    return { success: false, error: 'Unauthorized access' };
+  }
+  
+  try {
+    // Use direct service role client to bypass RLS issues like dashboard stats
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+        db: {
+          schema: 'public'
+        }
+      }
+    );
 
-  const from = (page - 1) * limit;
-  const to = from + limit - 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
 
-  let query = supabase
-    .from('Order')
-    .select(
-      'id, total_amount, status, payment_status, created_at, customer_id',
-      { count: 'exact' }
-    )
-    .order('created_at', { ascending: false })
-    .range(from, to);
+    let query = supabase
+      .from('Order')
+      .select(
+        'id, total_amount, status, payment_status, created_at, customer_id',
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false });
+  
+  if (limit > 0) {
+    query = query.range(from, to);
+  }
 
   if (status) {
     query = query.eq('status', status);
@@ -92,20 +116,24 @@ export async function getOrders({
     query = query.or(`id.ilike.%${search}%,customer_id.ilike.%${search}%`);
   }
 
-  const { data: orders, error, count } = await query;
+    const { data: orders, error, count } = await query;
 
-  if (error) return { success: false, error: error.message };
+    if (error) return { success: false, error: error.message };
 
-  return {
-    success: true,
-    orders: orders ?? [],
-    pagination: {
-      totalItems: count ?? 0,
-      totalPages: Math.ceil((count ?? 0) / limit),
-      currentPage: page,
-      pageSize: limit,
-    },
-  };
+    return {
+      success: true,
+      orders: orders ?? [],
+      pagination: {
+        totalItems: count ?? 0,
+        totalPages: Math.ceil((count ?? 0) / limit),
+        currentPage: page,
+        pageSize: limit,
+      },
+    };
+  } catch (error: any) {
+    console.error('Error fetching orders:', error);
+    return { success: false, error: error.message || 'Failed to fetch orders' };
+  }
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {

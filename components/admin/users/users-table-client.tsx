@@ -9,6 +9,7 @@ export type UserRow = {
   email: string;
   role: string;
   createdAt: string;
+  formattedDate?: string;
 };
 
 interface Pagination {
@@ -25,16 +26,22 @@ interface Props {
 }
 
 export default function UsersTableClient({ users, pagination, prevPageUrl, nextPageUrl }: Props) {
+  // Format dates before passing to DataTable
+  const formattedUsers = users.map(user => ({
+    ...user,
+    formattedDate: new Date(user.createdAt).toLocaleDateString()
+  }));
+
   const columns: Column<UserRow>[] = [
     { header: 'Name', accessor: 'name', sortable: true },
     { header: 'Email', accessor: 'email', sortable: true },
     { header: 'Role', accessor: 'role', sortable: true },
-    { header: 'Created', accessor: (row) => new Date(row.createdAt).toLocaleDateString(), sortable: true },
+    { header: 'Created', accessor: 'formattedDate', sortable: true },
   ];
 
   return (
     <div className="space-y-6">
-      <DataTable<UserRow> columns={columns} data={users} pagination={pagination} />
+      <DataTable<UserRow> columns={columns} data={formattedUsers} pagination={pagination} />
       <div className="flex justify-between pt-4">
         {prevPageUrl ? (
           <a href={prevPageUrl} className="text-zervia-600 hover:underline">

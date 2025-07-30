@@ -71,15 +71,19 @@ export async function createAgent(data: {
   const supabase = getSupabaseClient(); // Get client instance
   try {
     const insertData = {
-      userId: data.userId,
+      user_id: data.userId,
       name: data.name,
       email: data.email,
-      phone: data.phone,
-      location: data.location,
-      operatingHours: data.operatingHours,
-      capacity: data.capacity || 0,
-      isActive: true, // Default to active?
-      // createdAt/updatedAt handled by DB
+      phone_number: data.phone,
+      address_line1: data.location,
+      address_line2: null,
+      city: 'Not specified',
+      state_province: 'Not specified',
+      postal_code: '00000',
+      country: 'Nigeria',
+      operating_hours: data.operatingHours,
+      capacity: data.capacity || 10,
+      is_active: true, // Default to active?
     };
 
     const { data: agent, error } = await supabase
@@ -113,7 +117,7 @@ export async function getAgentByUserId(userId: string): Promise<Tables<'Agent'> 
     const { data: agent, error } = await supabase
       .from('Agent')
       .select('*')
-      .eq('userId', userId)
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (error) {
@@ -173,10 +177,10 @@ export async function getAllAgents(options?: {
       .select('*' , { count: 'exact' });
 
     if (options?.isActive !== undefined) {
-      query = query.eq('isActive', options.isActive);
+      query = query.eq('is_active', options.isActive);
     }
 
-    query = query.order('createdAt', { ascending: false })
+    query = query.order('created_at', { ascending: false })
                  .range(skip, skip + limit - 1);
 
     const { data: agents, error, count } = await query;
@@ -243,9 +247,18 @@ export async function updateAgent(agentId: string, data: {
 }): Promise<{ success: boolean; agent?: Tables<'Agent'> | null; error?: string }> {
   const supabase = getSupabaseClient(); // Get client instance
   try {
-    // Correct property name from 'updatedAt' to 'updated_at' if needed based on schema
-    // Assuming 'updated_at' is the correct column name in your 'Agent' table
-    const updateData: Partial<Tables<'Agent'>> = { ...data, updated_at: new Date().toISOString() };
+    // Map the input fields to the correct database column names
+    const updateData: Partial<Tables<'Agent'>> = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.phone !== undefined) updateData.phone_number = data.phone;
+    if (data.location !== undefined) updateData.address_line1 = data.location;
+    if (data.operatingHours !== undefined) updateData.operating_hours = data.operatingHours;
+    if (data.capacity !== undefined) updateData.capacity = data.capacity;
+    if (data.isActive !== undefined) updateData.is_active = data.isActive;
 
 
     const { data: agent, error } = await supabase

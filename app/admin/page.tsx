@@ -26,6 +26,11 @@ export default async function AdminDashboard() {
   // Fetch the five most recent orders
   const ordersRes = await getOrders({ limit: 5 });
   const recentOrders = ordersRes.success ? ordersRes.orders : [];
+  
+  // Log any errors for debugging
+  if (!ordersRes.success) {
+    console.error('Failed to fetch recent orders:', ordersRes.error);
+  }
 
   return (
     <AdminLayout>
@@ -79,11 +84,13 @@ export default async function AdminDashboard() {
             <h2 className="text-lg font-semibold mb-4">Recent Orders</h2>
             {recentOrders && recentOrders.length > 0 ? (
               <div className="space-y-4">
-                {recentOrders.map((order) => (
+                {recentOrders.map((order: any) => (
                   <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="font-medium">#{order.id.substring(0, 8)}</p>
                       <p className="text-sm text-zervia-600">₦{Number(order.total_amount).toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">Customer: {order.customer_id.substring(0, 8)}</p>
+                      <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString()}</p>
                     </div>
                     <span
                       className={`px-3 py-1 text-sm rounded-full ${
@@ -91,6 +98,12 @@ export default async function AdminDashboard() {
                           ? 'bg-green-100 text-green-800'
                           : order.status === 'PENDING'
                           ? 'bg-yellow-100 text-yellow-800'
+                          : order.status === 'PROCESSING'
+                          ? 'bg-blue-100 text-blue-800'
+                          : order.status === 'SHIPPED'
+                          ? 'bg-purple-100 text-purple-800'
+                          : order.status === 'CANCELLED'
+                          ? 'bg-red-100 text-red-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}
                     >

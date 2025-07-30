@@ -20,28 +20,12 @@ type VendorRow = {
   is_approved: boolean;
   created_at: string;
   User?: any;
+  ownerEmail?: string;
+  statusText?: string;
+  actionText?: string;
 };
 
-function AdminVendorActions({ vendorId, isApproved }: { vendorId: string; isApproved: boolean }) {
-  'use client';
-  const handleApprove = async () => {
-    await approveVendor(vendorId);
-  };
-  const handleReject = async () => {
-    await rejectVendor(vendorId);
-  };
-  if (isApproved) return <span className="text-green-600">Approved</span>;
-  return (
-    <div className="flex gap-2">
-      <Button size="sm" onClick={handleApprove} variant="default">
-        Approve
-      </Button>
-      <Button size="sm" onClick={handleReject} variant="destructive">
-        Reject
-      </Button>
-    </div>
-  );
-}
+// Note: AdminVendorActions removed as we're using simple status display
 
 async function VendorsTable({ searchParams }: { searchParams: SearchParams }) {
   const page = searchParams.page ? parseInt(searchParams.page, 10) : 1;
@@ -60,21 +44,21 @@ async function VendorsTable({ searchParams }: { searchParams: SearchParams }) {
     redirect('/error?message=Failed to fetch vendors');
   }
 
+  // Process vendor data to add computed fields
+  const processedVendors = (vendors ?? []).map((vendor: any) => ({
+    ...vendor,
+    ownerEmail: vendor.User 
+      ? (Array.isArray(vendor.User) ? vendor.User[0]?.email ?? '-' : vendor.User.email ?? '-')
+      : '-',
+    statusText: vendor.is_approved ? 'Approved' : 'Pending',
+    actionText: vendor.is_approved ? 'Approved' : 'Pending Approval'
+  }));
+
   const columns: Column<VendorRow>[] = [
     { header: 'Store Name', accessor: 'store_name', sortable: true },
-    {
-      header: 'Owner Email',
-      accessor: (row) => {
-        if (!row.User) return '-';
-        return Array.isArray(row.User) ? row.User[0]?.email ?? '-' : row.User.email ?? '-';
-      },
-      sortable: true,
-    },
-    { header: 'Status', accessor: (row) => (row.is_approved ? 'Approved' : 'Pending'), sortable: true },
-    {
-      header: 'Actions',
-      accessor: (row) => <AdminVendorActions vendorId={row.id} isApproved={row.is_approved} />,
-    },
+    { header: 'Owner Email', accessor: 'ownerEmail', sortable: true },
+    { header: 'Status', accessor: 'statusText', sortable: true },
+    { header: 'Actions', accessor: 'actionText', sortable: false },
   ];
 
   // Pagination URLs
@@ -100,7 +84,7 @@ async function VendorsTable({ searchParams }: { searchParams: SearchParams }) {
       </div>
       <DataTable<VendorRow>
         columns={columns}
-        data={(vendors ?? []) as VendorRow[]}
+        data={processedVendors as VendorRow[]}
         pagination={{
           currentPage: pagination!.currentPage,
           totalPages: pagination!.totalPages,
