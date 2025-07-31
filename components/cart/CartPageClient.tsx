@@ -29,6 +29,11 @@ export const CartPageClient: React.FC = () => {
   const [discount, setDiscountLocal] = useState(providerDiscount);
   const [discountCode, setDiscountCodeLocal] = useState<string | null>(providerCode);
 
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Fetch product details
   useEffect(() => {
     (async () => {

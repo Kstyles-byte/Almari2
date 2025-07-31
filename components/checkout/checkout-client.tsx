@@ -78,6 +78,11 @@ export function CheckoutClient({
   
   const isGuest = !userEmail;
 
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Toggle between sign-in and sign-up when guest
   const [authMode, setAuthMode] = useState<'signIn' | 'signUp'>('signIn');
 
