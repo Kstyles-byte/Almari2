@@ -138,7 +138,7 @@ const Header = () => {
             </div>
             
             <Link 
-              href="/account" 
+              href="/dashboard" 
               className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
                 (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               }`}
@@ -274,7 +274,7 @@ const Header = () => {
                 <span>Wishlist</span>
               </Link>
               <Link 
-                href="/account"
+                href="/dashboard"
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center space-x-2 text-zervia-700"
               >
