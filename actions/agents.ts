@@ -50,7 +50,7 @@ export async function getActiveAgents(limit = 3): Promise<AgentShowcaseData[]> {
       name: agent.name || 'Unnamed Location',
       description: agent.address_line1 || 'No address provided.', // Use address_line1 for description
       hours: agent.operating_hours || 'Not specified', // Use operating_hours
-      image: '/images/locations/default-location.jpg' // Keep default image for now
+      image: '/images/location-pin.svg' // Use location pin SVG as default image
     }));
 
   } catch (error) {

@@ -1,0 +1,22 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="60" fill="#F3F4F6"/>
+  
+  <!-- Location pin -->
+  <g transform="translate(30, 20)">
+    <!-- Pin shadow -->
+    <ellipse cx="30" cy="65" rx="8" ry="3" fill="#D1D5DB" opacity="0.6"/>
+    
+    <!-- Pin body -->
+    <path d="M30 10 C30 10, 45 10, 45 25 C45 40, 30 60, 30 60 C30 60, 15 40, 15 25 C15 10, 30 10, 30 10 Z" fill="#8B5CF6"/>
+    
+    <!-- Pin highlight -->
+    <path d="M30 10 C30 10, 40 10, 40 20 C40 30, 30 45, 30 45 C30 45, 20 30, 20 20 C20 10, 30 10, 30 10 Z" fill="#A78BFA" opacity="0.7"/>
+    
+    <!-- Pin hole -->
+    <circle cx="30" cy="35" r="3" fill="#F3F4F6"/>
+  </g>
+  
+  <!-- Text overlay -->
+  <text x="60" y="105" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#6B7280">PICKUP</text>
+</svg> 
