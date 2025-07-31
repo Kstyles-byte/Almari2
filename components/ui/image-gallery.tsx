@@ -48,9 +48,10 @@ export function ImageGallery({ images, className }: ImageGalleryProps) {
     return (
       <div 
         className={cn(
-          "relative aspect-square w-full overflow-hidden rounded-md bg-muted/50 flex items-center justify-center",
+          "relative w-full overflow-hidden rounded-md bg-muted/50 flex items-center justify-center",
           className
         )}
+        style={{ aspectRatio: '1 / 1', minHeight: '400px' }}
       >
         <p className="text-muted-foreground text-sm">No images available</p>
       </div>
@@ -60,7 +61,7 @@ export function ImageGallery({ images, className }: ImageGalleryProps) {
   return (
     <div className={cn("space-y-4", className)}>
       {/* Main image */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-md">
+      <div className="relative w-full overflow-hidden rounded-md bg-gray-100" style={{ aspectRatio: '1 / 1', minHeight: '400px' }}>
         <Image
           src={images[selectedImage].url}
           alt={images[selectedImage].alt}
@@ -156,7 +157,7 @@ export function ImageGallery({ images, className }: ImageGalleryProps) {
             <button
               key={image.id}
               className={cn(
-                "relative h-16 w-16 overflow-hidden rounded-md border-2",
+                "relative h-16 w-16 overflow-hidden rounded-md border-2 bg-gray-100",
                 selectedImage === index
                   ? "border-primary"
                   : "border-transparent hover:border-muted"
