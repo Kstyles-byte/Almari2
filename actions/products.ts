@@ -514,7 +514,11 @@ export async function getProducts({
     const offset = (page - 1) * limit;
     queryBuilder = queryBuilder.range(offset, offset + limit - 1);
 
-    const { data: productsData, error, count } = await queryBuilder;
+const { data: productsData, error, count } = await queryBuilder;
+  
+  console.log("Raw products from database:", productsData);
+  console.log("Query error:", error);
+  console.log("Product count:", count);
 
     if (error) {
       console.error("Error fetching products:", error.message);
@@ -522,6 +526,7 @@ export async function getProducts({
     }
 
     if (!productsData) {
+      console.log("No products data returned");
       return { products: [], count: 0, totalPages: 0 };
     }
 

@@ -33,6 +33,8 @@ interface ProductGridProps {
 }
 
 export function ProductGrid({ products, className, columnsOverride }: ProductGridProps) {
+  console.log("ProductGrid received products:", products);
+  console.log("Product images:", products.map(p => ({ id: p.id, name: p.name, image: p.image })));
   const [isAdding, setIsAdding] = useState<string | null>(null);
   const { add } = useCartActions();
 
@@ -67,7 +69,7 @@ export function ProductGrid({ products, className, columnsOverride }: ProductGri
     <div className={`grid gap-4 ${columnsOverride || defaultGridColumns} ${className || ''}`}>
       {products.map((product) => (
         <Card key={product.id} className="overflow-hidden flex flex-col h-full group relative">
-          <Link href={`/product/${product.slug}`} className="block aspect-square relative">
+          <Link href={`/product/${product.slug}`} className="block relative overflow-hidden h-48 w-full">
             <Image
               src={product.image || '/placeholder-product.jpg'}
               alt={product.name}
