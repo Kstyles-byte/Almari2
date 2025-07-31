@@ -9,6 +9,8 @@ import { Icons } from '../icons';
 import { useCart } from '@/hooks/useCart'; // Use cart hook
 import { SearchBox } from '../ui/search-box'; // Import the SearchBox component
 import { NotificationCenter } from '../notifications/notification-center';
+import { AccountButtonWithLoader } from '../ui/account-button-with-loader';
+import { AccountLinkWithLoader } from '../ui/account-link-with-loader';
 
 const Header = () => {
   const pathname = usePathname(); // Get current pathname
@@ -137,14 +139,9 @@ const Header = () => {
               />
             </div>
             
-            <Link 
-              href="/dashboard" 
-              className={`p-2 rounded-full hover:bg-zervia-50 transition-colors ${
-                (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
-              }`}
-            >
-              <User className="h-5 w-5" />
-            </Link>
+            <AccountButtonWithLoader 
+              className={(isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"}
+            />
             <Link 
               href="/cart" 
               className="relative p-2"
@@ -273,13 +270,12 @@ const Header = () => {
               >
                 <span>Wishlist</span>
               </Link>
-              <Link 
-                href="/dashboard"
+              <AccountLinkWithLoader 
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center space-x-2 text-zervia-700"
+                className="flex items-center space-x-2 text-zervia-700 text-left"
               >
                 <span>Account Settings</span>
-              </Link>
+              </AccountLinkWithLoader>
             </div>
           </div>
         </div>
