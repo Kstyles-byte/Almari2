@@ -52,7 +52,7 @@ export function RelatedProductCard({ product }: RelatedProductCardProps) {
   return (
     <div className="group relative">
       <Link href={`/product/${product.slug}`}>
-        <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-zervia-50 mb-4">
+        <div className="relative w-full rounded-lg overflow-hidden bg-zervia-50 mb-4" style={{ aspectRatio: '1 / 1', minHeight: '200px' }}>
           <Image
             src={product.image || '/placeholder-product.jpg'}
             alt={product.name}
