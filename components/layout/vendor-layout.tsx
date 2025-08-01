@@ -15,7 +15,8 @@ import {
   Menu,
   X,
   Plus,
-  ChevronDown
+  ChevronDown,
+  DollarSign
 } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'sonner';
@@ -42,10 +43,11 @@ export default function VendorLayout({ children, vendorData }: VendorLayoutProps
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [unreadOrders] = useAtom(unreadVendorOrdersCountAtom);
   
-  const navItems = [
+const navItems = [
     { name: 'Dashboard', href: '/vendor/dashboard', icon: Home },
     { name: 'Products', href: '/vendor/products', icon: ShoppingBag },
     { name: 'Orders', href: '/vendor/orders', icon: Package },
+    { name: 'Payouts', href: '/vendor/payouts', icon: DollarSign },
     { name: 'Analytics', href: '/vendor/analytics', icon: BarChart2 },
     { name: 'Settings', href: '/vendor/settings', icon: Settings },
   ];

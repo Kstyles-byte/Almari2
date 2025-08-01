@@ -78,6 +78,47 @@ export default async function VendorDashboardPage() {
 
   const totalRevenue = revenue?.reduce((acc, item) => acc + (item.price_at_purchase * item.quantity), 0) || 0;
 
+  // Get vendor commission rate and calculate available balance
+  const { data: vendorDetails } = await supabaseAdmin
+    .from('Vendor')
+    .select('commission_rate')
+    .eq('id', vendorData.id)
+    .single();
+
+  const vendorCommissionRate = vendorDetails?.commission_rate || 5;
+
+  // Calculate earnings and available balance
+  const { data: deliveredItems } = await supabaseAdmin
+    .from('OrderItem')
+    .select('price_at_purchase, quantity, commission_amount')
+    .eq('vendor_id', vendorData.id)
+    .eq('status', 'DELIVERED');
+
+  let totalEarnings = 0;
+  let totalCommission = 0;
+
+  if (deliveredItems) {
+    deliveredItems.forEach(item => {
+      const itemTotal = item.price_at_purchase * item.quantity;
+      totalEarnings += itemTotal;
+      totalCommission += item.commission_amount || (itemTotal * vendorCommissionRate / 100);
+    });
+  }
+
+  // Get previous payouts
+  const { data: payouts } = await supabaseAdmin
+    .from('Payout')
+    .select('amount')
+    .eq('vendor_id', vendorData.id)
+    .eq('status', 'COMPLETED');
+
+  const totalPaidOut = payouts
+    ? payouts.reduce((sum, payout) => sum + payout.amount, 0)
+    : 0;
+
+  const netEarnings = totalEarnings - totalCommission;
+  const availableBalance = netEarnings - totalPaidOut;
+
   // NEW: calculate sales growth (current 30 days vs previous 30 days)
   const now = new Date();
   const startCurrent = new Date();
@@ -142,6 +183,23 @@ export default async function VendorDashboardPage() {
             </div>
           </div>
         ))}
+      </div>
+      
+      {/* Earnings Summary */}
+      <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 mb-8 text-white">
+        <h3 className="text-lg font-semibold mb-4">Available for Payout</h3>
+        <div className="flex items-baseline justify-between">
+          <div>
+            <p className="text-3xl font-bold">₦{availableBalance.toLocaleString()}</p>
+            <p className="text-sm opacity-90 mt-1">After {vendorCommissionRate}% commission</p>
+          </div>
+          <Link 
+            href="/vendor/payouts" 
+            className="bg-white text-purple-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-50 transition-colors"
+          >
+            Request Payout →
+          </Link>
+        </div>
       </div>
 
       {/* Recent Orders */}

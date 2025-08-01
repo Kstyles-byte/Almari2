@@ -26,15 +26,15 @@ export default async function VendorPayoutsPage() {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   if (!user) {
     return <div>Loading...</div>;
   }
 
-  // Get vendor ID
+  // Fetch vendor ID, commission rate, and bank details
   const { data: vendorData, error: vendorError } = await supabase
     .from('Vendor')
-    .select('id')
+    .select('id, commission_rate, bank_name, account_number, account_name')
     .eq('user_id', user.id)
     .single();
 
@@ -42,8 +42,22 @@ export default async function VendorPayoutsPage() {
     return <div>Error loading vendor data</div>;
   }
 
+  // Use service-role key to bypass RLS for vendor's own data
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        // We are only reading with the service role so cookie helpers can be no-ops
+        get() { return undefined },
+        set() {},
+        remove() {},
+      },
+    }
+  );
+
   // Fetch completed orders to calculate total earnings
-  const { data: completedOrderItems, error: earningsError } = await supabase
+  const { data: completedOrderItems, error: earningsError } = await supabaseAdmin
     .from('OrderItem')
     .select('price_at_purchase, quantity, commission_amount')
     .eq('vendor_id', vendorData.id)
@@ -51,6 +65,7 @@ export default async function VendorPayoutsPage() {
 
   if (earningsError) {
     console.error('Error fetching earnings data:', earningsError);
+    return <div>Error fetching earnings data: {earningsError.message}</div>;
   }
 
   // Calculate total earnings and commissions
@@ -138,6 +153,25 @@ export default async function VendorPayoutsPage() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Earnings & Payouts</h1>
       
+      {/* Commission Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3 flex-1">
+            <h3 className="text-sm font-medium text-blue-800">
+              Commission Information
+            </h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <p>Your current commission rate is <span className="font-semibold">{vendorData.commission_rate || 5}%</span>. This is automatically deducted from your sales when calculating available balance.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
@@ -190,7 +224,67 @@ export default async function VendorPayoutsPage() {
               <h2 className="font-semibold text-gray-900">Request Payout</h2>
             </div>
             <div className="p-6">
-              <PayoutRequestForm availableBalance={availableBalance} />
+              <PayoutRequestForm 
+                availableBalance={availableBalance} 
+                vendorData={{
+                  bank_name: vendorData.bank_name,
+                  account_number: vendorData.account_number,
+                  account_name: vendorData.account_name
+                }}
+              />
+            </div>
+          </div>
+          
+          {/* Payout Information */}
+          <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">How Payouts Work</h2>
+            </div>
+            <div className="p-6 space-y-4 text-sm text-gray-600">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-zervia-100 flex items-center justify-center">
+                    <span className="text-xs font-semibold text-zervia-600">1</span>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="font-medium text-gray-900">Complete Orders</p>
+                  <p>Earnings are added to your balance when orders are marked as delivered.</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-zervia-100 flex items-center justify-center">
+                    <span className="text-xs font-semibold text-zervia-600">2</span>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="font-medium text-gray-900">Request Payout</p>
+                  <p>Submit a payout request with your bank details (minimum ₦5,000).</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-zervia-100 flex items-center justify-center">
+                    <span className="text-xs font-semibold text-zervia-600">3</span>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="font-medium text-gray-900">Admin Review</p>
+                  <p>Your request will be reviewed and processed within 2-3 business days.</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-zervia-100 flex items-center justify-center">
+                    <span className="text-xs font-semibold text-zervia-600">4</span>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="font-medium text-gray-900">Receive Payment</p>
+                  <p>Funds will be transferred to your bank account upon approval.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -6,9 +6,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { createPayoutRequest } from '@/actions/vendor-orders';
+import { useRouter } from 'next/navigation';
 
 interface PayoutRequestFormProps {
   availableBalance: number;
+  vendorData?: {
+    bank_name?: string;
+    account_number?: string;
+    account_name?: string;
+  };
 }
 
 // Form validation schema
@@ -26,8 +33,9 @@ const payoutSchema = z.object({
 
 type PayoutFormData = z.infer<typeof payoutSchema>;
 
-export default function PayoutRequestForm({ availableBalance }: PayoutRequestFormProps) {
+export default function PayoutRequestForm({ availableBalance, vendorData }: PayoutRequestFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
   
   const {
     register,
@@ -39,9 +47,9 @@ export default function PayoutRequestForm({ availableBalance }: PayoutRequestFor
   } = useForm<PayoutFormData>({
     resolver: zodResolver(payoutSchema),
     defaultValues: {
-      accountName: '',
-      accountNumber: '',
-      bankName: '',
+      accountName: vendorData?.account_name || '',
+      accountNumber: vendorData?.account_number || '',
+      bankName: vendorData?.bank_name || '',
       amount: undefined,
     },
   });
@@ -63,15 +71,24 @@ export default function PayoutRequestForm({ availableBalance }: PayoutRequestFor
 
     try {
       console.log('Submitting payout request:', data);
-      // This would be a server action in a real implementation
-      // await createPayoutRequest(data);
       
-      await new Promise(res => setTimeout(res, 1500));
+      // Create FormData for server action
+      const formData = new FormData();
+      formData.append('amount', data.amount.toString());
+      formData.append('accountName', data.accountName);
+      formData.append('accountNumber', data.accountNumber);
+      formData.append('bankName', data.bankName);
       
-      toast.success('Payout request submitted successfully');
-      reset();
+      const result = await createPayoutRequest(formData);
       
-      // In a real app, we would revalidate the page here to show updated data
+      if (result.success) {
+        toast.success('Payout request submitted successfully');
+        reset();
+        // Refresh the page to show updated balance and payout history
+        router.refresh();
+      } else {
+        toast.error(result.error || 'Failed to submit payout request');
+      }
     } catch (error) {
       console.error('Error submitting payout request:', error);
       toast.error('Failed to submit payout request');
@@ -133,6 +150,7 @@ export default function PayoutRequestForm({ availableBalance }: PayoutRequestFor
           {...register('bankName')}
           className="block w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
           disabled={isSubmitting}
+          placeholder="e.g. Access Bank, GTBank, First Bank"
         />
         {errors.bankName && <p className="mt-1 text-sm text-red-600">{errors.bankName.message}</p>}
       </div>
@@ -147,6 +165,7 @@ export default function PayoutRequestForm({ availableBalance }: PayoutRequestFor
           {...register('accountName')}
           className="block w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
           disabled={isSubmitting}
+          placeholder="Your full name as it appears on your account"
         />
         {errors.accountName && <p className="mt-1 text-sm text-red-600">{errors.accountName.message}</p>}
       </div>
@@ -162,6 +181,7 @@ export default function PayoutRequestForm({ availableBalance }: PayoutRequestFor
           className="block w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
           disabled={isSubmitting}
           maxLength={10}
+          placeholder="10-digit account number"
         />
         {errors.accountNumber && <p className="mt-1 text-sm text-red-600">{errors.accountNumber.message}</p>}
       </div>

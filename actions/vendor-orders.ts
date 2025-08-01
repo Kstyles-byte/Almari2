@@ -70,26 +70,72 @@ export async function createPayoutRequest(formData: FormData): Promise<{ success
 
     const amountStr = formData.get("amount") as string;
     const amount = Number(amountStr);
+    const accountName = formData.get("accountName") as string;
+    const accountNumber = formData.get("accountNumber") as string;
+    const bankName = formData.get("bankName") as string;
 
     if (!amountStr || isNaN(amount) || amount <= 0) {
       return { success: false, error: "Valid positive amount is required" };
+    }
+
+    if (!accountName || !accountNumber || !bankName) {
+      return { success: false, error: "Bank details are required" };
     }
 
     // Get vendor profile
     const vendor = await getVendorByUserId(session.user.id);
     if (!vendor) return { success: false, error: "Vendor profile not found" };
 
-    // TODO: Add logic to check if vendor's available balance is sufficient for the payout amount.
-    // This would require calculating completed/paid order item totals minus previous payouts.
+    // Check if vendor's available balance is sufficient
+    // First get completed order totals
+    const { data: completedOrderItems } = await supabase
+      .from('OrderItem')
+      .select('price_at_purchase, quantity, commission_amount')
+      .eq('vendor_id', vendor.id)
+      .eq('status', 'DELIVERED');
 
-    // Create payout request using Supabase
+    let totalEarnings = 0;
+    let totalCommission = 0;
+
+    if (completedOrderItems) {
+      completedOrderItems.forEach(item => {
+        const itemTotal = item.price_at_purchase * item.quantity;
+        totalEarnings += itemTotal;
+        totalCommission += item.commission_amount || (itemTotal * 0.05);
+      });
+    }
+
+    // Get previous payouts
+    const { data: previousPayouts } = await supabase
+      .from('Payout')
+      .select('amount')
+      .eq('vendor_id', vendor.id)
+      .in('status', ['COMPLETED', 'PENDING']);
+
+    const totalPaidOut = previousPayouts
+      ? previousPayouts.reduce((sum, payout) => sum + payout.amount, 0)
+      : 0;
+
+    const netEarnings = totalEarnings - totalCommission;
+    const availableBalance = netEarnings - totalPaidOut;
+
+    if (amount > availableBalance) {
+      return { success: false, error: "Insufficient available balance" };
+    }
+
+    // Create payout request with bank details
     const { error } = await supabase
-      .from('Payout') // Ensure table name matches
+      .from('Payout')
       .insert({
-        vendorId: vendor.id,
+        vendor_id: vendor.id,
         amount: amount,
-        status: "PENDING" as PayoutStatus, // Cast status to type
-        // createdAt/updatedAt handled by DB
+        request_amount: amount,
+        status: "PENDING" as PayoutStatus,
+        bank_details: {
+          accountName,
+          accountNumber,
+          bankName
+        }
       });
 
     if (error) {
