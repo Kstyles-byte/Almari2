@@ -208,7 +208,7 @@ export async function updateOrderItemStatus(orderItemId: string, newStatus: stri
   }
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createServerActionClient({ cookies: () => cookieStore });
 
     // First get the current user and fetch their vendor ID
@@ -291,7 +291,7 @@ export async function updateAllVendorOrderItems(orderId: string, newStatus: stri
   }
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createServerActionClient({ cookies: () => cookieStore });
 
     // First get the current user

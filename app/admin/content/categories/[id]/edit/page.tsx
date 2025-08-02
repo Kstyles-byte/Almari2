@@ -6,7 +6,7 @@ import { getCategoryById, getAllCategories, updateCategory } from '../../../../.
 import type { Category } from '@/types';
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,8 @@ export const metadata = {
   title: 'Edit Category | Zervia Admin',
 };
 
-export default async function EditCategoryPage({ params }: Props) {
+export default async function EditCategoryPage(props: Props) {
+  const params = await props.params;
   // Next.js requires awaiting params for dynamic usage
   const { id } = await Promise.resolve(params);
   const category = await getCategoryById(id);

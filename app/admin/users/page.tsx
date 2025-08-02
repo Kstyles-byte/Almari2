@@ -69,7 +69,8 @@ async function UsersTable({ searchParams }: { searchParams: SearchParams }) {
 
 const UsersTableClient = dynamic(() => import('@/components/admin/users/users-table-client'));
 
-export default async function UsersPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function UsersPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   return (
     <AdminLayout>
       <Suspense fallback={<div>Loading users...</div>}>

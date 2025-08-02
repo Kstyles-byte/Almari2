@@ -4,11 +4,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 import { notFound } from 'next/navigation';
 
-export default async function OrderInvoicePage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function OrderInvoicePage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const { order, error } = await getOrderById(params.id);
 
   if (error || !order) {

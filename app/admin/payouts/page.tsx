@@ -1,15 +1,32 @@
-import React, { Suspense } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
-import PayoutsTable from './payouts-table';
+import { getPayoutRequests, getFinancialStats } from '@/actions/payouts';
+import PayoutManagementTable from '@/components/admin/payout-management-table';
+import FinancialOverview from '@/components/admin/financial-overview';
 
-export default function PayoutsPage() {
+export default async function PayoutsPage() {
+  const [payoutResult, statsResult] = await Promise.all([
+    getPayoutRequests(),
+    getFinancialStats()
+  ]);
+  
   return (
     <AdminLayout>
       <div className="container mx-auto">
         <h1 className="text-2xl font-bold mb-6">Payout Management</h1>
-        <Suspense fallback={<div>Loading payouts...</div>}>
-          <PayoutsTable />
-        </Suspense>
+        
+        {/* Financial Overview */}
+        {statsResult.success && (
+          <FinancialOverview stats={statsResult.data} />
+        )}
+        
+        {/* Payout Requests Table */}
+        {payoutResult.success ? (
+          <PayoutManagementTable payouts={payoutResult.data || []} />
+        ) : (
+          <div className="text-red-600">
+            Error loading payouts: {payoutResult.error}
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

@@ -14,10 +14,8 @@ const supabaseAdmin = createClient(
 /**
  * API handler for getting a specific notification by ID
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Check for API key in headers
     const apiKey = request.headers.get('x-api-key');
@@ -62,10 +60,8 @@ export async function GET(
 /**
  * API handler for updating a notification (mark as read)
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Check for API key in headers
     const apiKey = request.headers.get('x-api-key');
@@ -109,10 +105,8 @@ export async function PATCH(
 /**
  * API handler for deleting a notification
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Check for API key in headers
     const apiKey = request.headers.get('x-api-key');

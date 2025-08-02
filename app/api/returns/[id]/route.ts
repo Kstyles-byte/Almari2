@@ -21,7 +21,7 @@ type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -33,7 +33,7 @@ export async function GET(
       );
     }
     
-    const returnId = context.params.id;
+    const returnId = (await context.params).id;
     
     const returnData = await getReturnById(returnId);
     
@@ -87,7 +87,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -99,7 +99,7 @@ export async function PUT(
       );
     }
     
-    const returnId = context.params.id;
+    const returnId = (await context.params).id;
     if (!returnId) return NextResponse.json({ error: "Return ID required" }, { status: 400 });
     const body = await request.json();
     

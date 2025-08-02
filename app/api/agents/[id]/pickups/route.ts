@@ -18,7 +18,7 @@ type PickupStatus = 'PENDING' | 'READY_FOR_PICKUP' | 'PICKED_UP';
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -31,7 +31,7 @@ export async function GET(
       );
     }
     
-    const agentId = context.params.id;
+    const agentId = (await context.params).id;
     
     // Get agent
     const agent = await getAgentById(agentId);
@@ -129,7 +129,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -142,7 +142,7 @@ export async function POST(
       );
     }
     
-    const agentId = context.params.id;
+    const agentId = (await context.params).id;
     
     // Get agent
     const agent = await getAgentById(agentId);

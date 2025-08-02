@@ -18,7 +18,8 @@ import {
   Shield,
   UserCog,
   Store,
-  ChevronDown
+  ChevronDown,
+  DollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         { title: 'Content', href: '/admin/content', icon: <ImageIcon className="h-5 w-5" /> },
         { title: 'Products', href: '/admin/products', icon: <Package className="h-5 w-5" /> },
         { title: 'Orders', href: '/admin/orders', icon: <ShoppingBag className="h-5 w-5" /> },
+        { title: 'Payouts', href: '/admin/payouts', icon: <DollarSign className="h-5 w-5" /> },
         { title: 'Coupons', href: '/admin/coupons', icon: <Percent className="h-5 w-5" /> },
       ],
     },

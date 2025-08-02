@@ -74,7 +74,8 @@ async function ProductsTable({ searchParams }: { searchParams: SearchParams }) {
   );
 }
 
-export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function ProductsPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   return (
     <AdminLayout>
       <Suspense fallback={<div>Loading products...</div>}>

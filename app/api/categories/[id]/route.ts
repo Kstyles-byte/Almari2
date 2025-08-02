@@ -15,10 +15,10 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const categoryId = context.params.id;
+    const categoryId = (await context.params).id;
     if (!categoryId) return NextResponse.json({ error: "Category ID required" }, { status: 400 });
     
     // Fetch category with parent, children, and product count using Supabase
@@ -67,7 +67,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -80,7 +80,7 @@ export async function PUT(
       );
     }
     
-    const categoryId = context.params.id;
+    const categoryId = (await context.params).id;
     if (!categoryId) return NextResponse.json({ error: "Category ID required" }, { status: 400 });
 
     const body = await request.json();
@@ -196,7 +196,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -209,7 +209,7 @@ export async function DELETE(
       );
     }
     
-    const categoryId = context.params.id;
+    const categoryId = (await context.params).id;
      if (!categoryId) return NextResponse.json({ error: "Category ID required" }, { status: 400 });
 
     // Check for subcategories using Supabase

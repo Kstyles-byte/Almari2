@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Note: Supabase SSR guide uses createServerClient which takes cookies.
     // Our current server client in lib/supabase/server.ts doesn't explicitly take cookies.
     // Let's assume it works as is for now, or adjust if needed based on Supabase SSR setup.
-    const cookieStore = cookies() 
+    const cookieStore = await cookies() 
     // const supabase = createClient(cookieStore); // If client needed cookies
     const supabase = await createServerActionClient() // Await client creation
 

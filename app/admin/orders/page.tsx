@@ -74,7 +74,8 @@ async function OrdersTable({ searchParams }: { searchParams: SearchParams }) {
   );
 }
 
-export default async function OrdersPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function OrdersPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   return (
     <AdminLayout>
       <Suspense fallback={<div>Loading orders...</div>}>

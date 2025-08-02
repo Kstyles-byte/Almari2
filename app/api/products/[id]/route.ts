@@ -18,10 +18,10 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const productId = context.params.id;
+    const productId = (await context.params).id;
     if (!productId) {
         return NextResponse.json({ error: "Product ID is required" }, { status: 400 });
     }
@@ -74,11 +74,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    const productId = context.params.id;
+    const productId = (await context.params).id;
     if (!productId) return NextResponse.json({ error: "Product ID required" }, { status: 400 });
 
     // Check auth
@@ -178,11 +178,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    const productId = context.params.id;
+    const productId = (await context.params).id;
     if (!productId) return NextResponse.json({ error: "Product ID required" }, { status: 400 });
 
     // Check auth

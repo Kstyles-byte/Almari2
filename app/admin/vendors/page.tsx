@@ -39,7 +39,8 @@ async function VendorsPageContent({ searchParams }: { searchParams: SearchParams
   return <VendorsTable vendors={processedVendors} pagination={pagination} searchParams={searchParams} />;
 }
 
-export default async function VendorsPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function VendorsPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   return (
     <AdminLayout>
       <Suspense fallback={<div>Loading vendors...</div>}>

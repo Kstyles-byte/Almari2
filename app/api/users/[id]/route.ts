@@ -13,11 +13,11 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    const userId = context.params.id;
+    const userId = (await context.params).id;
     
     // Users can only fetch their own data unless they are an admin
     if (
@@ -71,11 +71,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    const userId = context.params.id;
+    const userId = (await context.params).id;
     
     // Users can only update their own data unless they are an admin
     if (
@@ -160,11 +160,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    const userId = context.params.id;
+    const userId = (await context.params).id;
     
     // Users can only delete their own account unless they are an admin
     if (

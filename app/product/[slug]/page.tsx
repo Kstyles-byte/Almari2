@@ -17,10 +17,8 @@ import { ReviewItem } from '../../../components/products/ReviewItem'; // Import 
 import { WriteReviewButton } from '@/components/products/WriteReviewButton'; // Import the WriteReviewButton
 
 // Dynamic Metadata Generation
-export async function generateMetadata(
-  { params }: { params: { slug: string } },
-  parent: ResolvingMetadata
-): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }, parent: ResolvingMetadata): Promise<Metadata> {
+  const params = await props.params;
   const product = await getProductBySlug(params.slug);
 
   if (!product) {
@@ -68,15 +66,16 @@ const pickupLocations = [
 ];
 
 // Make the component async to fetch data
-export default async function ProductDetail({ params }: { params: { slug: string } }) {
-  
+export default async function ProductDetail(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
+
   const product = await getProductBySlug(params.slug);
 
   // If product is not found, render the 404 page
   if (!product) {
     notFound();
   }
-  
+
   // Extract reviews and related products for easier access
   const reviews = product.reviews || [];
   const relatedProducts = product.relatedProducts || [];
@@ -109,7 +108,6 @@ export default async function ProductDetail({ params }: { params: { slug: string
           <span className="text-zervia-900">{product.name}</span>
         </div>
       </div>
-
       {/* Product display */}
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -291,7 +289,7 @@ export default async function ProductDetail({ params }: { params: { slug: string
                   {/* Individual reviews */}
                   <div className="space-y-6">
                     {reviews.map((review) => (
-                      <ReviewItem key={review.id} review={review} /> // Use the new component
+                      (<ReviewItem key={review.id} review={review} />) // Use the new component
                     ))}
                      {/* TODO: Add pagination for reviews if needed */} 
                   </div>
@@ -321,7 +319,7 @@ export default async function ProductDetail({ params }: { params: { slug: string
               {/* Map over relatedProducts and use RelatedProductCard */}
               {relatedProducts.map((relatedProduct) => (
                 // Pass the whole relatedProduct object as a prop
-                <RelatedProductCard key={relatedProduct.id} product={relatedProduct} />
+                (<RelatedProductCard key={relatedProduct.id} product={relatedProduct} />)
               ))}
             </div>
           </div>

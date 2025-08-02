@@ -8,7 +8,7 @@ import {
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -21,7 +21,7 @@ export async function GET(
       );
     }
     
-    const vendorId = context.params.id;
+    const vendorId = (await context.params).id;
     
     // Get vendor
     const vendor = await getVendorById(vendorId);
@@ -56,7 +56,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -69,7 +69,7 @@ export async function PUT(
       );
     }
     
-    const vendorId = context.params.id;
+    const vendorId = (await context.params).id;
     
     // Get vendor
     const vendor = await getVendorById(vendorId);
@@ -145,7 +145,7 @@ export async function PUT(
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -158,7 +158,7 @@ export async function PATCH(
       );
     }
     
-    const vendorId = context.params.id;
+    const vendorId = (await context.params).id;
     
     // Get vendor
     const vendor = await getVendorById(vendorId);

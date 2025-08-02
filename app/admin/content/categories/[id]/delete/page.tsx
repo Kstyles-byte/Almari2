@@ -3,11 +3,12 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { getCategoryById, deleteCategory } from '../../../../../../actions/content';
 
-interface Props { params: { id: string } }
+interface Props { params: Promise<{ id: string }> }
 
 export const metadata = { title: 'Delete Category | Zervia Admin' };
 
-export default async function DeleteCategoryPage({ params }: Props) {
+export default async function DeleteCategoryPage(props: Props) {
+  const params = await props.params;
   const { id } = await Promise.resolve(params);
   const category = await getCategoryById(id);
   if (!category) redirect('/admin/content/categories');

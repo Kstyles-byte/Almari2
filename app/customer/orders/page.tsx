@@ -45,11 +45,12 @@ interface Order {
   returnDeadline?: string;
 }
 
-export default async function CustomerOrdersPage({
-  searchParams,
-}: {
-  searchParams: { status?: string };
-}) {
+export default async function CustomerOrdersPage(
+  props: {
+    searchParams: Promise<{ status?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const status = searchParams.status || 'all';
   const { orders = [], error } = await getUserOrders(status !== 'all' ? status : undefined);
 

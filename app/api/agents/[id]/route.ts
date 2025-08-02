@@ -13,7 +13,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -25,7 +25,7 @@ export async function GET(
       );
     }
     
-    const agentId = context.params.id;
+    const agentId = (await context.params).id;
     
     const { data: agent, error: fetchError } = await supabase
       .from('Agent')
@@ -71,7 +71,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -83,7 +83,7 @@ export async function PUT(
       );
     }
     
-    const agentId = context.params.id;
+    const agentId = (await context.params).id;
     const body = await request.json();
     
     const { data: agent, error: fetchError } = await supabase
@@ -156,7 +156,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -175,7 +175,7 @@ export async function DELETE(
       );
     }
     
-    const agentId = context.params.id;
+    const agentId = (await context.params).id;
     
     const { data: agent, error: fetchError } = await supabase
       .from('Agent')

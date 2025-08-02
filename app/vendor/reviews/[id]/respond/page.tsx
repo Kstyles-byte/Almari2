@@ -8,7 +8,8 @@ import ReviewResponseForm from '@/components/vendor/review-response-form';
 
 export const dynamic = 'force-dynamic';
 
-export default async function RespondToReviewPage({ params }: { params: { id: string } }) {
+export default async function RespondToReviewPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { id } = params;
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -30,7 +31,7 @@ export default async function RespondToReviewPage({ params }: { params: { id: st
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   if (!user) {
     return <div>Loading...</div>;
   }

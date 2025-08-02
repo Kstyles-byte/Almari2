@@ -6,9 +6,9 @@ import { notFound, redirect } from 'next/navigation';
 import ProductForm from '@/components/vendor/product-form';
 
 interface Props {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export const revalidate = 0;
 // Get the product data on the server side
 export default async function EditProductPage(props: Props) {
   // Extract ID directly from props without destructuring params
-  const productId = props.params.id;
+  const productId = (await props.params).id;
   
   if (!productId) {
     return redirect('/vendor/products');

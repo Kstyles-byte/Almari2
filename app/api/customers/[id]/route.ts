@@ -9,7 +9,7 @@ import {
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -22,7 +22,7 @@ export async function GET(
       );
     }
     
-    const customerId = context.params.id;
+    const customerId = (await context.params).id;
     
     // Get customer
     const customer = await getCustomerById(customerId);
@@ -57,7 +57,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -70,7 +70,7 @@ export async function PUT(
       );
     }
     
-    const customerId = context.params.id;
+    const customerId = (await context.params).id;
     
     // Get customer
     const customer = await getCustomerById(customerId);

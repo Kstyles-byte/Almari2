@@ -4,11 +4,12 @@ import { Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { notFound } from 'next/navigation';
 
-export default async function OrderTrackingPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function OrderTrackingPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const { order, error } = await getOrderById(params.id);
 
   if (error || !order) {

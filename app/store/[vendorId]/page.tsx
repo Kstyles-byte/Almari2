@@ -4,13 +4,15 @@ import { getVendorStoreMeta, getVendorStoreProducts } from '@/actions/store';
 import { ProductGrid } from '@/components/products/product-grid';
 
 interface StorePageProps {
-  params: { vendorId: string };
-  searchParams: { [key: string]: string | string[] | undefined };
+  params: Promise<{ vendorId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 export const dynamic = 'force-dynamic';
 
-export default async function StorePage({ params, searchParams }: StorePageProps) {
+export default async function StorePage(props: StorePageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const vendorId = params.vendorId;
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined;
   const page = searchParams.page ? Number(searchParams.page) : 1;

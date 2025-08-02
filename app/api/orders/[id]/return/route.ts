@@ -15,7 +15,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -36,7 +36,7 @@ export async function POST(
       );
     }
     
-    const orderId = context.params.id;
+    const orderId = (await context.params).id;
     if (!orderId) return NextResponse.json({ error: "Order ID required" }, { status: 400 });
     const body = await request.json();
     
