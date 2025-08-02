@@ -1302,7 +1302,151 @@ Remaining
 
 Current milestone: core validation & order integration is live and testable.  Next milestone: finish DB hardening & build the admin/vendor UI so coupons like **TEST10** can be created from the website instead of directly in the DB.
 
+### Phase 3.7: Refund System Implementation 🚧
 
+A comprehensive refund system that allows customers to request refunds, vendors to process them, and admins to oversee the process with payout hold management.
 
+────────────────────────────────────────
+Refund System Overview
+────────────────────────────────────────
+1. **Customer Flow**: Order history → Request refund → Fill form → Track status
+2. **Vendor Flow**: Receive notification → Review request → Approve/reject → Process refund
+3. **Admin Flow**: Monitor refunds → Override decisions → Manage payout holds → Approve payouts
+4. **Financial Integration**: Paystack refund processing → Commission adjustments → Payout calculations
 
+────────────────────────────────────────
+Implementation Tasks
+────────────────────────────────────────
 
+#### Phase 1: Database Schema Enhancement
+- [ ] Create RefundRequest table for enhanced refund tracking
+- [ ] Create PayoutHold table for admin payout hold management
+- [ ] Add refund-related fields to existing Return table
+- [ ] Enhance Payout table with hold management capabilities
+- [ ] Create database enums for RefundRequestStatus and PayoutHoldStatus
+- [ ] Set up RLS policies for new tables
+- [ ] Create database indexes for performance optimization
+
+#### Phase 2: Backend API Development
+- [ ] Create refund request API endpoints
+  - [ ] `POST /api/refunds/request` - Create refund request
+  - [ ] `GET /api/refunds/customer/:customerId` - Customer refund history
+  - [ ] `GET /api/refunds/vendor/:vendorId` - Vendor refund management
+  - [ ] `PUT /api/refunds/:id/approve` - Approve refund
+  - [ ] `PUT /api/refunds/:id/reject` - Reject refund
+- [ ] Create payout management API endpoints
+  - [ ] `GET /api/payouts/vendor/:vendorId/holds` - Get payout holds
+  - [ ] `POST /api/payouts/holds` - Create payout hold
+  - [ ] `PUT /api/payouts/holds/:id/release` - Release payout hold
+  - [ ] `GET /api/payouts/refund-impact` - Calculate refund impact
+- [ ] Create admin oversight API endpoints
+  - [ ] `GET /api/admin/refunds` - All refunds with filtering
+  - [ ] `PUT /api/admin/refunds/:id/override` - Override vendor decision
+  - [ ] `GET /api/admin/payouts/pending-refunds` - Payouts with refund holds
+  - [ ] `POST /api/admin/payouts/:id/approve-with-holds` - Approve payout with holds
+- [ ] Implement Paystack refund integration
+- [ ] Create server actions for refund management
+- [ ] Implement notification system for refund events
+
+#### Phase 3: Frontend Development
+- [ ] Customer Interface
+  - [ ] Refund request form (`/dashboard/orders/[orderId]/refund`)
+  - [ ] Refund tracking page (`/dashboard/refunds`)
+  - [ ] Refund history integration in order details
+  - [ ] Refund eligibility validation
+  - [ ] Photo upload for refund evidence
+- [ ] Vendor Interface
+  - [ ] Refund management dashboard (`/vendor/dashboard/refunds`)
+  - [ ] Refund detail view (`/vendor/refunds/[id]`)
+  - [ ] Bulk refund processing interface
+  - [ ] Payout hold notifications
+  - [ ] Refund analytics dashboard
+- [ ] Admin Interface
+  - [ ] Refund oversight (`/admin/refunds`)
+  - [ ] Payout management (`/admin/payouts`)
+  - [ ] Analytics dashboard (`/admin/analytics/refunds`)
+  - [ ] Dispute resolution interface
+  - [ ] Payout hold management
+
+#### Phase 4: Integration & Testing
+- [ ] Paystack Integration
+  - [ ] Implement automatic refund processing
+  - [ ] Add refund status webhooks
+  - [ ] Handle failed refund scenarios
+  - [ ] Partial refund processing
+- [ ] Notification System
+  - [ ] Configure refund-related notifications
+  - [ ] Set up escalation rules
+  - [ ] Test notification delivery
+- [ ] Testing
+  - [ ] Unit tests for all API endpoints
+  - [ ] Integration tests for Paystack
+  - [ ] End-to-end user flow testing
+  - [ ] Performance testing for bulk operations
+
+#### Phase 5: Business Logic & Rules
+- [ ] Implement refund eligibility rules
+  - [ ] Time-based eligibility (7-30 days)
+  - [ ] Order status validation
+  - [ ] Product condition requirements
+  - [ ] Reason validation
+- [ ] Implement vendor performance tracking
+  - [ ] Refund rate calculations
+  - [ ] Response time monitoring
+  - [ ] Performance alerts
+- [ ] Implement payout hold logic
+  - [ ] Automatic hold calculations
+  - [ ] Hold duration management
+  - [ ] Hold release conditions
+- [ ] Implement commission adjustment logic
+  - [ ] Commission reversal for refunds
+  - [ ] Payout recalculation
+  - [ ] Financial reconciliation
+
+#### Phase 6: Security & Performance
+- [ ] Security Implementation
+  - [ ] Authentication for all endpoints
+  - [ ] Role-based authorization
+  - [ ] Input validation and sanitization
+  - [ ] Audit logging
+- [ ] Performance Optimization
+  - [ ] Database indexing
+  - [ ] Caching strategies
+  - [ ] Pagination for large datasets
+  - [ ] Background processing for refunds
+- [ ] Monitoring & Analytics
+  - [ ] Refund rate monitoring
+  - [ ] Failed refund alerts
+  - [ ] Performance metrics
+  - [ ] Error tracking
+
+────────────────────────────────────────
+Relevant Files to Create / Modify
+────────────────────────────────────────
+- `docs/refund-system-comprehensive-overview.md` (NEW) ✅
+- `lib/services/refund.ts` (NEW)
+- `lib/services/payout-hold.ts` (NEW)
+- `actions/refund.ts` (NEW)
+- `actions/payout-hold.ts` (NEW)
+- `app/api/refunds/` (NEW directory)
+- `app/api/payouts/holds/` (NEW directory)
+- `app/api/admin/refunds/` (NEW directory)
+- `app/dashboard/refunds/` (NEW directory)
+- `app/vendor/dashboard/refunds/` (NEW directory)
+- `app/admin/refunds/` (NEW directory)
+- `components/refund/` (NEW directory)
+- `components/payout-hold/` (NEW directory)
+- Database migrations for new tables and enums
+- Tests in `__tests__/refund/*`, `e2e/refund.spec.ts`
+
+────────────────────────────────────────
+Current Status
+────────────────────────────────────────
+- [x] Comprehensive system overview and planning document
+- [ ] Database schema design and implementation
+- [ ] Backend API development
+- [ ] Frontend interface development
+- [ ] Integration and testing
+- [ ] Production deployment
+
+Next milestone: Implement database schema and core API endpoints for refund request management.
