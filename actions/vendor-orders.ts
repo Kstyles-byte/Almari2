@@ -1,6 +1,5 @@
 "use server";
 
-import { auth } from "../auth";
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from "next/cache";
 import { getVendorByUserId } from "../lib/services/vendor";
@@ -8,6 +7,7 @@ import { createOrderStatusNotification } from "../lib/services/notification";
 import type { Tables } from "../types/supabase";
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -30,11 +30,11 @@ type PayoutStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
  */
 export async function getVendorOrderItems(): Promise<{ success: boolean; orderItems?: Tables<'OrderItem'>[]; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
+    const session = await supabase.auth.getUser();
+    if (!session?.data?.user) return { success: false, error: "Unauthorized" };
 
     // Get vendor profile (using migrated service)
-    const vendor = await getVendorByUserId(session.user.id);
+    const vendor = await getVendorByUserId(session.data.user.id);
     if (!vendor) return { success: false, error: "Vendor profile not found" };
 
     // Get all order items for this vendor using Supabase
@@ -65,8 +65,28 @@ export async function getVendorOrderItems(): Promise<{ success: boolean; orderIt
  */
 export async function createPayoutRequest(formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
+    // Use SSR Supabase client to check for active user session
+    const cookieStore = await cookies();
+    const supabaseSSR = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
+    const { data: { user } } = await supabaseSSR.auth.getUser();
+    console.log('Debug: User authentication check:', user ? 'User found' : 'No user');
+    if (!user) return { success: false, error: "Unauthorized" };
 
     const amountStr = formData.get("amount") as string;
     const amount = Number(amountStr);
@@ -83,7 +103,9 @@ export async function createPayoutRequest(formData: FormData): Promise<{ success
     }
 
     // Get vendor profile
-    const vendor = await getVendorByUserId(session.user.id);
+    console.log('Debug: Getting vendor profile for user:', user.id);
+    const vendor = await getVendorByUserId(user.id);
+    console.log('Debug: Vendor profile:', vendor ? `Found vendor: ${vendor.id}` : 'No vendor found');
     if (!vendor) return { success: false, error: "Vendor profile not found" };
 
     // Check if vendor's available balance is sufficient
@@ -118,12 +140,18 @@ export async function createPayoutRequest(formData: FormData): Promise<{ success
 
     const netEarnings = totalEarnings - totalCommission;
     const availableBalance = netEarnings - totalPaidOut;
+    
+    console.log('Debug: Balance calculation:', { totalEarnings, totalCommission, netEarnings, totalPaidOut, availableBalance, requestedAmount: amount });
 
     if (amount > availableBalance) {
+      console.log('Debug: Insufficient balance - requested amount exceeds available balance');
       return { success: false, error: "Insufficient available balance" };
     }
 
     // Create payout request with bank details
+    console.log('Debug: About to insert payout data');
+    console.log('Payout data being inserted:', { vendorId: vendor.id, amount, requestAmount: amount, bankDetails: { accountName, accountNumber, bankName }, status: 'PENDING' });
+    
     const { error } = await supabase
       .from('Payout')
       .insert({
@@ -136,13 +164,27 @@ export async function createPayoutRequest(formData: FormData): Promise<{ success
           accountNumber,
           bankName
         }
-      });
+    });
 
     if (error) {
-        console.error("Error creating payout request:", error.message);
-        throw new Error(`Failed to create payout request: ${error.message}`);
+        console.error("Error creating payout request:", error);
+        console.error("Full error details:", JSON.stringify(error, null, 2));
+        if ('code' in error) {
+            switch (error.code) {
+                case '23514':
+                    console.error('Check constraint violation. Please check data consistency.');
+                    break;
+                case '23505':
+                    console.error('Unique constraint violation. Duplicate record exists.');
+                    break;
+                default:
+                    console.error('Unhandled SQL error code:', error.code);
+            }
+        }
+        return { success: false, error: `Failed to create payout request: ${error.message}` };
     }
 
+    console.log('Debug: Payout request inserted successfully!');
     revalidatePath("/vendor/payouts");
 
     return { success: true };

@@ -34,7 +34,7 @@ export async function getVendorByUserId(userId: string): Promise<Vendor | null> 
     const { data, error } = await supabase
       .from('Vendor') // Ensure this table name matches your Supabase table
       .select('*') // Select all columns from Vendor table
-      .eq('userId', userId) // Filter by the userId column
+      .eq('user_id', userId) // Filter by the user_id column
       .single(); // Expect at most one result
 
     if (error) {
@@ -104,7 +104,7 @@ export async function createVendorProfile(
     const { data: existingVendor, error: checkError } = await supabase
       .from('Vendor')
       .select('id')
-      .eq('userId', userId)
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (checkError && checkError.code !== 'PGRST116') {
@@ -135,7 +135,7 @@ export async function createVendorProfile(
     const { data: newVendor, error: insertError } = await supabase
       .from('Vendor')
       .insert({
-        userId: userId,
+        user_id: userId,
         storeName: data.storeName,
         description: data.description,
         logo: data.logo,

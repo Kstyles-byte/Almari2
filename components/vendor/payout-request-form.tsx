@@ -70,7 +70,7 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
     setIsSubmitting(true);
 
     try {
-      console.log('Submitting payout request:', data);
+      console.log('Debug: Submitting payout request with data:', data);
       
       // Create FormData for server action
       const formData = new FormData();
@@ -78,20 +78,24 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
       formData.append('accountName', data.accountName);
       formData.append('accountNumber', data.accountNumber);
       formData.append('bankName', data.bankName);
+      console.log('Captured request form data:', { amount: data.amount, bankName: data.bankName, accountName: data.accountName, accountNumber: data.accountNumber });
       
       const result = await createPayoutRequest(formData);
+      console.log('Payout request result:', result);
       
-      if (result.success) {
+      if (result?.success) {
         toast.success('Payout request submitted successfully');
         reset();
         // Refresh the page to show updated balance and payout history
         router.refresh();
       } else {
-        toast.error(result.error || 'Failed to submit payout request');
+        console.error('Payout request failed:', result);
+        toast.error(result?.error || 'Failed to submit payout request');
       }
     } catch (error) {
       console.error('Error submitting payout request:', error);
       toast.error('Failed to submit payout request');
+      console.error('Full error details:', error);
     } finally {
       setIsSubmitting(false);
     }
