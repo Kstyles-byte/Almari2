@@ -10,92 +10,105 @@ export default async function VendorRootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options });
+          },
         },
-        set(name: string, value: string, options: any) {
-          cookieStore.set({ name, value, ...options });
-        },
-        remove(name: string, options: any) {
-          cookieStore.set({ name, value: '', ...options });
-        },
-      },
+      }
+    );
+
+    // Get user session using Supabase SSR client directly
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.log('VendorRootLayout: No user session, redirecting to signin.');
+      return redirect('/signin?callbackUrl=/vendor/dashboard&message=Please+log+in+to+access+the+vendor+dashboard.');
     }
-  );
 
-  // Get user session
-  const { data: { user } } = await supabase.auth.getUser();
+    // Get user role using service role key to bypass RLS
+    const supabaseAdmin = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: {
+          get(name: string) { return cookieStore.get(name)?.value; },
+          set(name: string, value: string, options: any) { cookieStore.set({ name, value, ...options }); },
+          remove(name: string, options: any) { cookieStore.set({ name, value: '', ...options }); },
+        },
+      }
+    );
 
-  if (!user) {
-    return redirect('/login?callbackUrl=/vendor/dashboard&message=Please+log+in+to+access+the+vendor+dashboard.');
-  }
-
-  // Get user role using service role key to bypass RLS
-  const supabaseAdmin = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value; },
-        set(name: string, value: string, options: any) { cookieStore.set({ name, value, ...options }); },
-        remove(name: string, options: any) { cookieStore.set({ name, value: '', ...options }); },
-      },
-    }
-  );
-
-  const { data: userData, error: userError } = await supabaseAdmin
-    .from('User')
-    .select('role, Vendor!inner(id, store_name, logo_url, is_approved)')
-    .eq('id', user.id)
-    .single();
-
-  if (userError || !userData) {
-    console.error("Error fetching user data in VendorRootLayout:", userError?.message);
-    return redirect('/login?callbackUrl=/vendor/dashboard&message=Error+retrieving+user+role.+Please+try+again.');
-  }
-
-  // If not a vendor, redirect to appropriate dashboard
-  if (userData?.role !== 'VENDOR') {
-    const role = userData?.role?.toLowerCase() || 'customer';
-    return redirect(`/${role}/dashboard`);
-  }
-
-  let vendorDetails = Array.isArray(userData.Vendor) ? userData.Vendor[0] : userData.Vendor;
-
-  // Fallback: If join didn't return a Vendor row (e.g. policy or relation mis-match), fetch directly
-  if (!vendorDetails) {
-    const { data: vendorRow, error: vendorFetchError } = await supabaseAdmin
-      .from('Vendor')
-      .select('id, store_name, logo_url, is_approved')
-      .eq('user_id', user.id)
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from('User')
+      .select('role, Vendor!inner(id, store_name, logo_url, is_approved)')
+      .eq('id', user.id)
       .single();
 
-    if (vendorFetchError || !vendorRow) {
-      console.error("Vendor details not found for user:", user.id, vendorFetchError?.message);
-      return redirect('/login?callbackUrl=/vendor/dashboard&message=Vendor+details+not+found.');
+    if (userError || !userData) {
+      console.error("Error fetching user data in VendorRootLayout:", userError?.message);
+      return redirect('/signin?callbackUrl=/vendor/dashboard&message=Error+retrieving+user+role.+Please+try+again.');
     }
 
-    vendorDetails = vendorRow;
+    // If not a vendor, redirect to appropriate dashboard
+    if (userData?.role !== 'VENDOR') {
+      const role = userData?.role?.toLowerCase() || 'customer';
+      return redirect(`/${role}/dashboard`);
+    }
+
+    let vendorDetails = Array.isArray(userData.Vendor) ? userData.Vendor[0] : userData.Vendor;
+
+    // Fallback: If join didn't return a Vendor row (e.g. policy or relation mis-match), fetch directly
+    if (!vendorDetails) {
+      const { data: vendorRow, error: vendorFetchError } = await supabaseAdmin
+        .from('Vendor')
+        .select('id, store_name, logo_url, is_approved')
+        .eq('user_id', user.id)
+        .single();
+
+      if (vendorFetchError || !vendorRow) {
+        console.error("Vendor details not found for user:", user.id, vendorFetchError?.message);
+        return redirect('/signin?callbackUrl=/vendor/dashboard&message=Vendor+details+not+found.');
+      }
+
+      vendorDetails = vendorRow;
+    }
+
+    // If vendor account is not approved, redirect to pending page
+    if (!vendorDetails.is_approved) {
+      return redirect('/account/vendor-pending');
+    }
+
+    // Pass the vendor data to the layout
+    const vendorData = {
+      email: user.email,
+      storeName: vendorDetails.store_name || 'Your Store',
+      logoUrl: vendorDetails.logo_url,
+      vendorId: vendorDetails.id,
+    };
+
+    return <VendorLayout vendorData={vendorData}>{children}</VendorLayout>;
+    
+  } catch (error: any) {
+    // Catch potential errors, including redirect errors
+    if (typeof error?.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
+      throw error; // Re-throw the redirect error
+    }
+    // Handle other unexpected errors
+    console.error('Error in VendorRootLayout:', error);
+    // Redirect to signin in case of unexpected issues
+    return redirect('/signin?callbackUrl=/vendor/dashboard&message=An+error+occurred+loading+the+vendor+dashboard.');
   }
-
-  // If vendor account is not approved, redirect to pending page
-  if (!vendorDetails.is_approved) {
-    return redirect('/account/vendor-pending');
-  }
-
-  // Pass the vendor data to the layout
-  const vendorData = {
-    email: user.email,
-    storeName: vendorDetails.store_name || 'Your Store',
-    logoUrl: vendorDetails.logo_url,
-    vendorId: vendorDetails.id,
-  };
-
-  return <VendorLayout vendorData={vendorData}>{children}</VendorLayout>;
 } 

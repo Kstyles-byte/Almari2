@@ -1,4 +1,4 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Database } from '@/types/supabase';
 import { redirect } from 'next/navigation';
@@ -11,63 +11,83 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function VendorRefundsPage() {
-  const supabase = createServerComponentClient<Database>({ cookies });
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
 
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+    // Get authenticated user using Supabase SSR client directly
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-  if (authError || !user) {
-    redirect('/login');
-  }
+    if (authError || !user) {
+      console.log('VendorRefundsPage: No user session, redirecting to signin.');
+      return redirect('/signin?callbackUrl=/vendor/refunds');
+    }
 
-  // Get vendor profile
-  const { data: vendor } = await supabase
-    .from('Vendor')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
+    // Get vendor profile
+    const { data: vendor } = await supabase
+      .from('Vendor')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
 
-  if (!vendor) {
-    redirect('/vendor/dashboard');
-  }
+    if (!vendor) {
+      console.log('VendorRefundsPage: No vendor profile found, redirecting to vendor dashboard.');
+      return redirect('/vendor/dashboard');
+    }
 
-  // Fetch vendor refunds
-  const { data: refunds } = await supabase
-    .from('RefundRequest')
-    .select(`
-      *,
-      customer:Customer(*, user:User(*)),
-      order:Order(*),
-      orderItem:OrderItem(*, product:Product(*)),
-      return:Return(*)
-    `)
-    .eq('vendor_id', vendor.id)
-    .order('created_at', { ascending: false });
+    // Fetch vendor refunds
+    const { data: refunds } = await supabase
+      .from('RefundRequest')
+      .select(`
+        *,
+        customer:Customer(*, user:User(*)),
+        order:Order(*),
+        orderItem:OrderItem(*, product:Product(*)),
+        return:Return(*)
+      `)
+      .eq('vendor_id', vendor.id)
+      .order('created_at', { ascending: false });
 
-  // Get vendor statistics
-  const { data: stats } = await supabase
-    .from('RefundRequest')
-    .select('status, refund_amount')
-    .eq('vendor_id', vendor.id);
+    // Get vendor statistics
+    const { data: stats } = await supabase
+      .from('RefundRequest')
+      .select('status, refund_amount')
+      .eq('vendor_id', vendor.id);
 
-  let totalRefunds = 0;
-  let totalAmount = 0;
-  let pendingCount = 0;
-  let approvedCount = 0;
-  let rejectedCount = 0;
+    let totalRefunds = 0;
+    let totalAmount = 0;
+    let pendingCount = 0;
+    let approvedCount = 0;
+    let rejectedCount = 0;
 
-  if (stats) {
-    totalRefunds = stats.length;
-    totalAmount = stats.reduce((sum, r) => sum + Number(r.refund_amount), 0);
-    pendingCount = stats.filter(r => r.status === 'PENDING').length;
-    approvedCount = stats.filter(r => r.status === 'APPROVED').length;
-    rejectedCount = stats.filter(r => r.status === 'REJECTED').length;
-  }
+    if (stats) {
+      totalRefunds = stats.length;
+      totalAmount = stats.reduce((sum, r) => sum + Number(r.refund_amount), 0);
+      pendingCount = stats.filter(r => r.status === 'PENDING').length;
+      approvedCount = stats.filter(r => r.status === 'APPROVED').length;
+      rejectedCount = stats.filter(r => r.status === 'REJECTED').length;
+    }
 
-  return (
+    return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Refund Management</h1>
@@ -173,4 +193,15 @@ export default async function VendorRefundsPage() {
       </div>
     </div>
   );
+    
+  } catch (error: any) {
+    // Catch potential errors, including redirect errors
+    if (typeof error?.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
+      throw error; // Re-throw the redirect error
+    }
+    // Handle other unexpected errors
+    console.error('Error in VendorRefundsPage:', error);
+    // Redirect to signin in case of unexpected issues
+    return redirect('/signin?callbackUrl=/vendor/refunds&message=An+error+occurred+loading+the+refunds+page.');
+  }
 }
