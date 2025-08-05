@@ -10,6 +10,8 @@ export type PickupStatus = Database['public']['Enums']['PickupStatus'];
 export type ReturnStatus = Database['public']['Enums']['ReturnStatus'];
 export type RefundStatus = Database['public']['Enums']['RefundStatus'];
 export type NotificationType = Database['public']['Enums']['NotificationType'];
+export type RefundRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED';
+export type PayoutHoldStatus = 'ACTIVE' | 'RELEASED' | 'EXPIRED';
 
 // --- Define Table Row Interfaces --- 
 // Based on schema.sql, use generated types where possible and fill gaps
@@ -90,6 +92,49 @@ export type Notification = Database['public']['Tables']['Notification']['Row'] &
      user?: UserProfile;
      order?: Order;
      return?: Return;
+};
+
+// Refund Request
+export type RefundRequest = {
+    id: string;
+    return_id?: string | null;
+    customer_id: string;
+    vendor_id: string;
+    order_id: string;
+    order_item_id: string;
+    reason: string;
+    description?: string | null;
+    refund_amount: number;
+    status: RefundRequestStatus;
+    vendor_response?: string | null;
+    admin_notes?: string | null;
+    photos?: any | null;
+    created_at: string;
+    updated_at: string;
+    // Relations
+    customer?: Customer;
+    vendor?: Vendor;
+    order?: Order;
+    orderItem?: OrderItem;
+    return?: Return;
+};
+
+// Payout Hold
+export type PayoutHold = {
+    id: string;
+    vendor_id: string;
+    payout_id?: string | null;
+    hold_amount: number;
+    reason: string;
+    refund_request_ids?: string[] | null;
+    status: PayoutHoldStatus;
+    created_at: string;
+    released_at?: string | null;
+    created_by?: string | null;
+    // Relations
+    vendor?: Vendor;
+    payout?: Payout;
+    created_by_user?: UserProfile;
 };
 
 // --- Define specific types used elsewhere --- 
