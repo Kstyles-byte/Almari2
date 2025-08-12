@@ -41,8 +41,7 @@ interface Order {
   pickupAddress?: string;
   expectedDeliveryDate?: string;
   deliveredDate?: string;
-  returnEligible?: boolean;
-  returnDeadline?: string;
+
 }
 
 export default async function CustomerOrdersPage(

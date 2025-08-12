@@ -55,10 +55,10 @@ export async function GET(request: Request) {
       `);
 
     // Apply role-based filtering
-    if (userProfile.role === 'CUSTOMER' && userProfile.Customer?.[0]) {
-      query = query.eq('customer_id', userProfile.Customer[0].id);
-    } else if (userProfile.role === 'VENDOR' && userProfile.Vendor?.[0]) {
-      query = query.eq('vendor_id', userProfile.Vendor[0].id);
+    if (userProfile.role === 'CUSTOMER' && userProfile.Customer) {
+      query = query.eq('customer_id', userProfile.Customer.id);
+    } else if (userProfile.role === 'VENDOR' && userProfile.Vendor) {
+      query = query.eq('vendor_id', userProfile.Vendor.id);
     } else if (userProfile.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -66,7 +66,11 @@ export async function GET(request: Request) {
     // Apply status filter if provided
     const status = searchParams.get('status');
     if (status) {
-      query = query.eq('status', status);
+      // Validate status against enum values
+      const validStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'PROCESSING', 'COMPLETED', 'CANCELLED'];
+      if (validStatuses.includes(status)) {
+        query = query.eq('status', status as Database["public"]["Enums"]["refundrequeststatus"]);
+      }
     }
 
     // Apply date range filter if provided

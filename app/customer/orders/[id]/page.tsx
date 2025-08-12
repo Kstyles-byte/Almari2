@@ -60,7 +60,7 @@ export default async function CustomerOrderDetailPage(
             <CancelOrderForm orderId={order.id} />
           )}
           {/* Show refund button only if eligible within window */}
-          {order.status === 'delivered' && order.returnEligible && (
+          {order.status === 'delivered' && (
             <Link 
               href={`/customer/orders/${order.id}/refund`}
               className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 text-sm font-medium"

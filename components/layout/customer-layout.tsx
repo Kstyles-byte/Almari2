@@ -67,7 +67,7 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
   const navItems = [
     { name: 'Dashboard', href: '/customer/dashboard', icon: Home },
     { name: 'Orders', href: '/customer/orders', icon: Package },
-    { name: 'Returns', href: '/customer/returns', icon: RotateCcw },
+    
     { name: 'Wishlist', href: '/customer/wishlist', icon: Heart },
 { name: 'Refunds', href: '/customer/refunds', icon: RotateCcw },
   { name: 'Reviews', href: '/customer/reviews', icon: Star },

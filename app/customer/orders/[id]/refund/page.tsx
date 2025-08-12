@@ -93,29 +93,24 @@ export default async function CustomerRefundRequestPage({ params }: RefundReques
     }
 
     return (
-      <div className="container mx-auto py-8">
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle>Request Refund</CardTitle>
-            <CardDescription>
-              Select the items you want to refund from order #{order.id.slice(0, 8)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      <div className="p-4 md:p-8">
+        <div className="space-y-6">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold">Request Refund</h1>
+            <p className="text-muted-foreground">
+              Select items to refund from order #{order.id.slice(0, 8)}
+            </p>
+          </div>
 
-            
-            {/* Render a RefundRequestForm per item */}
-            {Array.isArray(orderItems) && orderItems.length > 0 ? (
-              orderItems.map((item: any) => (
-                <div key={item.id} className="mb-6">
-                  <RefundRequestForm orderItem={item} orderId={order.id} />
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-muted-foreground">No items found for this order.</div>
-            )}
-          </CardContent>
-        </Card>
+          {/* Render a RefundRequestForm per item */}
+          {Array.isArray(orderItems) && orderItems.length > 0 ? (
+            orderItems.map((item: any) => (
+              <RefundRequestForm key={item.id} orderItem={item} orderId={order.id} />
+            ))
+          ) : (
+            <div className="text-sm text-muted-foreground">No items found for this order.</div>
+          )}
+        </div>
       </div>
     );
     

@@ -45,8 +45,7 @@ export interface Order {
   pickupAddress: string;
   expectedDeliveryDate?: string;
   deliveredDate?: string;
-  returnEligible: boolean;
-  returnDeadline?: string;
+
   trackingEvents?: OrderTrackingEvent[];
 }
 
@@ -59,7 +58,6 @@ export interface OrderTrackingEvent {
 interface OrderDetailProps {
   order: Order;
   onTrackOrder?: () => void;
-  onRequestReturn?: (orderId: string) => void;
   onWriteReview?: (productId: string) => void;
   onDownloadInvoice?: (orderId: string) => void;
 }
@@ -67,15 +65,12 @@ interface OrderDetailProps {
 export function OrderDetail({ 
   order, 
   onTrackOrder, 
-  onRequestReturn, 
   onWriteReview,
   onDownloadInvoice
 }: OrderDetailProps) {
   const [activeTab, setActiveTab] = useState('items');
   const isDelivered = order.status === 'delivered';
-  const canRequestReturn = isDelivered && order.returnEligible;
-  const isReturnDeadlineExpired = order.returnDeadline ? 
-    isAfter(new Date(), new Date(order.returnDeadline)) : false;
+
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(order.pickupCode);
@@ -369,57 +364,7 @@ export function OrderDetail({
         </TabsContent>
       </Tabs>
       
-      {/* Return Information */}
-      {canRequestReturn && (
-        <Card className={`border-dashed border-2 ${isReturnDeadlineExpired ? 'border-red-200 bg-red-50' : 'border-zervia-200'}`}>
-          <CardContent className="p-4 space-y-4">
-            <div className="flex items-start space-x-4">
-              <div className={`p-2 rounded-full ${
-                isReturnDeadlineExpired ? 'bg-red-100 text-red-600' : 'bg-zervia-100 text-zervia-600'
-              }`}>
-                {isReturnDeadlineExpired ? (
-                  <AlertTriangle className="h-5 w-5" />
-                ) : (
-                  <ArrowDownToLine className="h-5 w-5" />
-                )}
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium text-zervia-900">
-                  {isReturnDeadlineExpired ? 'Return Deadline Expired' : 'Return Eligible'}
-                </h3>
-                <p className={`text-sm mt-1 ${
-                  isReturnDeadlineExpired ? 'text-red-600' : 'text-zervia-600'
-                }`}>
-                  {isReturnDeadlineExpired ? (
-                    'The return window for this order has expired'
-                  ) : (
-                    `You can request a return until ${format(new Date(order.returnDeadline || ''), 'MMMM d, yyyy')}`
-                  )}
-                </p>
-                
-                {!isReturnDeadlineExpired && (
-                  <div className="mt-2">
-                    <h4 className="text-sm font-medium text-zervia-900">Return Policy:</h4>
-                    <ul className="mt-1 text-sm text-zervia-600 list-disc list-inside space-y-1">
-                      <li>Items must be in original condition</li>
-                      <li>Include original packaging and tags</li>
-                      <li>Returns must be initiated within 7 days of delivery</li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-              {onRequestReturn && !isReturnDeadlineExpired && canRequestReturn && (
-                <Button 
-                  className="bg-zervia-600 hover:bg-zervia-700"
-                  onClick={() => onRequestReturn(order.id)}
-                >
-                  Request Return
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
     </div>
   );
 } 

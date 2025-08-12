@@ -94,11 +94,11 @@ export default function RefundRequestForm({ orderItem, orderId }: RefundRequestF
   };
 
   return (
-    <Card className="max-w-2xl mx-auto">
+    <Card>
       <CardHeader>
-        <CardTitle>Request Refund</CardTitle>
+        <CardTitle>Request Refund - {orderItem.product?.name}</CardTitle>
         <CardDescription>
-          {orderItem.product?.name} - {orderItem.quantity} x ₦{orderItem.price_at_purchase}
+          {orderItem.quantity} x ₦{orderItem.price_at_purchase} = ₦{orderItem.price_at_purchase * orderItem.quantity}
         </CardDescription>
       </CardHeader>
       <CardContent>

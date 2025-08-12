@@ -549,6 +549,7 @@ export type Database = {
           dropoff_code: string | null
           estimated_pickup_date: string | null
           id: string
+          order_group_id: string | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: Database["public"]["Enums"]["PaymentStatus"]
@@ -574,6 +575,7 @@ export type Database = {
           dropoff_code?: string | null
           estimated_pickup_date?: string | null
           id?: string
+          order_group_id?: string | null
           payment_method?: string | null
           payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["PaymentStatus"]
@@ -599,6 +601,7 @@ export type Database = {
           dropoff_code?: string | null
           estimated_pickup_date?: string | null
           id?: string
+          order_group_id?: string | null
           payment_method?: string | null
           payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["PaymentStatus"]
@@ -643,6 +646,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "Order_order_group_id_fkey"
+            columns: ["order_group_id"]
+            isOneToOne: false
+            referencedRelation: "OrderGroup"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "Order_shipping_address_id_fkey"
             columns: ["shipping_address_id"]
             isOneToOne: false
@@ -651,8 +661,42 @@ export type Database = {
           },
         ]
       }
+      OrderGroup: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "OrderGroup_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "Customer"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       OrderItem: {
         Row: {
+          commission_amount: number | null
+          commission_rate: number | null
           created_at: string
           id: string
           order_id: string
@@ -664,6 +708,8 @@ export type Database = {
           vendor_id: string
         }
         Insert: {
+          commission_amount?: number | null
+          commission_rate?: number | null
           created_at?: string
           id?: string
           order_id: string
@@ -675,6 +721,8 @@ export type Database = {
           vendor_id: string
         }
         Update: {
+          commission_amount?: number | null
+          commission_rate?: number | null
           created_at?: string
           id?: string
           order_id?: string
@@ -712,10 +760,16 @@ export type Database = {
       Payout: {
         Row: {
           amount: number
+          approved_amount: number | null
+          approved_at: string | null
+          approved_by: string | null
+          bank_details: Json | null
           created_at: string
           id: string
           notes: string | null
           reference_id: string | null
+          rejection_reason: string | null
+          request_amount: number | null
           status: Database["public"]["Enums"]["PayoutStatus"]
           transaction_date: string | null
           updated_at: string
@@ -723,10 +777,16 @@ export type Database = {
         }
         Insert: {
           amount: number
+          approved_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_details?: Json | null
           created_at?: string
           id?: string
           notes?: string | null
           reference_id?: string | null
+          rejection_reason?: string | null
+          request_amount?: number | null
           status?: Database["public"]["Enums"]["PayoutStatus"]
           transaction_date?: string | null
           updated_at?: string
@@ -734,16 +794,29 @@ export type Database = {
         }
         Update: {
           amount?: number
+          approved_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_details?: Json | null
           created_at?: string
           id?: string
           notes?: string | null
           reference_id?: string | null
+          rejection_reason?: string | null
+          request_amount?: number | null
           status?: Database["public"]["Enums"]["PayoutStatus"]
           transaction_date?: string | null
           updated_at?: string
           vendor_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "Payout_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "Payout_vendor_id_fkey"
             columns: ["vendor_id"]
@@ -752,6 +825,103 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      PayoutHold: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          hold_amount: number
+          id: string
+          payout_id: string | null
+          reason: string
+          refund_request_ids: string[] | null
+          released_at: string | null
+          status: Database["public"]["Enums"]["payoutholdstatus"] | null
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          hold_amount: number
+          id?: string
+          payout_id?: string | null
+          reason: string
+          refund_request_ids?: string[] | null
+          released_at?: string | null
+          status?: Database["public"]["Enums"]["payoutholdstatus"] | null
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          hold_amount?: number
+          id?: string
+          payout_id?: string | null
+          reason?: string
+          refund_request_ids?: string[] | null
+          released_at?: string | null
+          status?: Database["public"]["Enums"]["payoutholdstatus"] | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "PayoutHold_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PayoutHold_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "Payout"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PayoutHold_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "Vendor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      PayoutSettings: {
+        Row: {
+          auto_approval_limit: number | null
+          created_at: string | null
+          id: string
+          maximum_payout_amount: number | null
+          minimum_payout_amount: number | null
+          payout_schedule: string | null
+          processing_fee_fixed: number | null
+          processing_fee_percentage: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_approval_limit?: number | null
+          created_at?: string | null
+          id?: string
+          maximum_payout_amount?: number | null
+          minimum_payout_amount?: number | null
+          payout_schedule?: string | null
+          processing_fee_fixed?: number | null
+          processing_fee_percentage?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_approval_limit?: number | null
+          created_at?: string | null
+          id?: string
+          maximum_payout_amount?: number | null
+          minimum_payout_amount?: number | null
+          payout_schedule?: string | null
+          processing_fee_fixed?: number | null
+          processing_fee_percentage?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       Product: {
         Row: {
@@ -851,14 +1021,107 @@ export type Database = {
           },
         ]
       }
+      RefundRequest: {
+        Row: {
+          admin_notes: string | null
+          created_at: string | null
+          customer_id: string
+          description: string | null
+          id: string
+          order_id: string
+          order_item_id: string
+          photos: Json | null
+          reason: string
+          refund_amount: number
+          return_id: string | null
+          status: Database["public"]["Enums"]["refundrequeststatus"] | null
+          updated_at: string | null
+          vendor_id: string
+          vendor_response: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string | null
+          customer_id: string
+          description?: string | null
+          id?: string
+          order_id: string
+          order_item_id: string
+          photos?: Json | null
+          reason: string
+          refund_amount: number
+          return_id?: string | null
+          status?: Database["public"]["Enums"]["refundrequeststatus"] | null
+          updated_at?: string | null
+          vendor_id: string
+          vendor_response?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string | null
+          customer_id?: string
+          description?: string | null
+          id?: string
+          order_id?: string
+          order_item_id?: string
+          photos?: Json | null
+          reason?: string
+          refund_amount?: number
+          return_id?: string | null
+          status?: Database["public"]["Enums"]["refundrequeststatus"] | null
+          updated_at?: string | null
+          vendor_id?: string
+          vendor_response?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "RefundRequest_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "Customer"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "RefundRequest_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "Order"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "RefundRequest_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "OrderItem"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "RefundRequest_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "Return"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "RefundRequest_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "Vendor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Return: {
         Row: {
+          admin_override: boolean | null
+          admin_override_reason: string | null
           agent_id: string | null
           created_at: string
           customer_id: string
           id: string
           order_id: string
           order_item_id: string
+          photos: Json | null
           process_date: string | null
           product_id: string
           reason: string
@@ -867,15 +1130,20 @@ export type Database = {
           request_date: string
           status: Database["public"]["Enums"]["ReturnStatus"]
           updated_at: string
+          vendor_decision: string | null
+          vendor_decision_date: string | null
           vendor_id: string
         }
         Insert: {
+          admin_override?: boolean | null
+          admin_override_reason?: string | null
           agent_id?: string | null
           created_at?: string
           customer_id: string
           id?: string
           order_id: string
           order_item_id: string
+          photos?: Json | null
           process_date?: string | null
           product_id: string
           reason: string
@@ -884,15 +1152,20 @@ export type Database = {
           request_date?: string
           status?: Database["public"]["Enums"]["ReturnStatus"]
           updated_at?: string
+          vendor_decision?: string | null
+          vendor_decision_date?: string | null
           vendor_id: string
         }
         Update: {
+          admin_override?: boolean | null
+          admin_override_reason?: string | null
           agent_id?: string | null
           created_at?: string
           customer_id?: string
           id?: string
           order_id?: string
           order_item_id?: string
+          photos?: Json | null
           process_date?: string | null
           product_id?: string
           reason?: string
@@ -901,6 +1174,8 @@ export type Database = {
           request_date?: string
           status?: Database["public"]["Enums"]["ReturnStatus"]
           updated_at?: string
+          vendor_decision?: string | null
+          vendor_decision_date?: string | null
           vendor_id?: string
         }
         Relationships: [
@@ -1086,6 +1361,7 @@ export type Database = {
       }
       Vendor: {
         Row: {
+          account_name: string | null
           account_number: string | null
           bank_name: string | null
           banner_url: string | null
@@ -1096,10 +1372,13 @@ export type Database = {
           is_approved: boolean
           logo_url: string | null
           store_name: string
+          total_refund_amount: number | null
+          total_refunds_processed: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          account_name?: string | null
           account_number?: string | null
           bank_name?: string | null
           banner_url?: string | null
@@ -1110,10 +1389,13 @@ export type Database = {
           is_approved?: boolean
           logo_url?: string | null
           store_name: string
+          total_refund_amount?: number | null
+          total_refunds_processed?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          account_name?: string | null
           account_number?: string | null
           bank_name?: string | null
           banner_url?: string | null
@@ -1124,6 +1406,8 @@ export type Database = {
           is_approved?: boolean
           logo_url?: string | null
           store_name?: string
+          total_refund_amount?: number | null
+          total_refunds_processed?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -1270,8 +1554,16 @@ export type Database = {
         | "CANCELLED"
         | "READY_FOR_PICKUP"
       PaymentStatus: "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED"
+      payoutholdstatus: "ACTIVE" | "RELEASED" | "EXPIRED"
       PayoutStatus: "PENDING" | "COMPLETED" | "FAILED"
       PickupStatus: "PENDING" | "READY_FOR_PICKUP" | "PICKED_UP"
+      refundrequeststatus:
+        | "PENDING"
+        | "APPROVED"
+        | "REJECTED"
+        | "PROCESSING"
+        | "COMPLETED"
+        | "CANCELLED"
       RefundStatus: "PENDING" | "PROCESSED" | "REJECTED"
       ReturnStatus: "REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED"
       UserRole: "ADMIN" | "CUSTOMER" | "VENDOR" | "AGENT"
@@ -1441,8 +1733,17 @@ export const Constants = {
         "READY_FOR_PICKUP",
       ],
       PaymentStatus: ["PENDING", "COMPLETED", "FAILED", "REFUNDED"],
+      payoutholdstatus: ["ACTIVE", "RELEASED", "EXPIRED"],
       PayoutStatus: ["PENDING", "COMPLETED", "FAILED"],
       PickupStatus: ["PENDING", "READY_FOR_PICKUP", "PICKED_UP"],
+      refundrequeststatus: [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "PROCESSING",
+        "COMPLETED",
+        "CANCELLED",
+      ],
       RefundStatus: ["PENDING", "PROCESSED", "REJECTED"],
       ReturnStatus: ["REQUESTED", "APPROVED", "REJECTED", "COMPLETED"],
       UserRole: ["ADMIN", "CUSTOMER", "VENDOR", "AGENT"],
