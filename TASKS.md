@@ -1350,11 +1350,11 @@ Implementation Tasks
 
 #### Phase 3: Frontend Development
 - [ ] Customer Interface
-  - [ ] Refund request form (`/dashboard/orders/[orderId]/refund`)
-  - [ ] Refund tracking page (`/dashboard/refunds`)
-  - [ ] Refund history integration in order details
-  - [ ] Refund eligibility validation
-  - [ ] Photo upload for refund evidence
+  - [x] Refund request form (`/dashboard/orders/[orderId]/refund`)
+  - [x] Refund tracking page (`/dashboard/refunds`)
+  - [x] Refund history integration in order details
+  - [x] Refund eligibility validation (30-day window after delivery)
+  - [x] Photo upload for refund evidence (client-side base64 placeholder)
 - [ ] Vendor Interface
   - [ ] Refund management dashboard (`/vendor/dashboard/refunds`)
   - [ ] Refund detail view (`/vendor/refunds/[id]`)

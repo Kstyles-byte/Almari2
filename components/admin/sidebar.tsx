@@ -43,6 +43,7 @@ const navSections = [
       { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
       { name: 'Content', href: '/admin/content', icon: FileText },
       { name: 'Settings', href: '/admin/settings', icon: Settings },
+{ name: 'Refunds', href: '/admin/refunds', icon: RefreshCw },
       { name: 'Returns', href: '/admin/returns', icon: RefreshCw },
       { name: 'Coupons', href: '/admin/coupons', icon: Percent },
     ],

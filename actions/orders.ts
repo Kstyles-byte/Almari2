@@ -866,13 +866,14 @@ export async function getUserOrders(status?: string) {
         pickupCode: order.pickup_code,
         expectedDeliveryDate: order.estimated_pickup_date,
         deliveredDate: order.actual_pickup_date,
-        // Default return eligibility based on order status and date
-        returnEligible: order.status === 'DELIVERED' && 
-                       order.actual_pickup_date && 
-                       (new Date().getTime() - new Date(order.actual_pickup_date).getTime()) < (24 * 60 * 60 * 1000),
-        returnDeadline: order.actual_pickup_date ? 
-                       new Date(new Date(order.actual_pickup_date).getTime() + (24 * 60 * 60 * 1000)).toISOString() :
-                       undefined,
+        // Default return eligibility based on order status and date (30-day window)
+        returnEligible:
+          order.status === 'DELIVERED' &&
+          !!order.actual_pickup_date &&
+          new Date().getTime() - new Date(order.actual_pickup_date).getTime() < 30 * 24 * 60 * 60 * 1000,
+        returnDeadline: order.actual_pickup_date
+          ? new Date(new Date(order.actual_pickup_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+          : undefined,
       };
     });
     
@@ -1028,6 +1029,12 @@ export async function getOrderById(orderId: string) {
       }] : []),
     ];
     
+    // Compute delivered timestamp for eligibility checks; fallback to updated/created at if actual date missing
+    const deliveredAtTimestamp =
+      order.status === 'DELIVERED'
+        ? (order.actual_pickup_date || order.updated_at || order.created_at)
+        : null;
+
     // Return transformed order
     const transformedOrder = {
       id: order.id,
@@ -1049,13 +1056,14 @@ export async function getOrderById(orderId: string) {
         : '',
       expectedDeliveryDate: order.estimated_pickup_date,
       deliveredDate: order.actual_pickup_date,
-      // Default return eligibility based on order status and date
-      returnEligible: order.status === 'DELIVERED' && 
-                     order.actual_pickup_date && 
-                     (new Date().getTime() - new Date(order.actual_pickup_date).getTime()) < (24 * 60 * 60 * 1000),
-      returnDeadline: order.actual_pickup_date ? 
-                     new Date(new Date(order.actual_pickup_date).getTime() + (24 * 60 * 60 * 1000)).toISOString() :
-                     undefined,
+      // 30-day return eligibility window from delivered timestamp
+      returnEligible:
+        order.status === 'DELIVERED' &&
+        !!deliveredAtTimestamp &&
+        new Date().getTime() - new Date(deliveredAtTimestamp).getTime() < 30 * 24 * 60 * 60 * 1000,
+      returnDeadline: deliveredAtTimestamp
+        ? new Date(new Date(deliveredAtTimestamp).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        : undefined,
       trackingEvents,
     };
     

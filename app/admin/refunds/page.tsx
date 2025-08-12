@@ -3,11 +3,11 @@ import { cookies } from 'next/headers';
 import { Database } from '@/types/supabase';
 import { redirect } from 'next/navigation';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { RefundTrackingList } from '@/components/refunds/RefundTrackingList';
+import { AdminRefundDashboard } from '@/components/refunds/AdminRefundDashboard';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CustomerRefundTrackingPage() {
+export default async function AdminRefundOversightPage() {
   const supabase = createServerComponentClient<Database>({ cookies });
 
   const {
@@ -19,13 +19,14 @@ export default async function CustomerRefundTrackingPage() {
     redirect('/login');
   }
 
-  const { data: customer } = await supabase
-    .from('Customer')
-    .select('*')
-    .eq('user_id', user.id)
+  // Check if user is admin
+  const { data: userProfile } = await supabase
+    .from('User')
+    .select('role')
+    .eq('id', user.id)
     .single();
 
-  if (!customer) {
+  if (!userProfile || userProfile.role !== 'ADMIN') {
     redirect('/dashboard');
   }
 
@@ -38,12 +39,12 @@ export default async function CustomerRefundTrackingPage() {
         id, 
         quantity, 
         price_at_purchase,
-        product:Product(name, slug)
+        product:Product(name)
       ),
+      customer:Customer(id, user:User(name, email)),
       vendor:Vendor(id, storeName),
-      return:Return(status, vendor_decision_date)
+      return:Return(status, vendor_decision, vendor_decision_date)
     `)
-    .eq('customer_id', customer.id)
     .order('created_at', { ascending: false });
 
   return (
@@ -51,14 +52,14 @@ export default async function CustomerRefundTrackingPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Your Refunds</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Refund Management</h1>
             <p className="text-muted-foreground">
-              Track the status of your refund requests
+              Monitor and manage all refund requests across the platform
             </p>
           </div>
         </div>
         
-        <RefundTrackingList refunds={refunds || []} />
+        <AdminRefundDashboard refunds={refunds || []} />
       </div>
     </PageWrapper>
   );

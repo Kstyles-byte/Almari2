@@ -69,9 +69,11 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
     { name: 'Orders', href: '/customer/orders', icon: Package },
     { name: 'Returns', href: '/customer/returns', icon: RotateCcw },
     { name: 'Wishlist', href: '/customer/wishlist', icon: Heart },
-    { name: 'Reviews', href: '/customer/reviews', icon: Star },
-    { name: 'Profile', href: '/customer/profile', icon: User },
-    { name: 'Settings', href: '/customer/settings', icon: Settings },
+{ name: 'Refunds', href: '/customer/refunds', icon: RotateCcw },
+  { name: 'Reviews', href: '/customer/reviews', icon: Star },
+  { name: 'Profile', href: '/customer/profile', icon: User },
+  { name: 'Settings', href: '/customer/settings', icon: Settings },
+  { name: 'Back to Shop', href: '/', icon: ShoppingBag },
   ];
   
   const toggleMobileMenu = () => {

@@ -406,7 +406,7 @@ export function OrderDetail({
                   </div>
                 )}
               </div>
-              {onRequestReturn && !isReturnDeadlineExpired && (
+              {onRequestReturn && !isReturnDeadlineExpired && canRequestReturn && (
                 <Button 
                   className="bg-zervia-600 hover:bg-zervia-700"
                   onClick={() => onRequestReturn(order.id)}

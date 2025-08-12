@@ -39,9 +39,11 @@ export default async function RefundRequestPage({ params }: RefundRequestPagePro
     .select(`
       *,
       orderItems:OrderItem(
-        *,
-        product:Product(*),
-        vendor:Vendor(*)
+        id,
+        quantity,
+        price_at_purchase,
+        product:Product(id, name, slug, price),
+        vendor:Vendor(id, store_name)
       )
     `)
     .eq('id', params.orderId)
@@ -68,7 +70,16 @@ export default async function RefundRequestPage({ params }: RefundRequestPagePro
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RefundRequestForm order={order} />
+            {/* Render a RefundRequestForm per item for now; can be improved to select items */}
+            {Array.isArray(order.orderItems) && order.orderItems.length > 0 ? (
+              order.orderItems.map((item: any) => (
+                <div key={item.id} className="mb-6">
+                  <RefundRequestForm orderItem={item} orderId={order.id} />
+                </div>
+              ))
+            ) : (
+              <div className="text-sm text-muted-foreground">No items found for this order.</div>
+            )}
           </CardContent>
         </Card>
       </div>
