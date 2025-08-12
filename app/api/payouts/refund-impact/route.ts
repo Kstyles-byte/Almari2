@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       .in('id', vendorIds);
 
     // Combine vendor balance with refund impact
-    const impact = vendors?.map(vendor =e ({
+    const impact = vendors?.map((vendor) => ({
       ...vendor,
       pendingRefunds: vendorImpact[vendor.id] || {
         totalPendingRefunds: 0,

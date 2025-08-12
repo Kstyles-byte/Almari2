@@ -16,7 +16,7 @@ export function VendorRefundDetailView({ refund }: VendorRefundDetailViewProps) 
   const [response, setResponse] = useState(refund.vendor_response || '');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleRefundAction = async (action: 'approve' | 'reject') => {
+  const handleRefundAction = async (action: 'approve' | 'reject') => {
     setIsProcessing(true);
     
     try {
@@ -46,51 +46,51 @@ export function VendorRefundDetailView({ refund }: VendorRefundDetailViewProps) 
   };
 
   return (
-    <div className="container mx-auto py-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">
+    <div className="container mx-auto py-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-bold">
             Refund Details #{refund.id.slice(0, 8)}
-          </CardTitle>
-          <div className="text-sm text-muted-foreground">
+          </CardTitle>
+          <div className="text-sm text-muted-foreground">
             Customer: {refund.customer?.user?.name || 'Unknown'}
-          </div>
-          <div className="text-sm text-muted-foreground">
+          </div>
+          <div className="text-sm text-muted-foreground">
             Product: {refund.orderItem?.product?.name}
-          </div>
+          </div>
           <Badge variant={refund.status === 'APPROVED' ? 'default' : 'secondary'}>
             {refund.status}
           </Badge>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 p-2">
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 p-2">
             <p><strong>Amount:</strong> ₦{Number(refund.refund_amount).toFixed(2)}</p>
             <p><strong>Reason:</strong> {refund.reason}</p>
             <p><strong>Requested:</strong> {new Date(refund.created_at).toLocaleDateString()}</p>
             {refund.description && (
               <p><strong>Description:</strong> {refund.description}</p>
             )}
-            <div className="text-sm text-gray-700">
-              <h4 className="font-medium">Your Response</h4>
-              <Textarea
+            <div className="text-sm text-gray-700">
+              <h4 className="font-medium">Your Response</h4>
+              <Textarea
                 value={response}
-                onChange={(e) => setResponse(e.target.value)}
+                onChange={(e) => setResponse(e.target.value)}
                 placeholder="Enter your response here..."
               />
-            </div>
+            </div>
             <div className="flex items-center justify-end gap-2 mt-4">
               {refund.status === 'PENDING' && (
                 <>
                   <Button
                     variant="outline"
                     className="mr-2"
-                    onClick={() => handleRefundAction('reject')}
+                    onClick={() => handleRefundAction('reject')}
                     disabled={isProcessing}
                   >
                     {isProcessing ? 'Rejecting...' : 'Reject Refund'}
                   </Button>
                   <Button
-                    onClick={() => handleRefundAction('approve')}
+                    onClick={() => handleRefundAction('approve')}
                     disabled={isProcessing}
                   >
                     {isProcessing ? 'Approving...' : 'Approve Refund'}

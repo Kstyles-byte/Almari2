@@ -13,11 +13,8 @@ const nextConfig = {
   },
   // Don't attempt to statically optimize the checkout page and related routes
   // This ensures these pages are rendered dynamically at request time
-  unstable_excludeDefaultMomentLocales: true,
-  experimental: {
-    // Force dynamic rendering for specific pages that need it
-    serverComponentsExternalPackages: [],
-  },
+  // Remove deprecated options; Next.js 15 no longer supports these keys
+  experimental: {},
   images: {
     remotePatterns: [
       {
