@@ -312,7 +312,7 @@ const navItems = [
 
         {/* Main Content */}
         <main className="flex-1 overflow-auto">
-          <div className="py-6 pt-8 px-6">{children}</div>
+          <div className="py-6 pt-8">{children}</div>
         </main>
       </div>
     </div>

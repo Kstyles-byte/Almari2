@@ -46,7 +46,7 @@ export function VendorRefundDetailView({ refund }: VendorRefundDetailViewProps) 
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="p-4 md:p-6">
       <Card>
         <CardHeader>
           <CardTitle className="text-xl font-bold">
