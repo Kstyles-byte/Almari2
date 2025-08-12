@@ -1,12 +1,29 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Database } from '@/types/supabase';
 
 // GET /api/refunds - Get refund requests based on user role
 export async function GET(request: Request) {
   try {
-    const supabase = createRouteHandlerClient<Database>({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
     const { searchParams } = new URL(request.url);
     
     // Get authenticated user
@@ -80,7 +97,24 @@ export async function GET(request: Request) {
 // POST /api/refunds - Create a new refund request
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient<Database>({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
     const body = await request.json();
 
     // Get authenticated user
@@ -120,7 +154,8 @@ export async function POST(request: Request) {
 
     // Check if order is eligible for refund (delivered within 30 days)
     const order = orderItem.order;
-    if (order.status !== 'DELIVERED') {
+    const orderStatus = String(order.status || '').toLowerCase();
+    if (orderStatus !== 'delivered') {
       return NextResponse.json({ error: 'Order must be delivered to request refund' }, { status: 400 });
     }
 
@@ -131,37 +166,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Refund window has expired (30 days)' }, { status: 400 });
     }
 
-    // Check if refund already exists for this order item
-    const { data: existingRefund } = await supabase
-      .from('RefundRequest')
+    // Check if return already exists for this order item
+    const { data: existingReturn } = await supabase
+      .from('Return')
       .select('id')
       .eq('order_item_id', order_item_id)
-      .not('status', 'in', '("REJECTED","CANCELLED")')
       .single();
 
-    if (existingRefund) {
-      return NextResponse.json({ error: 'Refund request already exists for this item' }, { status: 400 });
-    }
+    let returnRecord;
+    
+    if (existingReturn) {
+      // Check if there's already an active refund request for this return
+      const { data: existingRefund } = await supabase
+        .from('RefundRequest')
+        .select('id, status')
+        .eq('return_id', existingReturn.id)
+        .not('status', 'in', '("REJECTED","CANCELLED")')
+        .single();
 
-    // Create return record first
-    const { data: returnRecord, error: returnError } = await supabase
-      .from('Return')
-      .insert({
-        order_id: order.id,
-        order_item_id,
-        product_id: orderItem.product_id,
-        customer_id: customer.id,
-        vendor_id: orderItem.vendor_id,
-        reason,
-        refund_amount,
-        photos
-      })
-      .select()
-      .single();
+      if (existingRefund) {
+        return NextResponse.json({ error: 'Refund request already exists for this item' }, { status: 400 });
+      }
+      
+      // Use existing return record
+      returnRecord = existingReturn;
+    } else {
+      // Create return record first
+      const { data: newReturn, error: returnError } = await supabase
+        .from('Return')
+        .insert({
+          order_id: order.id,
+          order_item_id,
+          product_id: orderItem.product_id,
+          customer_id: customer.id,
+          vendor_id: orderItem.vendor_id,
+          reason,
+          refund_amount,
+          photos
+        })
+        .select()
+        .single();
 
-    if (returnError) {
-      console.error('Error creating return:', returnError);
-      return NextResponse.json({ error: 'Failed to create return record' }, { status: 500 });
+      if (returnError) {
+        console.error('Error creating return:', returnError);
+        return NextResponse.json({ error: 'Failed to create return record' }, { status: 500 });
+      }
+      
+      returnRecord = newReturn;
     }
 
     // Create refund request

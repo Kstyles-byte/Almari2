@@ -39,9 +39,10 @@ export async function createReturnRequest(data: {
 }) {
   try {
     // Verify that the order was picked up within the last 24 hours
+    // Schema uses 'pickup_status' and 'actual_pickup_date' (not 'pickup_date')
     const { data: order, error: orderError } = await supabase
       .from('Order')
-      .select('pickup_status, pickup_date')
+      .select('pickup_status, actual_pickup_date')
       .eq('id', data.orderId)
       .maybeSingle();
     
@@ -57,11 +58,11 @@ export async function createReturnRequest(data: {
       return { error: "Order has not been picked up yet" };
     }
     
-    if (!order.pickup_date) {
+    if (!order.actual_pickup_date) {
       return { error: "Pickup date not recorded" };
     }
     
-    const pickupDate = new Date(order.pickup_date);
+    const pickupDate = new Date(order.actual_pickup_date);
     const currentDate = new Date();
     const hoursSincePickup = (currentDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60);
     
@@ -69,19 +70,17 @@ export async function createReturnRequest(data: {
       return { error: "Return request must be made within 24 hours of pickup" };
     }
     
-    // Create return request
+    // Create return request - align with DB column names (snake_case)
     const { data: returnRequest, error: insertError } = await supabase
       .from('Return')
       .insert({
-        orderId: data.orderId,
-        productId: data.productId,
-        customerId: data.customerId,
-        vendorId: data.vendorId,
-        agentId: data.agentId,
+        order_id: data.orderId,
+        product_id: data.productId,
+        customer_id: data.customerId,
+        vendor_id: data.vendorId,
+        agent_id: data.agentId,
         reason: data.reason,
-        refundAmount: data.refundAmount,
-        status: 'REQUESTED',
-        refundStatus: 'PENDING',
+        refund_amount: data.refundAmount,
       })
       .select()
       .single();

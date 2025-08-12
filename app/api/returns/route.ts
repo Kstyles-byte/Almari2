@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../lib/db";
-import { auth } from "../../../auth";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { getCustomerByUserId } from "../../../lib/services/customer";
 import { createReturnRequest } from "../../../lib/services/return";
 import { createClient } from '@supabase/supabase-js';
 import { getVendorByUserId } from "../../../lib/services/vendor";
 import { getAgentByUserId } from "../../../lib/services/agent";
-import type { Return, Order, Product, Customer, Vendor, Agent, UserProfile } from '../../../types/supabase';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -19,14 +19,22 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    
-    // Check if user is authenticated
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    // Use Supabase SSR client for session
+    const cookieStore = await cookies();
+    const supabaseSSR = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return cookieStore.get(name)?.value },
+          set(name: string, value: string, options: any) { cookieStore.set({ name, value, ...options }) },
+          remove(name: string, options: any) { cookieStore.set({ name, value: "", ...options }) },
+        },
+      }
+    );
+    const { data: { user } } = await supabaseSSR.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
     const searchParams = request.nextUrl.searchParams;
@@ -54,11 +62,20 @@ export async function GET(request: NextRequest) {
         query = query.eq('status', status);
     }
     
-    if (session.user.role === "ADMIN") {
+    // Fetch role for the current user
+    const { data: userProfile } = await supabaseSSR
+      .from('User')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const role = userProfile?.role;
+
+    if (role === "ADMIN") {
       // Admin can see all returns (no extra filters needed beyond status)
-    } else if (session.user.role === "CUSTOMER") {
+    } else if (role === "CUSTOMER") {
       // Customers can only see their own returns
-      const customer = await getCustomerByUserId(session.user.id);
+      const customer = await getCustomerByUserId(user.id);
       
       if (!customer) {
         return NextResponse.json(
@@ -68,10 +85,10 @@ export async function GET(request: NextRequest) {
       }
       
       // Apply customer filter
-      query = query.eq('customerId', customer.id);
-    } else if (session.user.role === "VENDOR") {
+      query = query.eq('customer_id', customer.id);
+    } else if (role === "VENDOR") {
       // Vendors can only see returns for their products
-      const vendor = await getVendorByUserId(session.user.id);
+      const vendor = await getVendorByUserId(user.id);
       
       if (!vendor) {
         return NextResponse.json(
@@ -81,10 +98,10 @@ export async function GET(request: NextRequest) {
       }
       
       // Apply vendor filter
-      query = query.eq('vendorId', vendor.id);
-    } else if (session.user.role === "AGENT") {
+      query = query.eq('vendor_id', vendor.id);
+    } else if (role === "AGENT") {
       // Agents can only see returns they're handling
-      const agent = await getAgentByUserId(session.user.id);
+      const agent = await getAgentByUserId(user.id);
       
       if (!agent) {
         return NextResponse.json(
@@ -94,7 +111,7 @@ export async function GET(request: NextRequest) {
       }
       
       // Apply agent filter
-      query = query.eq('agentId', agent.id);
+      query = query.eq('agent_id', agent.id);
     } else {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -104,7 +121,7 @@ export async function GET(request: NextRequest) {
     
     // Apply final ordering and pagination
     query = query
-        .order('createdAt', { ascending: false })
+        .order('created_at', { ascending: false })
         .range(skip, skip + limit - 1);
     
     // Execute query
@@ -138,28 +155,37 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    
-    // Check if user is authenticated
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    // Use Supabase SSR client for session
+    const cookieStore = await cookies();
+    const supabaseSSR = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return cookieStore.get(name)?.value },
+          set(name: string, value: string, options: any) { cookieStore.set({ name, value, ...options }) },
+          remove(name: string, options: any) { cookieStore.set({ name, value: "", ...options }) },
+        },
+      }
+    );
+    const { data: { user } } = await supabaseSSR.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
-    // Only customers can create return requests
-    if (session.user.role !== "CUSTOMER") {
-      return NextResponse.json(
-        { error: "Only customers can create return requests" },
-        { status: 401 }
-      );
+    // Fetch role
+    const { data: userProfile } = await supabaseSSR
+      .from('User')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    if (userProfile?.role !== 'CUSTOMER') {
+      return NextResponse.json({ error: "Only customers can create return requests" }, { status: 401 });
     }
     
     const body = await request.json();
     
     // Get customer profile
-    const customer = await getCustomerByUserId(session.user.id);
+    const customer = await getCustomerByUserId(user.id);
     
     if (!customer) {
       return NextResponse.json(

@@ -216,7 +216,7 @@ CREATE TABLE PayoutHold (
 ### Phase 3: Frontend Development
 
 #### 3.1 Customer Interface
-- **Refund request form**: `/dashboard/orders/[orderId]/refund`
+- **Refund request form**: `/customer/orders/[id]/refund`
 - **Refund tracking page**: `/dashboard/refunds`
 - **Refund history**: Integrated into order details
 

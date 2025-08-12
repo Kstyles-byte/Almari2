@@ -31,14 +31,34 @@ type Return = Database['public']['Tables']['Return']['Row'];
  */
 export async function createReturnRequestAction(formData: FormData) {
   try {
-    const session = await auth();
-    
-    if (!session?.user) {
+    // Use Supabase SSR client to validate session instead of auth()
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: "", ...options });
+          },
+        },
+      }
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return { error: "Unauthorized" };
     }
     
     // Get customer profile
-    const customer = await getCustomerByUserId(session.user.id);
+    const customer = await getCustomerByUserId(user.id);
     
     if (!customer) {
       return { error: "Customer profile not found" };

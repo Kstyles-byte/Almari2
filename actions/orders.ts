@@ -997,6 +997,7 @@ export async function getOrderById(orderId: string) {
         quantity: item.quantity,
         price: item.price_at_purchase,
         vendor: item.Product?.Vendor?.store_name || 'Unknown Vendor',
+        vendorId: item.Product?.vendor_id || item.Product?.Vendor?.id || '',
       };
     });
     
@@ -1048,6 +1049,7 @@ export async function getOrderById(orderId: string) {
       tax: order.tax_amount,
       shippingFee: order.shipping_amount,
       pickupCode: order.pickup_code,
+      agentId: order.agent_id,
       pickupLocation: Array.isArray(order.Agent) ? order.Agent[0]?.name ?? '' : (order.Agent as any)?.name ?? '',
       pickupAddress: Array.isArray(order.Agent)
         ? `${order.Agent[0]?.address_line1 ?? ''}, ${order.Agent[0]?.city ?? ''}`

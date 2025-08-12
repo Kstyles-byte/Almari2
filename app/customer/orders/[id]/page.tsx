@@ -62,7 +62,7 @@ export default async function CustomerOrderDetailPage(
           {/* Show refund button only if eligible within window */}
           {order.status === 'delivered' && order.returnEligible && (
             <Link 
-              href={`/dashboard/orders/${order.id}/refund`}
+              href={`/customer/orders/${order.id}/refund`}
               className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 text-sm font-medium"
             >
               Request Refund

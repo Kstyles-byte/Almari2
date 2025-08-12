@@ -33,13 +33,12 @@ export function OrderDetailWrapper({ order }: OrderDetailWrapperProps) {
     if (order.items && order.items.length > 0) {
       const item = order.items[0];
       
-      // Extract the vendor string (which is presumably the vendor ID)
-      // and use pickup location as agent ID since that's what's available in the Order interface
+      // Use vendorId and agentId (UUIDs) rather than display names
       setSelectedOrderItem({
         orderId: order.id,
         productId: item.productId,
-        vendorId: typeof item.vendor === 'string' ? item.vendor : '', 
-        agentId: order.pickupLocation || '',
+        vendorId: item.vendorId || '',
+        agentId: order.agentId || '',
         productName: item.productName,
         price: item.price,
       });

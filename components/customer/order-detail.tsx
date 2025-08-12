@@ -25,6 +25,7 @@ export interface OrderItem {
   quantity: number;
   price: number;
   vendor: string;
+  vendorId?: string;
 }
 
 export interface Order {
@@ -39,6 +40,7 @@ export interface Order {
   tax: number;
   shippingFee: number;
   pickupCode: string;
+  agentId?: string | null;
   pickupLocation: string;
   pickupAddress: string;
   expectedDeliveryDate?: string;

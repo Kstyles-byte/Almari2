@@ -84,7 +84,7 @@ export default function RefundRequestForm({ orderItem, orderId }: RefundRequestF
         throw new Error(data.error || 'Failed to submit refund request');
       }
 
-      router.push(`/dashboard/orders/${orderId}?refund=requested`);
+      router.push(`/customer/orders/${orderId}?refund=requested`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
