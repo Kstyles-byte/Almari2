@@ -248,6 +248,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to create refund request' }, { status: 500 });
     }
 
+    // Send refund request notifications asynchronously
+    // Import the function dynamically to avoid circular imports
+    import('../../../lib/notifications/refundNotifications').then(({ handleRefundNotification }) => {
+      handleRefundNotification(refundRequest.id, 'request_submitted').catch(error => {
+        console.error('Failed to send refund request notification:', error);
+      });
+    }).catch(error => {
+      console.error('Failed to import refund notifications:', error);
+    });
+
     return NextResponse.json({ refund: refundRequest });
   } catch (error) {
     console.error('Unexpected error:', error);

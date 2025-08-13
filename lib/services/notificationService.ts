@@ -156,6 +156,60 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
       orderId: data.orderId?.substring(0, 8) || 'N/A'
     })
   },
+
+  REFUND_REJECTED: {
+    title: 'Refund Request Rejected',
+    message: 'Your refund request for {productName} from order #{orderId} has been rejected. Reason: {reason}',
+    type: 'RETURN_REJECTED',
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A',
+      productName: data.productName || 'Unknown Product',
+      reason: data.reason || 'No reason provided'
+    })
+  },
+
+  REFUND_VENDOR_ACTION_REQUIRED: {
+    title: 'Refund Request Requires Action',
+    message: 'A refund request for {productName} (Order #{orderId}) requires your review. Amount: ₦{refundAmount}',
+    type: 'RETURN_VENDOR_ACTION_REQUIRED',
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A',
+      productName: data.productName || 'Unknown Product',
+      refundAmount: data.refundAmount?.toLocaleString() || '0'
+    })
+  },
+
+  REFUND_PROCESSING: {
+    title: 'Refund Being Processed',
+    message: 'Your refund for {productName} from order #{orderId} is now being processed.',
+    type: 'REFUND_PROCESSED',
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A',
+      productName: data.productName || 'Unknown Product'
+    })
+  },
+
+  REFUND_STATUS_UPDATE: {
+    title: 'Refund Status Update',
+    message: 'Your refund for {productName} from order #{orderId} status has been updated to: {status}',
+    type: 'REFUND_PROCESSED',
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A',
+      productName: data.productName || 'Unknown Product',
+      status: data.status || 'Unknown'
+    })
+  },
+
+  REFUND_PICKUP_SCHEDULED: {
+    title: 'Refund Pickup Scheduled',
+    message: 'Your refund pickup for {productName} from order #{orderId} has been scheduled. Agent {agentName} will collect the item.',
+    type: 'RETURN_PICKUP_ASSIGNMENT',
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A',
+      productName: data.productName || 'Unknown Product',
+      agentName: data.agentName || 'Unknown Agent'
+    })
+  },
   
   // Vendor templates
   NEW_ORDER_VENDOR: {

@@ -277,6 +277,17 @@ export async function PUT(
       }
     }
 
+    // Send refund status notification asynchronously
+    // Import the function dynamically to avoid circular imports
+    import('../../../../lib/notifications/refundNotifications').then(({ handleRefundNotification }) => {
+      const eventType = action === 'approve' ? 'approved' : 'rejected';
+      handleRefundNotification(id, eventType).catch(error => {
+        console.error(`Failed to send refund ${eventType} notification:`, error);
+      });
+    }).catch(error => {
+      console.error('Failed to import refund notifications:', error);
+    });
+
     return NextResponse.json({ refund: updatedRefund });
   } catch (error) {
     console.error('Unexpected error:', error);
