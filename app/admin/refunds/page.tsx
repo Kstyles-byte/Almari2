@@ -60,7 +60,7 @@ export default async function AdminRefundOversightPage() {
         product:Product(name)
       ),
       customer:Customer(id, user:User(name, email)),
-      vendor:Vendor(id, storeName),
+      vendor:Vendor(id, store_name),
       return:Return(status, vendor_decision, vendor_decision_date)
     `)
     .order('created_at', { ascending: false });

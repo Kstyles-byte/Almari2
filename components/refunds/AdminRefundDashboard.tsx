@@ -113,7 +113,7 @@ export function AdminRefundDashboard({ refunds }: AdminRefundDashboardProps) {
 
   // Get unique vendors for filter dropdown
   const uniqueVendors = useMemo(() => {
-    const vendors = new Set(refunds.map(r => ({ id: r.vendor_id, name: r.vendor?.storeName })).filter(v => v.name));
+    const vendors = new Set(refunds.map(r => ({ id: r.vendor_id, name: r.vendor?.store_name })).filter(v => v.name));
     return Array.from(vendors);
   }, [refunds]);
 
@@ -124,7 +124,7 @@ export function AdminRefundDashboard({ refunds }: AdminRefundDashboardProps) {
       const matchesSearch = searchTerm === '' || 
         refund.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         refund.customer?.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        refund.vendor?.storeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        refund.vendor?.store_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         refund.orderItem?.product?.name?.toLowerCase().includes(searchTerm.toLowerCase());
       
       let matchesDate = true;
@@ -153,8 +153,8 @@ export function AdminRefundDashboard({ refunds }: AdminRefundDashboardProps) {
           bValue = b.customer?.user?.name || '';
           break;
         case 'vendor':
-          aValue = a.vendor?.storeName || '';
-          bValue = b.vendor?.storeName || '';
+          aValue = a.vendor?.store_name || '';
+          bValue = b.vendor?.store_name || '';
           break;
         case 'status':
           aValue = a.status;
@@ -263,7 +263,7 @@ export function AdminRefundDashboard({ refunds }: AdminRefundDashboardProps) {
       'Refund ID': refund.id,
       'Status': refund.status,
       'Customer': refund.customer?.user?.name || '',
-      'Vendor': refund.vendor?.storeName || '',
+      'Vendor': refund.vendor?.store_name || '',
       'Product': refund.orderItem?.product?.name || '',
       'Amount': refund.refund_amount,
       'Reason': refund.reason,
@@ -318,7 +318,7 @@ export function AdminRefundDashboard({ refunds }: AdminRefundDashboardProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card>
@@ -591,7 +591,7 @@ export function AdminRefundDashboard({ refunds }: AdminRefundDashboardProps) {
                     </Badge>
                   </TableCell>
                   <TableCell>{refund.customer?.user?.name}</TableCell>
-                  <TableCell>{refund.vendor?.storeName}</TableCell>
+                  <TableCell>{refund.vendor?.store_name}</TableCell>
                   <TableCell>{refund.orderItem?.product?.name}</TableCell>
                   <TableCell>{formatCurrency(refund.refund_amount)}</TableCell>
                   <TableCell>{new Date(refund.created_at).toLocaleDateString()}</TableCell>
@@ -728,7 +728,7 @@ export function AdminRefundDashboard({ refunds }: AdminRefundDashboardProps) {
                   <div className="text-sm text-muted-foreground space-y-1">
                     <p><strong>Customer:</strong> {refund.customer?.user?.name}</p>
                     <p><strong>Email:</strong> {refund.customer?.user?.email}</p>
-                    <p><strong>Vendor:</strong> {refund.vendor?.storeName}</p>
+                    <p><strong>Vendor:</strong> {refund.vendor?.store_name}</p>
                   </div>
                 </div>
                 <div>
