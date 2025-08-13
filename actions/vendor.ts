@@ -49,7 +49,7 @@ export async function applyForVendor(values: z.infer<typeof VendorApplicationSch
   const { data: existingVendor, error: checkError } = await supabase
     .from('Vendor')
     .select('id')
-    .eq('userId', user.id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (checkError) {
@@ -66,13 +66,13 @@ export async function applyForVendor(values: z.infer<typeof VendorApplicationSch
   const vendorId = crypto.randomUUID(); 
   const vendorData: Database['public']['Tables']['Vendor']['Insert'] = {
     id: vendorId, // Assign the generated UUID
-    userId: user.id,
-    storeName,
+    user_id: user.id,
+    store_name: storeName,
     description: description || null,
-    isApproved: false, // Application starts as not approved
-    commissionRate: 10, // Set a default commission rate, admin can change
-    bankName,
-    accountNumber,
+    is_approved: false, // Application starts as not approved
+    commission_rate: 10, // Set a default commission rate, admin can change
+    bank_name: bankName,
+    account_number: accountNumber,
     // logo and banner might be added later
   };
 
@@ -88,7 +88,15 @@ export async function applyForVendor(values: z.infer<typeof VendorApplicationSch
 
   console.log(`[Action] Vendor application submitted successfully for user ${user.id} with vendor ID ${vendorId}`);
 
-  // TODO: Notify admin about the new application?
+  // Notify admin about the new application
+  try {
+    const { notifyNewVendorApplication } = await import('../lib/notifications/adminNotifications');
+    await notifyNewVendorApplication(vendorId);
+    console.log(`[Action] Admin notified about new vendor application: ${vendorId}`);
+  } catch (notificationError) {
+    console.error('[Action] Error sending vendor application notification:', notificationError);
+    // Don't fail the application process due to notification errors
+  }
 
   // 6. Redirect to a success/pending page or dashboard
   // Option 1: Redirect

@@ -345,6 +345,16 @@ export async function POST(req: NextRequest) {
       callback_url: `${process.env.NEXTAUTH_URL}/checkout/complete?orderId=${newOrder.id}`,
     });
 
+    // Check for high-value orders and send admin notifications
+    try {
+      const { notifyHighValueOrder } = await import('../../../lib/notifications/adminNotifications');
+      // Notify if order is above 100,000 Naira threshold
+      await notifyHighValueOrder(newOrder.id, 100000);
+    } catch (notificationError) {
+      console.error('Error sending high-value order notifications:', notificationError);
+      // Don't fail the order creation process due to notification errors
+    }
+
     return NextResponse.json({
       order: {
         ...newOrder,

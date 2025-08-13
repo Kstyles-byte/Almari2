@@ -437,6 +437,18 @@ export async function createOrder(formData: FormData) {
       await supabase.from('CartItem').delete().eq('cart_id', cartId);
     }
 
+    // Check for high-value orders and send admin notifications
+    try {
+      const { notifyHighValueOrder } = await import('../lib/notifications/adminNotifications');
+      for (const orderId of orderIds) {
+        // Notify if order is above 100,000 Naira threshold
+        await notifyHighValueOrder(orderId, 100000);
+      }
+    } catch (notificationError) {
+      console.error('Error sending high-value order notifications:', notificationError);
+      // Don't fail the order creation process due to notification errors
+    }
+
     console.log('Orders created:', orderIds);
     return {
       success: true,

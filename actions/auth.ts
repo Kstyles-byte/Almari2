@@ -428,6 +428,16 @@ export async function signUpAsVendor(values: z.infer<typeof VendorSignUpSchema>)
   }
   console.log(`[Action] Vendor profile created successfully: ${vendorId}`);
 
+  // Notify admin about the new vendor application
+  try {
+    const { notifyNewVendorApplication } = await import('../lib/notifications/adminNotifications');
+    await notifyNewVendorApplication(vendorId);
+    console.log(`[Action] Admin notified about new vendor signup: ${vendorId}`);
+  } catch (notificationError) {
+    console.error('[Action] Error sending vendor signup notification:', notificationError);
+    // Don't fail the signup process due to notification errors
+  }
+
   // Optionally: Update the role in public.User table immediately?
   // Or leave it as CUSTOMER until admin approval?
   // Let's leave it as CUSTOMER, consistent with Flow 1 (pending approval)

@@ -409,6 +409,16 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
     })
   },
 
+  NEW_VENDOR_APPLICATION: {
+    title: 'New Vendor Application',
+    message: '{applicantName} applied to become a vendor with store "{storeName}". Review required.',
+    type: 'NEW_VENDOR_APPLICATION',
+    getSubstitutions: (data) => ({
+      applicantName: data.applicantName || 'Unknown User',
+      storeName: data.storeName || 'Unknown Store'
+    })
+  },
+
   // Inventory Management Templates
   OUT_OF_STOCK_ALERT: {
     title: 'Product Out of Stock',
