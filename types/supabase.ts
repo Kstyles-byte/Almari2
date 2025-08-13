@@ -1540,27 +1540,6 @@ export type Database = {
         | "NEW_VENDOR_APPLICATION"
         | "HIGH_VALUE_ORDER_ALERT"
         | "LOW_STOCK_ALERT"
-        | "COUPON_CREATED"
-        | "COUPON_EXPIRED"
-        | "COUPON_USAGE_THRESHOLD"
-        | "COUPON_APPLIED"
-        | "COUPON_FAILED"
-        | "PRODUCT_BACK_IN_STOCK"
-        | "PRODUCT_PRICE_DROP"
-        | "WISHLIST_REMINDER"
-        | "NEW_PRODUCT_REVIEW"
-        | "REVIEW_RESPONSE"
-        | "REVIEW_MILESTONE"
-        | "COMMISSION_RATE_CHANGED"
-        | "PAYOUT_ON_HOLD"
-        | "PAYOUT_HOLD_RELEASED"
-        | "MINIMUM_PAYOUT_REACHED"
-        | "POPULAR_PRODUCT_ALERT"
-        | "AGENT_LOCATION_NAME_UPDATE"
-        | "ACCOUNT_VERIFICATION"
-        | "PASSWORD_RESET"
-        | "SECURITY_ALERT"
-        | "MAINTENANCE_NOTICE"
       OrderItemStatus:
         | "PENDING"
         | "PROCESSING"
@@ -1737,27 +1716,6 @@ export const Constants = {
         "NEW_VENDOR_APPLICATION",
         "HIGH_VALUE_ORDER_ALERT",
         "LOW_STOCK_ALERT",
-        "COUPON_CREATED",
-        "COUPON_EXPIRED",
-        "COUPON_USAGE_THRESHOLD",
-        "COUPON_APPLIED",
-        "COUPON_FAILED",
-        "PRODUCT_BACK_IN_STOCK",
-        "PRODUCT_PRICE_DROP",
-        "WISHLIST_REMINDER",
-        "NEW_PRODUCT_REVIEW",
-        "REVIEW_RESPONSE",
-        "REVIEW_MILESTONE",
-        "COMMISSION_RATE_CHANGED",
-        "PAYOUT_ON_HOLD",
-        "PAYOUT_HOLD_RELEASED",
-        "MINIMUM_PAYOUT_REACHED",
-        "POPULAR_PRODUCT_ALERT",
-        "AGENT_LOCATION_NAME_UPDATE",
-        "ACCOUNT_VERIFICATION",
-        "PASSWORD_RESET",
-        "SECURITY_ALERT",
-        "MAINTENANCE_NOTICE",
       ],
       OrderItemStatus: [
         "PENDING",
