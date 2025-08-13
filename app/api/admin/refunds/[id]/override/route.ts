@@ -9,7 +9,6 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,7 +55,7 @@ export async function PUT(
     const { data: refund, error: refundError } = await supabase
       .from('RefundRequest')
       .select('*')
-      .eq('id', id)
+      .eq('id', params.id)
       .single();
 
     if (refundError || !refund) {
@@ -88,7 +87,7 @@ export async function PUT(
     const { data: updatedRefund, error: updateError } = await supabase
       .from('RefundRequest')
       .update(updates)
-      .eq('id', id)
+      .eq('id', params.id)
       .select('*')
       .single();
 
@@ -112,7 +111,7 @@ export async function PUT(
           .from('PayoutHold')
           .update({
             hold_amount: existingHold.hold_amount + refund.refund_amount,
-            refund_request_ids: [...(existingHold.refund_request_ids || []), id]
+            refund_request_ids: [...(existingHold.refund_request_ids || []), params.id]
           })
           .eq('id', existingHold.id);
       } else {
@@ -123,8 +122,8 @@ export async function PUT(
             vendor_id: refund.vendor_id,
             hold_amount: refund.refund_amount,
             reason: 'Pending refund processing after admin override',
-            refund_request_ids: [id],
-            created_by: session.user.id
+            refund_request_ids: [params.id],
+            created_by: user.id
           });
       }
     }
