@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../types/supabase';
-import { getUserNotifications, getUnreadNotificationCount, markNotificationAsRead, markAllNotificationsAsRead } from '../services/notificationService';
+// Removed direct notification service imports - now using API routes instead
 
 type Notification = Database['public']['Tables']['Notification']['Row'];
 
@@ -85,20 +85,25 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      const result = await getUserNotifications(userId, {
-        page: state.currentPage,
-        limit,
-        unreadOnly
+      const params = new URLSearchParams({
+        page: state.currentPage.toString(),
+        limit: limit.toString(),
+        unreadOnly: unreadOnly.toString()
       });
 
-      if ('error' in result) {
-        throw new Error(result.error);
+      const response = await fetch(`/api/notifications?${params}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
+
+      const result = await response.json();
 
       setState(prev => ({
         ...prev,
         notifications: result.data,
-        hasMore: state.currentPage < result.meta.pageCount,
+        hasMore: result.pagination.hasNextPage,
         loading: false
       }));
     } catch (error) {
@@ -119,20 +124,25 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
 
     try {
       const nextPage = state.currentPage + 1;
-      const result = await getUserNotifications(userId, {
-        page: nextPage,
-        limit,
-        unreadOnly
+      const params = new URLSearchParams({
+        page: nextPage.toString(),
+        limit: limit.toString(),
+        unreadOnly: unreadOnly.toString()
       });
 
-      if ('error' in result) {
-        throw new Error(result.error);
+      const response = await fetch(`/api/notifications?${params}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
+
+      const result = await response.json();
 
       setState(prev => ({
         ...prev,
         notifications: [...prev.notifications, ...result.data],
-        hasMore: nextPage < result.meta.pageCount,
+        hasMore: result.pagination.hasNextPage,
         currentPage: nextPage,
         loading: false
       }));
@@ -151,10 +161,15 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     if (!userId) return;
 
     try {
-      const result = await getUnreadNotificationCount(userId);
-      if (result.success) {
-        setState(prev => ({ ...prev, unreadCount: result.count || 0 }));
+      const response = await fetch('/api/notifications?action=count');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
+
+      const result = await response.json();
+      setState(prev => ({ ...prev, unreadCount: result.count || 0 }));
     } catch (error) {
       console.error('[useNotifications] Error refreshing count:', error);
     }
@@ -176,8 +191,12 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     }));
 
     try {
-      const result = await markNotificationAsRead(notificationId);
-      if (!result.success) {
+      const response = await fetch(`/api/notifications/${notificationId}/read`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
         // Revert optimistic update on failure
         setState(prev => ({
           ...prev,
@@ -188,7 +207,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
           ),
           unreadCount: prev.unreadCount + 1
         }));
-        throw new Error(result.error || 'Failed to mark notification as read');
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
     } catch (error) {
       console.error('[useNotifications] Error marking notification as read:', error);
@@ -208,8 +227,12 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     }));
 
     try {
-      const result = await markAllNotificationsAsRead(userId);
-      if (!result.success) {
+      const response = await fetch('/api/notifications/mark-all-read', {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
         // Revert optimistic update on failure
         setState(prev => ({
           ...prev,
@@ -218,7 +241,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
           ),
           unreadCount: previousUnreadCount
         }));
-        throw new Error(result.error || 'Failed to mark all notifications as read');
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
     } catch (error) {
       console.error('[useNotifications] Error marking all notifications as read:', error);

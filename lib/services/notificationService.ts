@@ -72,17 +72,23 @@ interface NotificationTemplate {
 
 // Helper function to get Supabase client - with better error logging
 const getSupabaseClient = () => {
+  // Check if we're running on the server side
+  if (typeof window !== 'undefined') {
+    throw new Error("Notification service should only be used on the server side");
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   // Log at the time of client creation attempt for debugging
-  console.log('[Notification Service] Creating Supabase client:');
+  console.log('[Notification Service] Creating Supabase client on server side:');
   console.log('[Notification Service] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'defined' : 'undefined');
   console.log('[Notification Service] SUPABASE_URL:', process.env.SUPABASE_URL ? 'defined' : 'undefined');
   console.log('[Notification Service] SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceRoleKey ? 'defined' : 'undefined');
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     console.error("[Notification Service] Supabase URL or Service Role Key is missing in environment variables");
+    console.error("[Notification Service] Available env vars:", Object.keys(process.env).filter(key => key.includes('SUPABASE')));
     throw new Error("Supabase environment variables missing for notification service");
   }
 
