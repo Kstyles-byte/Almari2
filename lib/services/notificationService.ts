@@ -186,13 +186,101 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
     })
   },
   
+  // Additional Order templates
+  ORDER_SHIPPED: {
+    title: 'Order Shipped',
+    message: 'Your order #{orderId} has been shipped and is on its way.',
+    type: 'ORDER_SHIPPED',
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A'
+    })
+  },
+
+  ORDER_DELIVERED: {
+    title: 'Order Delivered',
+    message: 'Your order #{orderId} has been delivered successfully.',
+    type: 'ORDER_DELIVERED',
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A'
+    })
+  },
+
+  ORDER_CANCELLED: {
+    title: 'Order Cancelled',
+    message: 'Your order #{orderId} has been cancelled.',
+    type: 'ORDER_STATUS_CHANGE',
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A'
+    })
+  },
+
+  PAYMENT_FAILED: {
+    title: 'Payment Failed',
+    message: 'Payment for order #{orderId} failed. Reason: {reason}',
+    type: 'PAYMENT_FAILED',
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A',
+      reason: data.reason || 'Payment processing error'
+    })
+  },
+
+  // Vendor Payment template
+  PAYMENT_RECEIVED: {
+    title: 'Payment Received',
+    message: 'Payment received for order #{orderId}. Your earnings: ₦{amount}',
+    type: 'NEW_ORDER_VENDOR', // Reusing existing type
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A',
+      amount: data.amount?.toLocaleString() || '0'
+    })
+  },
+  
   // Agent templates
   NEW_PICKUP_ASSIGNMENT: {
     title: 'New Pickup Assignment',
-    message: 'You have been assigned a new pickup for order #{orderId}.',
+    message: 'You have been assigned a new pickup for order #{orderId} at {pickupLocation}.',
     type: 'NEW_PICKUP_ASSIGNMENT',
     getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A',
+      pickupLocation: data.pickupLocation || 'Location TBD'
+    })
+  },
+
+  PICKUP_COMPLETED: {
+    title: 'Pickup Completed',
+    message: 'Pickup for order #{orderId} has been completed successfully.',
+    type: 'NEW_PICKUP_ASSIGNMENT', // Reusing existing type
+    getSubstitutions: (data) => ({
       orderId: data.orderId?.substring(0, 8) || 'N/A'
+    })
+  },
+
+  RETURN_PICKUP_ASSIGNMENT: {
+    title: 'Return Pickup Assignment',
+    message: 'You have been assigned to pickup return #{returnId} for order #{orderId}.',
+    type: 'RETURN_PICKUP_ASSIGNMENT',
+    getSubstitutions: (data) => ({
+      returnId: data.returnId?.substring(0, 8) || 'N/A',
+      orderId: data.orderId?.substring(0, 8) || 'N/A'
+    })
+  },
+
+  REFUND_PICKUP_REMINDER: {
+    title: 'Refund Pickup Reminder',
+    message: 'Reminder: Please pickup return #{returnId} for order #{orderId}.',
+    type: 'RETURN_PICKUP_ASSIGNMENT', // Reusing existing type
+    getSubstitutions: (data) => ({
+      returnId: data.returnId?.substring(0, 8) || 'N/A',
+      orderId: data.orderId?.substring(0, 8) || 'N/A'
+    })
+  },
+
+  AGENT_LOCATION_NAME_UPDATE: {
+    title: 'Location Updated',
+    message: 'Your service location has been updated to: {locationName}',
+    type: 'AGENT_LOCATION_NAME_UPDATE',
+    getSubstitutions: (data) => ({
+      locationName: data.locationName || 'Unknown Location'
     })
   },
   
