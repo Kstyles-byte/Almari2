@@ -4,64 +4,20 @@
 
 The notification system will provide real-time updates to all user roles (Admins, Vendors, Customers, and Agents) through multiple channels:
 - **In-App Notifications**: Real-time notifications within the web application
-- **Email Notifications**: Automated emails for important events
 - **Push Notifications**: Browser-based push notifications for immediate alerts
-- **SMS Notifications**: Critical alerts via SMS (optional, for high-value orders)
+
 
 ## System Architecture
 
 ### 1. Core Components
 
-#### Database Schema (Already Implemented)
-- `Notification` table with comprehensive notification types
-- `NotificationPreference` table for user preferences
-- `UserUnreadNotificationCount` materialized view for performance
+#### Database Schema (already implemented)
+- Use supabase mcp tool to check the schema.
 
 #### Notification Channels
 - **IN_APP**: Real-time notifications in the web interface
-- **EMAIL**: Automated email notifications
-- **SMS**: SMS notifications for critical alerts
 - **PUSH**: Browser push notifications
 
-#### Notification Types (Current + Extended)
-```typescript
-enum NotificationType {
-  // Order-related notifications
-  ORDER_STATUS_CHANGE
-  ORDER_SHIPPED
-  ORDER_DELIVERED
-  PICKUP_READY
-  ORDER_PICKED_UP
-  PAYMENT_FAILED
-  
-  // Return/Refund notifications
-  RETURN_REQUESTED
-  RETURN_APPROVED
-  RETURN_REJECTED
-  RETURN_VENDOR_ACTION_REQUIRED
-  RETURN_VENDOR_COMPLETED
-  REFUND_PROCESSED
-  
-  // Vendor notifications
-  NEW_ORDER_VENDOR
-  PAYOUT_PROCESSED
-  NEW_VENDOR_APPLICATION
-  
-  // Agent notifications
-  NEW_PICKUP_ASSIGNMENT
-  RETURN_PICKUP_ASSIGNMENT
-  
-  // Admin notifications
-  HIGH_VALUE_ORDER_ALERT
-  LOW_STOCK_ALERT
-  
-  // System notifications
-  ACCOUNT_VERIFICATION
-  PASSWORD_RESET
-  SECURITY_ALERT
-  MAINTENANCE_NOTICE
-}
-```
 
 ## User Role-Specific Notification Requirements
 
@@ -77,27 +33,33 @@ enum NotificationType {
 - **Order Picked Up**: Confirmation when order is picked up
 - **Payment Failed**: When payment processing fails
 
-#### Return/Refund Notifications
-- **Return Request Confirmation**: When return request is submitted
-- **Return Approved**: When return request is approved
-- **Return Rejected**: When return request is rejected
-- **Return Pickup Scheduled**: When return pickup is scheduled
+#### Refund Notifications
+- **Refund Request Confirmation**: When refund request is submitted
+- **Refund Approved**: When refund request is approved
+- **Refund Rejected**: When refund request is rejected
+- **Refund Pickup Scheduled**: When refund pickup is scheduled
 - **Refund Processed**: When refund is processed
-- **Return Completed**: When return process is completed
+- **Refund Completed**: When refund process is completed
 
-#### Account Notifications
-- **Account Verification**: Email verification required
-- **Password Reset**: Password reset confirmation
-- **Security Alert**: Unusual login activity
-- **Profile Update**: Profile changes confirmation
+#### Coupon & Promotions
+- **Coupon Applied**: Customer successfully applies coupon
+- **Coupon Failed**: Coupon application failed
+
+#### Wishlist Features
+- **Product Back in Stock**: Wishlisted product available again
+- **Product Price Drop**: Wishlisted product price reduced
+- **Wishlist Reminder**: Weekly wishlist summary
+
+#### Review System
+- **Review Response**: Customer gets reply to their review
+
 
 ### 2. Vendor Notifications
 
 #### Order Management
 - **New Order Received**: When new order is placed
 - **Order Status Update**: When customer updates order status
-- **High Value Order Alert**: Orders above threshold amount
-- **Order Cancellation**: When order is cancelled
+
 
 #### Inventory Management
 - **Low Stock Alert**: When product inventory is low
@@ -107,376 +69,239 @@ enum NotificationType {
 #### Financial Notifications
 - **Payout Processed**: When payout is processed
 - **Payout Failed**: When payout processing fails
-- **Commission Update**: When commission rates change
 - **Payment Received**: When payment is received for order
+- **Payout On Hold**: Payout held due to pending refunds
+- **Payout Hold Released**: Payout hold released
+- **Minimum Payout Reached**: Vendor earnings reach minimum payout threshold
+- **Commission Rate Changed**: Admin updates vendor commission rates
 
 #### Return Management
-- **Return Request**: When customer requests return
-- **Return Action Required**: When vendor action is needed
-- **Return Completed**: When return process is completed
+- **Refund Request**: When customer requests refund
+- **Refund Action Required**: When vendor action is needed
+- **Refund Completed**: When refund process is completed
+
+#### Coupon Management
+- **Coupon Created**: Vendor creates new coupon
+- **Coupon Expired**: Coupon reaches expiry date
+- **Coupon Usage Threshold**: Coupon usage limit nearly reached
+
+#### Review Management
+- **New Product Review**: Vendor gets review on their product
+- **Review Milestone**: Product reaches review milestones (5, 10, 50 reviews)
+
+#### Product Management
+- **Popular Product Alert**: Product becomes trending
 
 #### Account Management
 - **Application Status**: Vendor application approval/rejection
 - **Account Suspension**: Account suspension notifications
-- **Policy Updates**: Platform policy changes
 
 ### 3. Agent Notifications
 
 #### Pickup Assignments
 - **New Pickup Assignment**: When assigned to pick up order
-- **Pickup Reminder**: Reminder for scheduled pickups
 - **Pickup Completed**: Confirmation when pickup is completed
-- **Pickup Failed**: When pickup cannot be completed
 
 #### Return Assignments
-- **Return Pickup Assignment**: When assigned to return pickup
-- **Return Pickup Reminder**: Reminder for return pickups
-- **Return Pickup Completed**: When return pickup is completed
+- **Return Pickup Assignment**: When assigned to refund pickup
+- **Refund Pickup Reminder**: Reminder for refund pickups
+- **Refund Pickup Completed**: When refund pickup is completed
 
-#### Performance Notifications
-- **Performance Review**: Monthly performance summary
-- **Target Achievement**: When performance targets are met
-- **Area Assignment**: New area assignments
+#### Location Management
+- **Agent Location Name Update**: Location/address updates
 
-#### System Notifications
-- **Schedule Updates**: Changes to operating hours
-- **Training Notifications**: New training requirements
-- **Equipment Updates**: Equipment maintenance notifications
 
 ### 4. Admin Notifications
 
 #### System Alerts
 - **High Value Order Alert**: Orders above admin threshold
-- **System Error**: Critical system errors
-- **Security Breach**: Security-related alerts
-- **Performance Issues**: System performance problems
 
 #### User Management
 - **New Vendor Application**: New vendor registration
 - **User Suspension**: User account suspensions
-- **Dispute Reports**: Customer/vendor disputes
-- **Fraud Alerts**: Suspicious activity detection
+
 
 #### Financial Alerts
 - **Payment Failures**: Failed payment processing
-- **Refund Requests**: High-value refund requests
-- **Commission Issues**: Commission calculation problems
-- **Payout Failures**: Failed vendor payouts
+- **Refund Requests**: New refund requests
 
-#### Platform Management
-- **Maintenance Notices**: Scheduled maintenance
-- **Policy Updates**: Platform policy changes
-- **Feature Updates**: New feature releases
-- **Compliance Alerts**: Regulatory compliance issues
 
-## Implementation Plan
+## Database Schema Status
 
-### Phase 1: Email Service Integration (Free Solutions)
+✅ **Already Implemented**: The core notification infrastructure is in place with:
+- `Notification` table with proper relationships (user_id, order_id, return_id)
+- `NotificationPreference` table for user preferences
+- `NotificationType` enum with ALL required notification types already included
+- `NotificationChannel` enum (IN_APP, PUSH)
+- Row Level Security (RLS) enabled
 
-#### Option 1: Resend (Recommended)
-- **Free Tier**: 3,000 emails/month
-- **Features**: Transactional emails, templates, analytics
-- **Integration**: Simple API integration
-- **Templates**: Pre-built email templates for all notification types
+**Note**: All notification types mentioned above are already included in the database schema. No schema changes are required for the notification types.
 
-#### Option 2: Supabase Edge Functions with SMTP
-- **Free**: Use existing Supabase edge functions
-- **SMTP Provider**: Gmail SMTP (free) or other free SMTP services
-- **Custom Implementation**: Full control over email sending
 
-#### Option 3: EmailJS (Client-side)
-- **Free Tier**: 200 emails/month
-- **Client-side**: Sends emails directly from browser
-- **Limitations**: Rate limits and security considerations
+## Implementation Tasks by Phase
 
-### Phase 2: Push Notification Service
+### Phase 1: Core Notification Service Infrastructure (Week 1-2)
 
-#### Browser Push Notifications
-- **Service Worker**: Implement service worker for push notifications
-- **Web Push API**: Use browser's native push notification API
-- **Free**: No external service costs
-- **Features**: Real-time notifications, click actions, rich content
+#### Task 1.1: Create Notification Service Layer
+- [ ] Create `lib/services/notificationService.ts` - Central service for creating, sending, and managing notifications
+- [ ] Implement notification creation with proper TypeScript typing
+- [ ] Add batch notification creation functionality
+- [ ] Build notification template system
+- [ ] Add user preference checking logic
+- [ ] Implement channel routing (in-app, push)
 
-#### Implementation Steps:
-1. Create service worker for push notifications
-2. Implement push notification subscription
-3. Create notification templates
-4. Integrate with notification service
+#### Task 1.2: Create Notification Components
+- [ ] Create `components/ui/notification-bell.tsx` - Real-time notification bell with count
+- [ ] Create `components/ui/notification-dropdown.tsx` - Dropdown list with pagination
+- [ ] Create `components/ui/notification-item.tsx` - Individual notification display
+- [ ] Add mark as read functionality
+- [ ] Implement category filtering
+- [ ] Add responsive design for mobile devices
 
-### Phase 3: SMS Notifications (Optional)
+#### Task 1.3: Create Notification API Routes
+- [ ] Create `app/api/notifications/route.ts` - Main notifications API endpoint
+- [ ] Create `app/api/notifications/[id]/read/route.ts` - Mark single notification as read
+- [ ] Create `app/api/notifications/mark-all-read/route.ts` - Mark all notifications as read
+- [ ] Add pagination support for notification lists
+- [ ] Implement proper error handling and validation
 
-#### Free SMS Services:
-- **Twilio Trial**: Free trial with limited credits
-- **Vonage**: Free trial available
-- **MessageBird**: Free tier with limited messages
+### Phase 2: Real-time Notification System (Week 2-3)
 
-#### Use Cases:
-- High-value order alerts
-- Critical system notifications
-- Security alerts
-- Payment failure notifications
+#### Task 2.1: Implement Supabase Realtime Integration
+- [ ] Create `lib/hooks/useNotifications.ts` - Real-time notification updates hook
+- [ ] Set up Supabase realtime subscriptions for notifications table
+- [ ] Implement automatic notification count updates
+- [ ] Handle connection states and reconnection logic
+- [ ] Add optimistic updates for better UX
 
-## Technical Implementation
+#### Task 2.2: Create Notification Context Provider
+- [ ] Create `contexts/NotificationContext.tsx` - Global notification state management
+- [ ] Implement notification state with reducers
+- [ ] Add real-time updates integration
+- [ ] Handle notification CRUD operations
+- [ ] Add loading and error states
 
-### 1. Email Service Setup
+#### Task 2.3: Integrate Push Notifications
+- [ ] Create `lib/services/pushNotificationService.ts` - Push notification service
+- [ ] Create `public/sw.js` - Service Worker for background notifications
+- [ ] Implement push notification registration
+- [ ] Add background sync functionality
+- [ ] Handle notification click events
+- [ ] Add permission request UI
 
-#### Resend Integration
-```typescript
-// lib/services/email.ts
-import { Resend } from 'resend';
+### Phase 3: Order Lifecycle Notifications (Week 3-4)
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+#### Task 3.1: Order Status Change Notifications
+- [ ] Create `lib/notifications/orderNotifications.ts` - Order notification handlers
+- [ ] Implement order confirmation notifications
+- [ ] Add payment status change notifications
+- [ ] Create shipping and delivery notifications
+- [ ] Add pickup ready notifications
+- [ ] Integrate with existing order status update APIs
 
-export async function sendEmailNotification({
-  to,
-  subject,
-  template,
-  data
-}: {
-  to: string;
-  subject: string;
-  template: string;
-  data: any;
-}) {
-  try {
-    const { data: result, error } = await resend.emails.send({
-      from: 'Zervia <notifications@zervia.com>',
-      to: [to],
-      subject,
-      react: getEmailTemplate(template, data),
-    });
+#### Task 3.2: Vendor Order Notifications
+- [ ] Create `lib/notifications/vendorOrderNotifications.ts` - Vendor-specific order notifications
+- [ ] Implement new order alerts for vendors
+- [ ] Add order processing reminders
+- [ ] Create payment received notifications
+- [ ] Add bulk notification support for multiple vendors
 
-    if (error) {
-      console.error('Email sending failed:', error);
-      return { success: false, error: error.message };
-    }
+#### Task 3.3: Agent Assignment Notifications
+- [ ] Create `lib/notifications/agentNotifications.ts` - Agent notification handlers
+- [ ] Implement pickup assignment notifications
+- [ ] Add route optimization alerts
+- [ ] Create completion confirmation notifications
+- [ ] Add location-based notification filtering
 
-    return { success: true, data: result };
-  } catch (error) {
-    console.error('Email service error:', error);
-    return { success: false, error: 'Failed to send email' };
-  }
-}
-```
+### Phase 4: Refund Notifications (Week 4-5)
 
-### 2. Push Notification Setup
+#### Task 4.1: Refund Request Workflow Notifications
+- [ ] Create `lib/notifications/refundNotifications.ts` - Complete refund workflow notifications
+- [ ] Implement refund request confirmation notifications
+- [ ] Add vendor action required alerts
+- [ ] Create approval/rejection notifications
+- [ ] Add processing status update notifications
+- [ ] Integrate with existing refund API routes
 
-#### Service Worker
-```javascript
-// public/sw.js
-self.addEventListener('push', function(event) {
-  const options = {
-    body: event.data.text(),
-    icon: '/icon-192x192.png',
-    badge: '/badge-72x72.png',
-    vibrate: [100, 50, 100],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1
-    },
-    actions: [
-      {
-        action: 'explore',
-        title: 'View Details',
-        icon: '/icon-192x192.png'
-      },
-      {
-        action: 'close',
-        title: 'Close',
-        icon: '/icon-192x192.png'
-      }
-    ]
-  };
 
-  event.waitUntil(
-    self.registration.showNotification('Zervia Notification', options)
-  );
-});
-```
+### Phase 5: Financial Notifications (Week 5-6)
 
-### 3. Notification Dispatcher
+#### Task 5.1: Payout System Notifications
+- [ ] Create `lib/notifications/payoutNotifications.ts` - Vendor payout notifications
+- [ ] Implement payout processed notifications
+- [ ] Add payout hold notifications
+- [ ] Create minimum threshold reached alerts
+- [ ] Add commission rate change notifications
+- [ ] Implement payout hold release notifications
 
-#### Multi-Channel Notification Service
-```typescript
-// lib/services/notification-dispatcher.ts
-export async function dispatchNotification({
-  userId,
-  type,
-  title,
-  message,
-  data,
-  channels = ['IN_APP', 'EMAIL', 'PUSH']
-}: {
-  userId: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  data?: any;
-  channels?: NotificationChannel[];
-}) {
-  const user = await getUserById(userId);
-  const preferences = await getUserNotificationPreferences(userId, type);
-  
-  const results = [];
-  
-  // In-app notification (always sent)
-  if (channels.includes('IN_APP')) {
-    const inAppResult = await createTypedNotification({
-      userId,
-      title,
-      message,
-      type,
-      orderId: data?.orderId,
-      returnId: data?.returnId,
-      referenceUrl: data?.referenceUrl
-    });
-    results.push({ channel: 'IN_APP', success: inAppResult.success });
-  }
-  
-  // Email notification
-  if (channels.includes('EMAIL') && preferences.EMAIL?.enabled) {
-    const emailResult = await sendEmailNotification({
-      to: user.email,
-      subject: title,
-      template: getEmailTemplateForType(type),
-      data
-    });
-    results.push({ channel: 'EMAIL', success: emailResult.success });
-  }
-  
-  // Push notification
-  if (channels.includes('PUSH') && preferences.PUSH?.enabled) {
-    const pushResult = await sendPushNotification({
-      userId,
-      title,
-      body: message,
-      data
-    });
-    results.push({ channel: 'PUSH', success: pushResult.success });
-  }
-  
-  // SMS notification (for critical alerts)
-  if (channels.includes('SMS') && preferences.SMS?.enabled && isCriticalNotification(type)) {
-    const smsResult = await sendSMSNotification({
-      to: user.phoneNumber,
-      message: `${title}: ${message}`
-    });
-    results.push({ channel: 'SMS', success: smsResult.success });
-  }
-  
-  return results;
-}
-```
+#### Task 5.2: Payment Failure Notifications
+- [ ] Create `lib/notifications/paymentNotifications.ts` - Payment-related notifications
+- [ ] Create payment success confirmations
 
-## Notification Triggers
+### Phase 6: Product & Inventory Notifications (Week 6-7)
 
-### 1. Order Lifecycle Triggers
-```typescript
-// actions/orders.ts
-export async function updateOrderStatus(orderId: string, newStatus: OrderStatus) {
-  // Update order status
-  const order = await updateOrder(orderId, { status: newStatus });
-  
-  // Send notifications based on status
-  switch (newStatus) {
-    case 'PROCESSING':
-      await dispatchNotification({
-        userId: order.customerId,
-        type: 'ORDER_STATUS_CHANGE',
-        title: 'Order Processing',
-        message: `Your order #${order.shortId} is now being processed.`,
-        data: { orderId: order.id, shortId: order.shortId },
-        channels: ['IN_APP', 'EMAIL']
-      });
-      break;
-      
-    case 'SHIPPED':
-      await dispatchNotification({
-        userId: order.customerId,
-        type: 'ORDER_SHIPPED',
-        title: 'Order Shipped',
-        message: `Your order #${order.shortId} has been shipped!`,
-        data: { orderId: order.id, shortId: order.shortId },
-        channels: ['IN_APP', 'EMAIL', 'PUSH']
-      });
-      break;
-      
-    case 'READY_FOR_PICKUP':
-      await dispatchNotification({
-        userId: order.customerId,
-        type: 'PICKUP_READY',
-        title: 'Order Ready for Pickup',
-        message: `Your order #${order.shortId} is ready for pickup!`,
-        data: { orderId: order.id, shortId: order.shortId },
-        channels: ['IN_APP', 'EMAIL', 'PUSH', 'SMS']
-      });
-      break;
-  }
-}
-```
+#### Task 6.1: Inventory Management Notifications
+- [ ] Create `lib/notifications/inventoryNotifications.ts` - Automated inventory alerts
+- [ ] Implement low stock alert system
+- [ ] Add out of stock notifications
+- [ ] Create restock notification system
+- [ ] Add popular product alert system
+- [ ] Implement automated inventory checking cron jobs
 
-## Deployment Plan
+#### Task 6.2: Wishlist & Product Notifications
+- [ ] Create `lib/notifications/productNotifications.ts` - Customer product notifications
+- [ ] Implement back in stock alerts for wishlisted products
+- [ ] Add price drop notification system
+- [ ] Create weekly wishlist reminder system
+- [ ] Add price tracking and comparison features
 
-### Phase 1: Core Implementation (Week 1-2)
-1. Set up email service (Resend)
-2. Implement notification dispatcher
-3. Create email templates
-4. Add notification triggers to existing actions
+### Phase 7: Coupon & Promotion Notifications (Week 7-8)
 
-### Phase 2: Push Notifications (Week 3)
-1. Implement service worker
-2. Add push notification subscription
-3. Create push notification API
-4. Test push notification delivery
+#### Task 7.1: Coupon Lifecycle Notifications
+- [ ] Create `lib/notifications/couponNotifications.ts` - Coupon management notifications
+- [ ] Implement coupon creation confirmation notifications
+- [ ] Add coupon expiration warning system
+- [ ] Create usage threshold alert system
+- [ ] Add coupon application success/failure notifications
+- [ ] Implement automated coupon expiry checking
 
-### Phase 3: UI Components (Week 4)
-1. Build notification center component
-2. Create notification preferences page
-3. Add real-time updates
-4. Implement notification badges
+### Phase 8: Review System Notifications (Week 8-9)
 
-### Phase 4: Testing & Optimization (Week 5)
-1. Comprehensive testing
-2. Performance optimization
-3. Error handling improvements
-4. Documentation updates
+#### Task 8.1: Review Management Notifications
+- [ ] Create `lib/notifications/reviewNotifications.ts` - Review system notifications
+- [ ] Implement new review alerts for vendors
+- [ ] Add review response notifications for customers
+- [ ] Create review milestone achievement notifications
+- [ ] Add review request reminder system
+- [ ] Implement review moderation notifications
 
-## Cost Analysis
+### Phase 9: Admin & System Notifications (Week 9-10)
 
-### Free Tier Services
-- **Resend**: 3,000 emails/month (free)
-- **Push Notifications**: Browser API (free)
-- **SMS**: Twilio trial credits (free initially)
+#### Task 9.1: Admin Alert System
+- [ ] Create `lib/notifications/adminNotifications.ts` - Administrative alerts
+- [ ] Implement high-value order alert system
+- [ ] Add new vendor application notifications
 
-### Scaling Considerations
-- Email costs: ~$0.10 per 1,000 emails after free tier
-- SMS costs: ~$0.0075 per SMS
-- Push notifications: Free (browser API)
 
-### Budget Recommendations
-- Start with free tiers
-- Monitor usage patterns
-- Scale based on actual needs
-- Implement cost controls and limits
+### Phase 10: Notification Preferences & Settings (Week 10-11)
 
-## Success Metrics
+#### Task 10.1: User Preference Management
+- [ ] Create `app/(dashboard)/settings/notifications/page.tsx` - Notification settings UI
+- [ ] Create `components/settings/notification-preferences.tsx` - Preference components
+- [ ] Create `app/api/notification-preferences/route.ts` - Preference API
+- [ ] Implement channel preference management (in-app, push)
+- [ ] Add notification type preference controls
+- [ ] Create frequency and timing settings
+- [ ] Add quiet hours configuration
 
-### 1. User Engagement
-- Notification open rates
-- User preference adoption
-- Notification center usage
-- Mobile notification opt-ins
+### Phase 11: Documentation & Deployment (Week 11-12)
 
-### 2. Business Impact
-- Reduced support tickets
-- Improved order tracking
-- Faster issue resolution
-- Increased user satisfaction
+#### Task 11.1: Documentation & Deployment
+- [ ] Create `docs/notification-api.md` - API documentation
+- [ ] Create `docs/notification-user-guide.md` - User guide
+- [ ] Create `docs/notification-admin-guide.md` - Admin guide
 
-### 3. Technical Performance
-- Notification delivery success rate
-- System response times
-- Error rates
-- User feedback scores
 
-This comprehensive notification system will provide a robust, scalable, and user-friendly notification experience for all user roles while maintaining cost-effectiveness through free tier services and smart implementation strategies. 
+
+
+
