@@ -692,4 +692,5 @@ export async function createShipmentNotification(userId: string, orderId: string
   });
 }
 
-// Additional helpers can be added similarly for each new NotificationType. 
+// Export all additional generators from the extended generators file
+export * from './notification-generators'; 

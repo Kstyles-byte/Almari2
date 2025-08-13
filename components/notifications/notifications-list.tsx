@@ -20,9 +20,9 @@ import {
   deleteNotificationAction
 } from "../../actions/notifications";
 
-// Define NotificationType enum
-type NotificationType = 'ORDER_STATUS_CHANGE' | 'PICKUP_READY' | 'ORDER_PICKED_UP' | 
-  'RETURN_REQUESTED' | 'RETURN_APPROVED' | 'RETURN_REJECTED' | 'REFUND_PROCESSED';
+// Import the complete NotificationType from types
+import type { Database } from '../../types/supabase';
+type NotificationType = Database['public']['Enums']['NotificationType'];
 
 // Define Notification interface
 interface Notification {
@@ -211,13 +211,68 @@ export function NotificationsList() {
   // Helper function to get type label
   const getTypeLabel = (type: NotificationType) => {
     switch (type) {
-      case 'ORDER_STATUS_CHANGE': return 'Order Status';
+      // Order-related
+      case 'ORDER_STATUS_CHANGE': return 'Order Update';
+      case 'ORDER_SHIPPED': return 'Order Shipped';
+      case 'ORDER_DELIVERED': return 'Order Delivered';
       case 'PICKUP_READY': return 'Pickup Ready';
       case 'ORDER_PICKED_UP': return 'Order Picked Up';
+      case 'PAYMENT_FAILED': return 'Payment Failed';
+      
+      // Return/Refund
       case 'RETURN_REQUESTED': return 'Return Request';
       case 'RETURN_APPROVED': return 'Return Approved';
       case 'RETURN_REJECTED': return 'Return Rejected';
-      case 'REFUND_PROCESSED': return 'Refund';
+      case 'RETURN_VENDOR_ACTION_REQUIRED': return 'Vendor Action Required';
+      case 'RETURN_VENDOR_COMPLETED': return 'Return Completed';
+      case 'REFUND_PROCESSED': return 'Refund Processed';
+      
+      // Vendor notifications
+      case 'NEW_ORDER_VENDOR': return 'New Order';
+      case 'PAYOUT_PROCESSED': return 'Payout Processed';
+      case 'NEW_VENDOR_APPLICATION': return 'New Application';
+      
+      // Agent notifications
+      case 'NEW_PICKUP_ASSIGNMENT': return 'New Pickup';
+      case 'RETURN_PICKUP_ASSIGNMENT': return 'Return Pickup';
+      case 'AGENT_LOCATION_NAME_UPDATE': return 'Location Updated';
+      
+      // Admin notifications
+      case 'HIGH_VALUE_ORDER_ALERT': return 'High Value Order';
+      case 'LOW_STOCK_ALERT': return 'Low Stock';
+      
+      // Coupon notifications
+      case 'COUPON_CREATED': return 'Coupon Created';
+      case 'COUPON_EXPIRED': return 'Coupon Expired';
+      case 'COUPON_USAGE_THRESHOLD': return 'Coupon Alert';
+      case 'COUPON_APPLIED': return 'Coupon Applied';
+      case 'COUPON_FAILED': return 'Coupon Failed';
+      
+      // Wishlist notifications
+      case 'PRODUCT_BACK_IN_STOCK': return 'Back in Stock';
+      case 'PRODUCT_PRICE_DROP': return 'Price Drop';
+      case 'WISHLIST_REMINDER': return 'Wishlist Reminder';
+      
+      // Review notifications
+      case 'NEW_PRODUCT_REVIEW': return 'New Review';
+      case 'REVIEW_RESPONSE': return 'Review Response';
+      case 'REVIEW_MILESTONE': return 'Review Milestone';
+      
+      // Financial notifications
+      case 'COMMISSION_RATE_CHANGED': return 'Commission Update';
+      case 'PAYOUT_ON_HOLD': return 'Payout On Hold';
+      case 'PAYOUT_HOLD_RELEASED': return 'Hold Released';
+      case 'MINIMUM_PAYOUT_REACHED': return 'Payout Ready';
+      
+      // Product notifications
+      case 'POPULAR_PRODUCT_ALERT': return 'Popular Product';
+      
+      // System notifications
+      case 'ACCOUNT_VERIFICATION': return 'Verification';
+      case 'PASSWORD_RESET': return 'Password Reset';
+      case 'SECURITY_ALERT': return 'Security Alert';
+      case 'MAINTENANCE_NOTICE': return 'Maintenance';
+      
       default: return 'Notification';
     }
   };
