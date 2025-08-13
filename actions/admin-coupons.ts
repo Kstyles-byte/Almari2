@@ -4,6 +4,7 @@ import { createSupabaseServerActionClient } from '@/lib/supabase/action';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import type { Tables } from '@/types/supabase';
+import { sendCouponCreatedNotification } from '@/lib/notifications/couponNotifications';
 
 export type Coupon = Tables<'Coupon'>;
 
@@ -30,9 +31,22 @@ export async function createCoupon(data: unknown, skipAuth = false) {
   const payload = CouponSchema.safeParse(data);
   if (!payload.success) return { success: false, error: 'Invalid payload', fieldErrors: payload.error.flatten() };
 
-  const insert = { id: randomUUID(), ...payload.data } as Partial<Coupon>;
+  const couponId = randomUUID();
+  const insert = { id: couponId, ...payload.data } as Partial<Coupon>;
   const { error } = await supabase.from('Coupon').insert(insert);
   if (error) return { success: false, error: error.message };
+
+  // Send notification if coupon is created for a specific vendor
+  if (insert.vendor_id) {
+    try {
+      await sendCouponCreatedNotification(couponId, insert.vendor_id);
+      console.log(`[Admin Coupons] Created notification sent for coupon ${insert.code}`);
+    } catch (notificationError) {
+      console.error('[Admin Coupons] Failed to send coupon creation notification:', notificationError);
+      // Don't fail the coupon creation if notification fails
+    }
+  }
+
   return { success: true };
 }
 

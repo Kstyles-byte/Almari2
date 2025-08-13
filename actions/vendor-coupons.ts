@@ -4,6 +4,7 @@ import { createSupabaseServerActionClient } from '@/lib/supabase/action';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import type { Tables } from '@/types/supabase';
+import { sendCouponCreatedNotification } from '@/lib/notifications/couponNotifications';
 
 export type Coupon = Tables<'Coupon'>;
 
@@ -50,9 +51,20 @@ export async function createVendorCoupon(data: unknown) {
     if (!productCheck) return { success: false, error: 'Selected product not found for this vendor' };
   }
 
-  const insert = { id: randomUUID(), vendor_id: vendorId, ...payload.data } as Partial<Coupon>;
+  const couponId = randomUUID();
+  const insert = { id: couponId, vendor_id: vendorId, ...payload.data } as Partial<Coupon>;
   const { error } = await supabase.from('Coupon').insert(insert);
   if (error) return { success: false, error: error.message };
+
+  // Send notification to vendor about coupon creation
+  try {
+    await sendCouponCreatedNotification(couponId, vendorId);
+    console.log(`[Vendor Coupons] Created notification sent for coupon ${insert.code}`);
+  } catch (notificationError) {
+    console.error('[Vendor Coupons] Failed to send coupon creation notification:', notificationError);
+    // Don't fail the coupon creation if notification fails
+  }
+
   return { success: true };
 }
 

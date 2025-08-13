@@ -457,6 +457,65 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
     getSubstitutions: (data) => ({
       itemCount: data.itemCount?.toString() || '0'
     })
+  },
+
+  // Coupon Lifecycle Templates
+  COUPON_CREATED: {
+    title: 'Coupon Created Successfully',
+    message: 'Your coupon "{couponCode}" has been created! Offering {discountText}, expires {expiryDate}. Usage limit: {usageLimit}',
+    type: 'COUPON_CREATED',
+    getSubstitutions: (data) => ({
+      couponCode: data.couponCode || 'Unknown Code',
+      discountText: data.discountText || 'Unknown Discount',
+      expiryDate: data.expiryDate || 'Never',
+      usageLimit: data.usageLimit || 'Unlimited'
+    })
+  },
+
+  COUPON_EXPIRED: {
+    title: 'Coupon Expiring Soon',
+    message: 'Your coupon "{couponCode}" expires in {daysUntilExpiry} day(s). Used {usageCount}/{usageLimit} times.',
+    type: 'COUPON_EXPIRED',
+    getSubstitutions: (data) => ({
+      couponCode: data.couponCode || 'Unknown Code',
+      daysUntilExpiry: data.daysUntilExpiry?.toString() || '0',
+      usageCount: data.usageCount?.toString() || '0',
+      usageLimit: data.usageLimit || 'Unlimited'
+    })
+  },
+
+  COUPON_USAGE_THRESHOLD: {
+    title: 'Coupon Usage Alert',
+    message: 'Your coupon "{couponCode}" is {usagePercentage}% used ({usageCount}/{usageLimit}). {remainingUses} uses remaining.',
+    type: 'COUPON_USAGE_THRESHOLD',
+    getSubstitutions: (data) => ({
+      couponCode: data.couponCode || 'Unknown Code',
+      usagePercentage: data.usagePercentage?.toString() || '0',
+      usageCount: data.usageCount?.toString() || '0',
+      usageLimit: data.usageLimit?.toString() || 'Unlimited',
+      remainingUses: data.remainingUses?.toString() || '0'
+    })
+  },
+
+  COUPON_APPLIED: {
+    title: 'Coupon Applied Successfully!',
+    message: 'Coupon "{couponCode}" applied! You saved ₦{discountAmount} on your order.',
+    type: 'COUPON_APPLIED',
+    getSubstitutions: (data) => ({
+      couponCode: data.couponCode || 'Unknown Code',
+      discountAmount: data.discountAmount || '0',
+      orderId: data.orderId?.substring(0, 8) || 'N/A'
+    })
+  },
+
+  COUPON_FAILED: {
+    title: 'Coupon Application Failed',
+    message: 'Unable to apply coupon "{couponCode}". Reason: {reason}',
+    type: 'COUPON_FAILED',
+    getSubstitutions: (data) => ({
+      couponCode: data.couponCode || 'Unknown Code',
+      reason: data.reason || 'Invalid coupon'
+    })
   }
 };
 
@@ -830,7 +889,12 @@ export function getNotificationCategories(): Array<{ value: NotificationType; la
     { value: 'NEW_ORDER_VENDOR', label: 'New Orders', description: 'New orders received (vendors)' },
     { value: 'PAYOUT_PROCESSED', label: 'Payouts', description: 'Payout processing updates' },
     { value: 'LOW_STOCK_ALERT', label: 'Stock Alerts', description: 'Low stock and inventory alerts' },
-    { value: 'NEW_PICKUP_ASSIGNMENT', label: 'Pickup Assignments', description: 'New pickup assignments (agents)' }
+    { value: 'NEW_PICKUP_ASSIGNMENT', label: 'Pickup Assignments', description: 'New pickup assignments (agents)' },
+    { value: 'COUPON_CREATED', label: 'Coupon Created', description: 'Coupon creation confirmations' },
+    { value: 'COUPON_EXPIRED', label: 'Coupon Expiry', description: 'Coupon expiration warnings' },
+    { value: 'COUPON_USAGE_THRESHOLD', label: 'Coupon Usage', description: 'Coupon usage threshold alerts' },
+    { value: 'COUPON_APPLIED', label: 'Coupon Applied', description: 'Successful coupon applications' },
+    { value: 'COUPON_FAILED', label: 'Coupon Failed', description: 'Failed coupon application attempts' }
   ];
 }
 

@@ -541,9 +541,32 @@ export async function verifyOrderPayment(formData: FormData) {
       // Increment coupon usage count if an order-level coupon exists
       if (order.coupon_id) {
         try {
+          // Get current usage before increment for threshold monitoring
+          const { data: couponBefore } = await supabase
+            .from('Coupon')
+            .select('usage_count')
+            .eq('id', order.coupon_id)
+            .single();
+
           const couponModule = await import("@/lib/services/coupon");
           await couponModule.incrementCouponUsage(order.coupon_id);
           console.log(`[verifyOrderPayment] Coupon usage incremented for ${order.coupon_id}`);
+
+          // Monitor usage threshold after increment
+          const couponNotifications = await import("@/lib/notifications/couponNotifications");
+          const oldUsageCount = couponBefore?.usage_count || 0;
+          const newUsageCount = oldUsageCount + 1;
+          
+          try {
+            await couponNotifications.handleCouponUsageUpdate(
+              order.coupon_id,
+              oldUsageCount,
+              newUsageCount
+            );
+          } catch (notificationError) {
+            console.error('[verifyOrderPayment] Failed to send coupon usage notification:', notificationError);
+            // Don't fail the payment verification if notification fails
+          }
         } catch (incErr) {
           console.error('[verifyOrderPayment] Failed to increment coupon usage:', incErr);
         }

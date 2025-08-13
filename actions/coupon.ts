@@ -5,6 +5,7 @@ import type { Tables } from '../types/supabase';
 import { validateCouponForCart } from "@/lib/services/coupon";
 import { createSupabaseServerActionClient } from "@/lib/supabase/action";
 import { revalidatePath } from "next/cache";
+import { handleCouponApplicationNotification } from "@/lib/notifications/couponNotifications";
 
 // Define local type alias for Coupon using generated types
 type Coupon = Tables<'Coupon'>;
@@ -99,6 +100,31 @@ export async function applyCoupon(
     const result = await validateCouponForCart(couponCode, cartSubtotal, user?.id ?? null);
 
     if (result.valid) {
+      // Send success notification if user is logged in
+      if (user) {
+        // Get customer ID for notification
+        const { data: customer } = await supabase
+          .from('Customer')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (customer) {
+          try {
+            await handleCouponApplicationNotification({
+              couponId: result.coupon?.id || '',
+              couponCode,
+              customerId: customer.id,
+              discountAmount: result.discount || 0,
+              success: true
+            }, customer.id);
+          } catch (notificationError) {
+            console.error('[Coupon Actions] Failed to send coupon success notification:', notificationError);
+            // Don't fail the coupon application if notification fails
+          }
+        }
+      }
+
       // Revalidate cart path if coupon application modifies server-side cart state (it doesn't currently)
       // revalidatePath("/cart");
       return {
@@ -108,6 +134,31 @@ export async function applyCoupon(
         couponCode,
       };
     } else {
+      // Send failure notification if user is logged in
+      if (user) {
+        const { data: customer } = await supabase
+          .from('Customer')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (customer) {
+          try {
+            await handleCouponApplicationNotification({
+              couponId: result.coupon?.id || '',
+              couponCode,
+              customerId: customer.id,
+              discountAmount: 0,
+              success: false,
+              reason: result.reason
+            }, customer.id);
+          } catch (notificationError) {
+            console.error('[Coupon Actions] Failed to send coupon failure notification:', notificationError);
+            // Don't fail the coupon application if notification fails
+          }
+        }
+      }
+
       return {
         success: false,
         message: result.reason || "Failed to apply coupon.",
