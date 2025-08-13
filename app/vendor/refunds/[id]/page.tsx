@@ -7,7 +7,8 @@ import { VendorRefundDetailView } from '@/components/refunds/VendorRefundDetailV
 
 export const dynamic = 'force-dynamic';
 
-export default async function VendorRefundDetailPage({ params }: { params: { id: string } }) {
+export default async function VendorRefundDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const cookieStore = await cookies();
     const supabase = createServerClient<Database>(
@@ -36,7 +37,7 @@ export default async function VendorRefundDetailPage({ params }: { params: { id:
 
     if (authError || !user) {
       console.log('VendorRefundDetailPage: No user session, redirecting to signin.');
-      return redirect('/signin?callbackUrl=/vendor/refunds/' + params.id);
+      return redirect('/signin?callbackUrl=/vendor/refunds/' + id);
     }
 
     // Get vendor profile
@@ -61,7 +62,7 @@ export default async function VendorRefundDetailPage({ params }: { params: { id:
         orderItem:OrderItem(*, product:Product(*)),
         return:Return(*)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('vendor_id', vendor.id)
       .single();
 
@@ -84,6 +85,6 @@ export default async function VendorRefundDetailPage({ params }: { params: { id:
     // Handle other unexpected errors
     console.error('Error in VendorRefundDetailPage:', error);
     // Redirect to signin in case of unexpected issues
-    return redirect('/signin?callbackUrl=/vendor/refunds/' + params.id + '&message=An+error+occurred+loading+the+refund+details.');
+    return redirect('/signin?callbackUrl=/vendor/refunds/' + id + '&message=An+error+occurred+loading+the+refund+details.');
   }
 }

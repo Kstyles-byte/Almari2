@@ -6,9 +6,10 @@ import { Database } from '@/types/supabase';
 // GET /api/refunds/[id] - Get a specific refund request
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,13 +57,19 @@ export async function GET(
         orderItem:OrderItem(*, product:Product(*)),
         return:Return(*)
       `)
-      .eq('id', params.id);
+      .eq('id', id);
 
     // Apply role-based access control
-    if (userProfile.role === 'CUSTOMER' && userProfile.Customer?.[0]) {
-      query = query.eq('customer_id', userProfile.Customer[0].id);
-    } else if (userProfile.role === 'VENDOR' && userProfile.Vendor?.[0]) {
-      query = query.eq('vendor_id', userProfile.Vendor[0].id);
+    if (userProfile.role === 'CUSTOMER' && userProfile.Customer) {
+      const customerId = Array.isArray(userProfile.Customer) ? userProfile.Customer[0]?.id : userProfile.Customer.id;
+      if (customerId) {
+        query = query.eq('customer_id', customerId);
+      }
+    } else if (userProfile.role === 'VENDOR' && userProfile.Vendor) {
+      const vendorId = Array.isArray(userProfile.Vendor) ? userProfile.Vendor[0]?.id : userProfile.Vendor.id;
+      if (vendorId) {
+        query = query.eq('vendor_id', vendorId);
+      }
     } else if (userProfile.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -83,9 +90,10 @@ export async function GET(
 // PUT /api/refunds/[id] - Update refund request (approve/reject)
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -132,16 +140,22 @@ export async function PUT(
     const { data: refund, error: refundError } = await supabase
       .from('RefundRequest')
       .select('*, vendor_id, orderItem:OrderItem(*, vendor_id)')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (refundError || !refund) {
+      console.error('Error fetching refund request:', refundError);
+      console.log('Refund ID:', id);
       return NextResponse.json({ error: 'Refund request not found' }, { status: 404 });
     }
 
+    console.log('Refund found:', { id: refund.id, vendor_id: refund.vendor_id, status: refund.status });
+    console.log('User vendor ID:', userProfile.Vendor ? (Array.isArray(userProfile.Vendor) ? userProfile.Vendor[0]?.id : userProfile.Vendor.id) : 'null');
+
     // Vendors can only update their own refunds
-    if (userProfile.role === 'VENDOR' && userProfile.Vendor?.[0]) {
-      if (refund.vendor_id !== userProfile.Vendor[0].id) {
+    if (userProfile.role === 'VENDOR' && userProfile.Vendor) {
+      const vendorId = Array.isArray(userProfile.Vendor) ? userProfile.Vendor[0]?.id : userProfile.Vendor.id;
+      if (refund.vendor_id !== vendorId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
       }
     }
@@ -171,11 +185,13 @@ export async function PUT(
       updates.admin_notes = admin_notes;
     }
 
+    console.log('About to update refund with:', { updates, id });
+    
     // Update refund request
     const { data: updatedRefund, error: updateError } = await supabase
       .from('RefundRequest')
       .update(updates)
-      .eq('id', params.id)
+      .eq('id', id)
       .select(`
         *,
         customer:Customer(*),
@@ -188,26 +204,29 @@ export async function PUT(
 
     if (updateError) {
       console.error('Error updating refund request:', updateError);
+      console.log('Update query details:', { updates, id });
       return NextResponse.json({ error: 'Failed to update refund request' }, { status: 500 });
     }
 
-    // Update the associated Return record
-    const returnUpdates: any = {
-      status: action === 'approve' ? 'APPROVED' : 'REJECTED',
-      vendor_decision: action === 'approve' ? 'Approved' : 'Rejected',
-      vendor_decision_date: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    // Update the associated Return record if it exists
+    if (refund.return_id) {
+      const returnUpdates: any = {
+        status: action === 'approve' ? 'APPROVED' : 'REJECTED',
+        vendor_decision: action === 'approve' ? 'Approved' : 'Rejected',
+        vendor_decision_date: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-    if (userProfile.role === 'ADMIN') {
-      returnUpdates.admin_override = true;
-      returnUpdates.admin_override_reason = admin_notes;
+      if (userProfile.role === 'ADMIN') {
+        returnUpdates.admin_override = true;
+        returnUpdates.admin_override_reason = admin_notes;
+      }
+
+      await supabase
+        .from('Return')
+        .update(returnUpdates)
+        .eq('id', refund.return_id);
     }
-
-    await supabase
-      .from('Return')
-      .update(returnUpdates)
-      .eq('id', refund.return_id);
 
     // If approved, update vendor's refund statistics
     if (action === 'approve') {
@@ -241,7 +260,7 @@ export async function PUT(
           .from('PayoutHold')
           .update({
             hold_amount: existingHold.hold_amount + refund.refund_amount,
-            refund_request_ids: [...(existingHold.refund_request_ids || []), params.id]
+            refund_request_ids: [...(existingHold.refund_request_ids || []), id]
           })
           .eq('id', existingHold.id);
       } else {
@@ -252,7 +271,7 @@ export async function PUT(
             vendor_id: refund.vendor_id,
             hold_amount: refund.refund_amount,
             reason: 'Pending refund processing',
-            refund_request_ids: [params.id],
+            refund_request_ids: [id],
             created_by: user.id
           });
       }
