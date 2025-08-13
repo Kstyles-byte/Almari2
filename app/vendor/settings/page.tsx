@@ -90,6 +90,12 @@ export default async function VendorSettingsPage() {
                   Payment Information
                 </a>
                 <a 
+                  href="/settings/notifications" 
+                  className="block px-3 py-2 rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
+                >
+                  Notifications
+                </a>
+                <a 
                   href="#security" 
                   className="block px-3 py-2 rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium"
                 >
