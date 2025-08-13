@@ -59,8 +59,8 @@ interface Return {
 // Define NotificationType type based on the database schema
 type NotificationType = Database['public']['Enums']['NotificationType'];
 
-// Only support IN_APP and PUSH channels as specified
-type SupportedNotificationChannel = 'IN_APP' | 'PUSH';
+// Only support IN_APP and SMS channels as specified (EMAIL available but not used in this project)
+type SupportedNotificationChannel = 'IN_APP' | 'SMS';
 
 // Notification template interface
 interface NotificationTemplate {
@@ -239,6 +239,66 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
       amount: data.amount?.toLocaleString() || '0'
     })
   },
+
+  PAYOUT_FAILED: {
+    title: 'Payout Failed',
+    message: 'Your payout of ₦{amount} failed to process. Reason: {reason}',
+    type: 'PAYOUT_PROCESSED', // Reusing existing type
+    getSubstitutions: (data) => ({
+      amount: data.amount?.toLocaleString() || '0',
+      reason: data.reason || 'Processing error'
+    })
+  },
+
+  PAYOUT_ON_HOLD: {
+    title: 'Payout On Hold',
+    message: 'Your payout of ₦{amount} has been placed on hold. Reason: {reason}',
+    type: 'PAYOUT_ON_HOLD' as any,
+    getSubstitutions: (data) => ({
+      amount: data.amount?.toLocaleString() || '0',
+      reason: data.reason || 'Administrative review'
+    })
+  },
+
+  PAYOUT_HOLD_RELEASED: {
+    title: 'Payout Hold Released',
+    message: 'The hold on your payout of ₦{amount} has been released.',
+    type: 'PAYOUT_HOLD_RELEASED' as any,
+    getSubstitutions: (data) => ({
+      amount: data.amount?.toLocaleString() || '0'
+    })
+  },
+
+  MINIMUM_PAYOUT_REACHED: {
+    title: 'Minimum Payout Threshold Reached',
+    message: 'Your earnings of ₦{currentEarnings} have reached the minimum payout threshold of ₦{minimumThreshold}. You can now request a payout.',
+    type: 'MINIMUM_PAYOUT_REACHED' as any,
+    getSubstitutions: (data) => ({
+      currentEarnings: data.currentEarnings?.toLocaleString() || '0',
+      minimumThreshold: data.minimumThreshold?.toLocaleString() || '0'
+    })
+  },
+
+  COMMISSION_RATE_CHANGED: {
+    title: 'Commission Rate Updated',
+    message: 'Your commission rate has been updated from {oldRate}% to {newRate}%.',
+    type: 'COMMISSION_RATE_CHANGED' as any,
+    getSubstitutions: (data) => ({
+      oldRate: data.oldRate || '0',
+      newRate: data.newRate || '0'
+    })
+  },
+
+  PAYMENT_SUCCESS: {
+    title: 'Payment Successful',
+    message: 'Your payment of ₦{totalAmount} for order #{orderId} was processed successfully using {paymentMethod}.',
+    type: 'ORDER_STATUS_CHANGE', // Reusing existing type
+    getSubstitutions: (data) => ({
+      orderId: data.orderId?.substring(0, 8) || 'N/A',
+      totalAmount: data.totalAmount?.toLocaleString() || '0',
+      paymentMethod: data.paymentMethod || 'N/A'
+    })
+  },
   
   // Additional Order templates
   ORDER_SHIPPED: {
@@ -282,7 +342,7 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
   PAYMENT_RECEIVED: {
     title: 'Payment Received',
     message: 'Payment received for order #{orderId}. Your earnings: ₦{amount}',
-    type: 'NEW_ORDER_VENDOR', // Reusing existing type
+    type: 'PAYMENT_RECEIVED' as any,
     getSubstitutions: (data) => ({
       orderId: data.orderId?.substring(0, 8) || 'N/A',
       amount: data.amount?.toLocaleString() || '0'
@@ -332,7 +392,7 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
   AGENT_LOCATION_NAME_UPDATE: {
     title: 'Location Updated',
     message: 'Your service location has been updated to: {locationName}',
-    type: 'AGENT_LOCATION_NAME_UPDATE',
+    type: 'AGENT_LOCATION_NAME_UPDATE' as any,
     getSubstitutions: (data) => ({
       locationName: data.locationName || 'Unknown Location'
     })
