@@ -36,6 +36,7 @@ async function UsersTable({ searchParams }: { searchParams: SearchParams }) {
     email: string;
     role: string;
     createdAt: string;
+    customerId?: string;
   };
 
   const rows: UserRow[] = (users ?? []).map((u: any) => ({
@@ -44,6 +45,7 @@ async function UsersTable({ searchParams }: { searchParams: SearchParams }) {
     email: u.email,
     role: u.role,
     createdAt: u.created_at,
+    customerId: u.customer?.id,
   }));
 
   const toQueryString = (params: Record<string, any>) => {

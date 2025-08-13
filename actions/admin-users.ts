@@ -196,7 +196,7 @@ export async function getUsers({
   let query = supabase
     .from('User')
     .select(
-      'id, name, email, role, created_at',
+      'id, name, email, role, created_at, customer:Customer(id)',
       { count: 'exact' }
     )
     .order(sortBy, { ascending: sortOrder === 'asc' })

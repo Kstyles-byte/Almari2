@@ -1,8 +1,11 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { updateOrderStatus } from '@/actions/admin-orders';
+import { Button } from '@/components/ui/button';
+import { Eye } from 'lucide-react';
 
 export type OrderRow = {
   id: string;
@@ -69,6 +72,17 @@ export default function OrdersTableClient({ orders, pagination, prevPageUrl, nex
       header: 'Created',
       accessor: (row) => new Date(row.created_at).toLocaleDateString(),
       sortable: true,
+    },
+    {
+      header: 'Actions',
+      accessor: (row) => (
+        <Link href={`/admin/orders/${row.id}`}>
+          <Button variant="outline" size="sm">
+            <Eye className="h-4 w-4 mr-1" />
+            View
+          </Button>
+        </Link>
+      ),
     },
   ];
 
