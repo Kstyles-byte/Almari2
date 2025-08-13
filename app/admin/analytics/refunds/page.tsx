@@ -1,58 +1,61 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Database } from '@/types/supabase';
 import { redirect } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { PageWrapper } from '@/components/layout/page-wrapper';
+import { RefundAnalyticsDashboard } from '@/components/admin/RefundAnalyticsDashboard';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminAnalyticsDashboard() {
-  const supabase = createServerComponentClient<Database>({ cookies });
+export const metadata = {
+  title: 'Refund Analytics | Admin Dashboard',
+  description: 'Comprehensive analytics and insights for refund management',
+};
 
+export default async function RefundAnalyticsPage() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
+
+  // Check for active session
   const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
 
-  if (authError || !user) {
+  if (sessionError || !session?.user) {
     redirect('/login');
   }
 
-  const { data: refunds } = await supabase
-    .from('RefundRequest')
-    .select('status, refund_amount')
-    .order('created_at', { ascending: false });
+  // Check if user is admin
+  const { data: userProfile, error: profileError } = await supabase
+    .from('User')
+    .select('role')
+    .eq('id', session.user.id)
+    .single();
 
-  const totalRefunds = (refunds || []).length;
-  const totalAmount = (refunds || []).reduce((sum, refund) => sum + Number(refund.refund_amount), 0);
-
-  let pendingCount = 0;
-  let approvedCount = 0;
-  let rejectedCount = 0;
-
-  (refunds || []).forEach((refund) => {
-    if (refund.status === 'PENDING') pendingCount++;
-    if (refund.status === 'APPROVED') approvedCount++;
-    if (refund.status === 'REJECTED') rejectedCount++;
-  });
+  if (profileError || !userProfile || userProfile.role !== 'ADMIN') {
+    redirect('/dashboard');
+  }
 
   return (
-    <div className="container mx-auto py-6">
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">Refund Analytics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            <div>Total Refunds: {totalRefunds}</div>
-            <div>Pending Refunds: {pendingCount}</div>
-            <div>Approved Refunds: {approvedCount}</div>
-            <div>Rejected Refunds: {rejectedCount}</div>
-            <div>Total Amount Refunded: ${totalAmount.toFixed(2)}</div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <PageWrapper>
+      <RefundAnalyticsDashboard />
+    </PageWrapper>
   );
 }

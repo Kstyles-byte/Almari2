@@ -19,7 +19,11 @@ import {
   UserCog,
   Store,
   ChevronDown,
-  DollarSign
+  DollarSign,
+  RefreshCw,
+  BarChart3,
+  TrendingUp,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -32,7 +36,12 @@ interface AdminLayoutProps {
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ Users: true });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ 
+    'Orders & Finance': true, 
+    'Analytics': true, 
+    'Users': true,
+    'Store Management': true 
+  });
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponentClient();
@@ -42,11 +51,22 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       header: null,
       items: [
         { title: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="h-5 w-5" /> },
-        { title: 'Content', href: '/admin/content', icon: <ImageIcon className="h-5 w-5" /> },
-        { title: 'Products', href: '/admin/products', icon: <Package className="h-5 w-5" /> },
+      ],
+    },
+    {
+      header: 'Orders & Finance',
+      items: [
         { title: 'Orders', href: '/admin/orders', icon: <ShoppingBag className="h-5 w-5" /> },
-        { title: 'Payouts', href: '/admin/payouts', icon: <DollarSign className="h-5 w-5" /> },
-        { title: 'Coupons', href: '/admin/coupons', icon: <Percent className="h-5 w-5" /> },
+        { title: 'Payouts', href: '/admin/payouts', icon: <TrendingUp className="h-5 w-5" /> },
+        { title: 'Refunds', href: '/admin/refunds', icon: <RefreshCw className="h-5 w-5" /> },
+        { title: 'Returns', href: '/admin/returns', icon: <RefreshCw className="h-5 w-5" /> },
+      ],
+    },
+    {
+      header: 'Analytics',
+      items: [
+        { title: 'Refund Analytics', href: '/admin/analytics/refunds', icon: <BarChart3 className="h-4 w-4" /> },
+        { title: 'Performance', href: '/admin/analytics/performance', icon: <TrendingUp className="h-4 w-4" /> },
       ],
     },
     {
@@ -59,8 +79,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       ],
     },
     {
-      header: null,
+      header: 'Store Management',
       items: [
+        { title: 'Products', href: '/admin/products', icon: <Package className="h-5 w-5" /> },
+        { title: 'Content', href: '/admin/content', icon: <FileText className="h-5 w-5" /> },
+        { title: 'Coupons', href: '/admin/coupons', icon: <Percent className="h-5 w-5" /> },
         { title: 'Settings', href: '/admin/settings', icon: <Settings className="h-5 w-5" /> },
       ],
     },

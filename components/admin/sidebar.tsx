@@ -16,7 +16,9 @@ import {
   RefreshCw,
   Percent,
   Shield,
-  ChevronDown
+  ChevronDown,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
 import { Icons } from '../icons';
 
@@ -25,6 +27,22 @@ const navSections = [
     header: null,
     items: [
       { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+    ],
+  },
+  {
+    header: 'Orders & Finance',
+    items: [
+      { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
+      { name: 'Payouts', href: '/admin/payouts', icon: TrendingUp },
+      { name: 'Refunds', href: '/admin/refunds', icon: RefreshCw },
+      { name: 'Returns', href: '/admin/returns', icon: RefreshCw },
+    ],
+  },
+  {
+    header: 'Analytics',
+    items: [
+      { name: 'Refund Analytics', href: '/admin/analytics/refunds', icon: BarChart3 },
+      { name: 'Performance', href: '/admin/analytics/performance', icon: TrendingUp },
     ],
   },
   {
@@ -37,15 +55,12 @@ const navSections = [
     ],
   },
   {
-    header: null,
+    header: 'Store Management',
     items: [
       { name: 'Products', href: '/admin/products', icon: Package },
-      { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
       { name: 'Content', href: '/admin/content', icon: FileText },
-      { name: 'Settings', href: '/admin/settings', icon: Settings },
-{ name: 'Refunds', href: '/admin/refunds', icon: RefreshCw },
-      { name: 'Returns', href: '/admin/returns', icon: RefreshCw },
       { name: 'Coupons', href: '/admin/coupons', icon: Percent },
+      { name: 'Settings', href: '/admin/settings', icon: Settings },
     ],
   },
 ] as const;

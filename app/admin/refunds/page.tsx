@@ -1,4 +1,4 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Database } from '@/types/supabase';
 import { redirect } from 'next/navigation';
@@ -8,25 +8,43 @@ import { AdminRefundDashboard } from '@/components/refunds/AdminRefundDashboard'
 export const dynamic = 'force-dynamic';
 
 export default async function AdminRefundOversightPage() {
-  const supabase = createServerComponentClient<Database>({ cookies });
+  const cookieStore = await cookies();
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
 
+  // Check for active session
   const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
 
-  if (authError || !user) {
+  if (sessionError || !session?.user) {
     redirect('/login');
   }
 
   // Check if user is admin
-  const { data: userProfile } = await supabase
+  const { data: userProfile, error: profileError } = await supabase
     .from('User')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', session.user.id)
     .single();
 
-  if (!userProfile || userProfile.role !== 'ADMIN') {
+  if (profileError || !userProfile || userProfile.role !== 'ADMIN') {
     redirect('/dashboard');
   }
 
