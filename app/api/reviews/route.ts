@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from '@supabase/supabase-js'; // Import Supabase client
-import { auth } from "../../../auth";
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 // Import migrated service functions
 import { createReview, getProductReviews } from "../../../lib/services/review";
 import { getCustomerByUserId } from "../../../lib/services/customer";
+import { handleNewReviewNotification } from "../../../lib/notifications/reviewNotifications";
 
 // Initialize Supabase client (needed for product check)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -75,10 +77,24 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    // Use Supabase SSR client directly to check for active user session
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+        },
+      }
+    );
+
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     // Check if user is authenticated
-    if (!session?.user) {
+    if (sessionError || !session?.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -129,6 +145,15 @@ export async function POST(req: NextRequest) {
           { error: "Failed to create review due to a service error." },
           { status: 500 }
         );
+    }
+
+    // Send notification to vendor about new review
+    try {
+      await handleNewReviewNotification(review.id);
+      console.log(`[Review API] New review notification sent for review ${review.id}`);
+    } catch (notificationError) {
+      console.error('[Review API] Failed to send new review notification:', notificationError);
+      // Don't fail the review creation if notification fails
     }
 
     return NextResponse.json(review, { status: 201 });

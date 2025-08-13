@@ -516,6 +516,44 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
       couponCode: data.couponCode || 'Unknown Code',
       reason: data.reason || 'Invalid coupon'
     })
+  },
+
+  // Review System Templates
+  NEW_PRODUCT_REVIEW: {
+    title: 'New Review Received',
+    message: '{customerName} left a {rating}-star review for "{productName}": {reviewComment}',
+    type: 'NEW_PRODUCT_REVIEW',
+    getSubstitutions: (data) => ({
+      customerName: data.customerName || 'A customer',
+      productName: data.productName || 'Unknown Product',
+      rating: data.rating?.toString() || '0',
+      ratingStars: data.ratingStars || '☆☆☆☆☆',
+      reviewComment: data.reviewComment || 'No comment provided'
+    })
+  },
+
+  REVIEW_RESPONSE: {
+    title: 'Review Response Received',
+    message: '{vendorName} responded to your {rating}-star review for "{productName}": {responseText}',
+    type: 'REVIEW_RESPONSE',
+    getSubstitutions: (data) => ({
+      vendorName: data.vendorName || 'The vendor',
+      productName: data.productName || 'Unknown Product',
+      rating: data.rating?.toString() || '0',
+      responseText: data.responseText || 'Thank you for your review'
+    })
+  },
+
+  REVIEW_MILESTONE: {
+    title: 'Review Milestone Achieved!',
+    message: 'Congratulations! "{productName}" has reached {milestoneCount} reviews with an average rating of {averageRating} stars {ratingStars}',
+    type: 'REVIEW_MILESTONE',
+    getSubstitutions: (data) => ({
+      productName: data.productName || 'Unknown Product',
+      milestoneCount: data.milestoneCount?.toString() || '0',
+      averageRating: data.averageRating || '0.0',
+      ratingStars: data.ratingStars || '☆☆☆☆☆'
+    })
   }
 };
 
@@ -894,7 +932,10 @@ export function getNotificationCategories(): Array<{ value: NotificationType; la
     { value: 'COUPON_EXPIRED', label: 'Coupon Expiry', description: 'Coupon expiration warnings' },
     { value: 'COUPON_USAGE_THRESHOLD', label: 'Coupon Usage', description: 'Coupon usage threshold alerts' },
     { value: 'COUPON_APPLIED', label: 'Coupon Applied', description: 'Successful coupon applications' },
-    { value: 'COUPON_FAILED', label: 'Coupon Failed', description: 'Failed coupon application attempts' }
+    { value: 'COUPON_FAILED', label: 'Coupon Failed', description: 'Failed coupon application attempts' },
+    { value: 'NEW_PRODUCT_REVIEW', label: 'New Reviews', description: 'New product reviews received (vendors)' },
+    { value: 'REVIEW_RESPONSE', label: 'Review Responses', description: 'Responses to your reviews (customers)' },
+    { value: 'REVIEW_MILESTONE', label: 'Review Milestones', description: 'Product review milestone achievements (vendors)' }
   ];
 }
 
