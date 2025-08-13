@@ -8,6 +8,7 @@ import AuthProvider from "@/components/providers/AuthProvider";
 import { LoadingProvider } from "@/components/providers/LoadingProvider";
 import { CartProvider } from "@/components/providers/CartProvider";
 import { PageWrapper } from "../components/layout/page-wrapper";
+import { RealtimeNotificationProvider } from "@/components/notifications/realtime-notification-provider";
 
 // Initialize the Inter font with Latin subset
 const inter = Inter({
@@ -38,12 +39,14 @@ export default function RootLayout({
         <AuthProvider>
           <LoadingProvider>
             <CartProvider>
-              <div className="flex flex-col min-h-screen">
-                <Header />
-                <PageWrapper>{children}</PageWrapper>
-                <Footer />
-              </div>
-              <Toaster />
+              <RealtimeNotificationProvider enablePush={true} enableRealtime={true}>
+                <div className="flex flex-col min-h-screen">
+                  <Header />
+                  <PageWrapper>{children}</PageWrapper>
+                  <Footer />
+                </div>
+                <Toaster />
+              </RealtimeNotificationProvider>
             </CartProvider>
           </LoadingProvider>
         </AuthProvider>

@@ -1,26 +1,19 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Bell } from "lucide-react"
+import { Bell, WifiOff, Wifi } from "lucide-react"
 import { motion } from "framer-motion"
-import { createClient } from '@supabase/supabase-js'
 import { cn } from "../../lib/utils"
 import { Button } from "./button"
-import { getUnreadNotificationCountAction } from "../../actions/notifications"
-
-// Create Supabase client for real-time subscriptions
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { useNotificationContext } from "../../contexts/NotificationContext"
 
 interface NotificationBellProps {
   className?: string
   size?: "sm" | "md" | "lg"
   variant?: "default" | "ghost" | "outline"
   showBadge?: boolean
+  showConnectionStatus?: boolean
   onClick?: () => void
-  userId?: string // Optional: if not provided, will get from Supabase auth
 }
 
 export function NotificationBell({ 
@@ -28,77 +21,24 @@ export function NotificationBell({
   size = "md", 
   variant = "ghost",
   showBadge = true,
-  onClick,
-  userId 
+  showConnectionStatus = false,
+  onClick
 }: NotificationBellProps) {
-  const [unreadCount, setUnreadCount] = useState<number>(0)
-  const [isLoading, setIsLoading] = useState(false)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(userId || null)
-
-  // Get current user if userId not provided
-  useEffect(() => {
-    if (!userId) {
-      const getCurrentUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser()
-        setCurrentUserId(user?.id || null)
-      }
-      getCurrentUser()
-    }
-  }, [userId])
-
-  // Fetch initial unread count
-  const fetchUnreadCount = async () => {
-    if (!currentUserId) return
-
-    setIsLoading(true)
-    try {
-      const result = await getUnreadNotificationCountAction()
-      
-      if (!('error' in result) && result.success && typeof result.count === 'number') {
-        setUnreadCount(result.count)
-      }
-    } catch (error) {
-      console.error("Error fetching unread count:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Set up real-time subscription for notification changes
-  useEffect(() => {
-    if (!currentUserId) return
-
-    fetchUnreadCount()
-
-    // Subscribe to notification changes for this user
-    const channel = supabase
-      .channel('notification-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'Notification',
-          filter: `user_id=eq.${currentUserId}`
-        },
-        (payload) => {
-          console.log('Notification change detected:', payload)
-          
-          // Refetch count when notifications change
-          fetchUnreadCount()
-        }
-      )
-      .subscribe()
-
-    // Cleanup subscription on unmount
-    return () => {
-      channel.unsubscribe()
-    }
-  }, [currentUserId])
+  const { 
+    unreadCount, 
+    loading, 
+    isConnected, 
+    refreshCount,
+    reconnect 
+  } = useNotificationContext()
 
   // Handle manual refresh (for cases where real-time might miss updates)
   const handleRefresh = () => {
-    fetchUnreadCount()
+    if (!isConnected) {
+      reconnect()
+    } else {
+      refreshCount()
+    }
   }
 
   // Size configurations
@@ -133,18 +73,33 @@ export function NotificationBell({
         className={cn(
           config.buttonSize,
           "relative transition-colors",
+          !isConnected && "opacity-70",
           className
         )}
         onClick={onClick || handleRefresh}
-        disabled={isLoading}
-        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        disabled={loading}
+        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}${!isConnected ? ' (disconnected)' : ''}`}
       >
         <motion.div
-          animate={isLoading ? { rotate: 360 } : {}}
-          transition={{ duration: 1, repeat: isLoading ? Infinity : 0, ease: "linear" }}
+          animate={loading ? { rotate: 360 } : {}}
+          transition={{ duration: 1, repeat: loading ? Infinity : 0, ease: "linear" }}
         >
           <Bell className={config.iconSize} />
         </motion.div>
+        
+        {/* Connection status indicator */}
+        {showConnectionStatus && (
+          <div className={cn(
+            "absolute -bottom-1 -right-1 rounded-full p-0.5",
+            isConnected ? "bg-green-500" : "bg-red-500"
+          )}>
+            {isConnected ? (
+              <Wifi className="h-2 w-2 text-white" />
+            ) : (
+              <WifiOff className="h-2 w-2 text-white" />
+            )}
+          </div>
+        )}
         
         {/* Unread count badge */}
         {showBadge && unreadCount > 0 && (
