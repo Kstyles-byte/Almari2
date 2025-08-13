@@ -35,7 +35,6 @@ const navSections = [
       { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
       { name: 'Payouts', href: '/admin/payouts', icon: TrendingUp },
       { name: 'Refunds', href: '/admin/refunds', icon: RefreshCw },
-      { name: 'Returns', href: '/admin/returns', icon: RefreshCw },
     ],
   },
   {

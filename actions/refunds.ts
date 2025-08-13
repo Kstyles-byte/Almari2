@@ -39,12 +39,12 @@ export async function processRefundAction(formData: FormData) {
     }
     
     // Create notification for refund processing
-    await createReturnStatusNotification(returnId, "REFUND_PROCESSED");
+    await createReturnStatusNotification(returnId, "COMPLETED");
     
-    revalidatePath(`/admin/returns/${returnId}`);
-    revalidatePath("/admin/returns");
-    revalidatePath(`/customer/returns/${returnId}`);
-    revalidatePath("/customer/returns");
+    revalidatePath(`/admin/refunds`);
+    revalidatePath("/admin/refunds");
+    revalidatePath(`/customer/refunds`);
+    revalidatePath("/customer/refunds");
     
     return { 
       success: true, 
@@ -114,7 +114,7 @@ export async function processBatchRefundsAction() {
       return { error: result.error };
     }
     
-    revalidatePath("/admin/returns");
+    revalidatePath("/admin/refunds");
     
     return result;
   } catch (error) {

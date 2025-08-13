@@ -59,7 +59,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         { title: 'Orders', href: '/admin/orders', icon: <ShoppingBag className="h-5 w-5" /> },
         { title: 'Payouts', href: '/admin/payouts', icon: <TrendingUp className="h-5 w-5" /> },
         { title: 'Refunds', href: '/admin/refunds', icon: <RefreshCw className="h-5 w-5" /> },
-        { title: 'Returns', href: '/admin/returns', icon: <RefreshCw className="h-5 w-5" /> },
       ],
     },
     {
