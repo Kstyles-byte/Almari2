@@ -407,6 +407,56 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
       orderId: data.orderId?.substring(0, 8) || 'N/A',
       amount: data.amount?.toLocaleString() || '0'
     })
+  },
+
+  // Inventory Management Templates
+  OUT_OF_STOCK_ALERT: {
+    title: 'Product Out of Stock',
+    message: 'Your product "{productName}" is out of stock and needs restocking.',
+    type: 'LOW_STOCK_ALERT', // Reusing existing type
+    getSubstitutions: (data) => ({
+      productName: data.productName || 'Unknown Product'
+    })
+  },
+
+  INVENTORY_UPDATE: {
+    title: 'Inventory Updated',
+    message: 'Your product "{productName}" has been restocked. New stock: {newStock}',
+    type: 'LOW_STOCK_ALERT', // Reusing existing type
+    getSubstitutions: (data) => ({
+      productName: data.productName || 'Unknown Product',
+      newStock: data.newStock?.toString() || '0'
+    })
+  },
+
+  // Wishlist & Product Templates
+  PRODUCT_BACK_IN_STOCK: {
+    title: 'Product Back in Stock!',
+    message: '"{productName}" from your wishlist is back in stock!',
+    type: 'PRODUCT_BACK_IN_STOCK',
+    getSubstitutions: (data) => ({
+      productName: data.productName || 'Unknown Product'
+    })
+  },
+
+  PRODUCT_PRICE_DROP: {
+    title: 'Price Drop Alert!',
+    message: '"{productName}" from your wishlist price dropped from ₦{oldPrice} to ₦{newPrice}!',
+    type: 'PRODUCT_PRICE_DROP',
+    getSubstitutions: (data) => ({
+      productName: data.productName || 'Unknown Product',
+      oldPrice: data.oldPrice?.toLocaleString() || '0',
+      newPrice: data.newPrice?.toLocaleString() || '0'
+    })
+  },
+
+  WISHLIST_REMINDER: {
+    title: 'Your Wishlist Summary',
+    message: 'You have {itemCount} items in your wishlist. Don\'t miss out on your favorites!',
+    type: 'WISHLIST_REMINDER',
+    getSubstitutions: (data) => ({
+      itemCount: data.itemCount?.toString() || '0'
+    })
   }
 };
 
