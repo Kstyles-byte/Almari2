@@ -59,8 +59,8 @@ interface Return {
 // Define NotificationType type based on the database schema
 type NotificationType = Database['public']['Enums']['NotificationType'];
 
-// Only support IN_APP and SMS channels as specified (EMAIL available but not used in this project)
-type SupportedNotificationChannel = 'IN_APP' | 'SMS';
+// Only support IN_APP and PUSH channels as specified in the comprehensive plan
+type SupportedNotificationChannel = 'IN_APP' | 'PUSH';
 
 // Notification template interface
 interface NotificationTemplate {
@@ -422,6 +422,17 @@ const notificationTemplates: Record<string, NotificationTemplate> = {
     getSubstitutions: (data) => ({
       applicantName: data.applicantName || 'Unknown User',
       storeName: data.storeName || 'Unknown Store'
+    })
+  },
+
+  PAYOUT_REQUEST: {
+    title: 'New Payout Request',
+    message: '{vendorName} ({storeName}) requested a payout of ₦{amount}. Review and approval required.',
+    type: 'PAYOUT_REQUEST',
+    getSubstitutions: (data) => ({
+      vendorName: data.vendorName || 'Unknown Vendor',
+      storeName: data.storeName || 'Unknown Store',
+      amount: data.amount?.toLocaleString() || '0'
     })
   },
 

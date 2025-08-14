@@ -21,7 +21,7 @@ export default function NotificationsPage() {
           description="View and manage your notifications"
         />
         <Button variant="outline" size="sm" asChild>
-          <Link href="/notifications/preferences" className="flex items-center gap-2">
+          <Link href="/settings/notifications" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             <span>Preferences</span>
           </Link>

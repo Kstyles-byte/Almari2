@@ -152,7 +152,7 @@ export async function createPayoutRequest(formData: FormData): Promise<{ success
     console.log('Debug: About to insert payout data');
     console.log('Payout data being inserted:', { vendorId: vendor.id, amount, requestAmount: amount, bankDetails: { accountName, accountNumber, bankName }, status: 'PENDING' });
     
-    const { error } = await supabase
+    const { data: payoutData, error } = await supabase
       .from('Payout')
       .insert({
         vendor_id: vendor.id,
@@ -164,7 +164,9 @@ export async function createPayoutRequest(formData: FormData): Promise<{ success
           accountNumber,
           bankName
         }
-    });
+    })
+    .select('id')
+    .single();
 
     if (error) {
         console.error("Error creating payout request:", error);
@@ -185,6 +187,19 @@ export async function createPayoutRequest(formData: FormData): Promise<{ success
     }
 
     console.log('Debug: Payout request inserted successfully!');
+    
+    // Send notification to admin about the new payout request
+    if (payoutData?.id) {
+      try {
+        const { notifyPayoutRequest } = await import('../lib/notifications/adminNotifications');
+        await notifyPayoutRequest(payoutData.id);
+        console.log('Debug: Admin notification sent for payout request');
+      } catch (notificationError) {
+        console.error('Error sending admin notification for payout request:', notificationError);
+        // Don't fail the payout creation if notification fails
+      }
+    }
+    
     revalidatePath("/vendor/payouts");
 
     return { success: true };
@@ -208,8 +223,7 @@ export async function updateOrderItemStatus(orderItemId: string, newStatus: stri
   }
 
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerActionClient({ cookies: () => cookieStore });
+    const supabase = createServerActionClient({ cookies });
 
     // First get the current user and fetch their vendor ID
     const { data: { user } } = await supabase.auth.getUser();
@@ -291,8 +305,7 @@ export async function updateAllVendorOrderItems(orderId: string, newStatus: stri
   }
 
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerActionClient({ cookies: () => cookieStore });
+    const supabase = createServerActionClient({ cookies });
 
     // First get the current user
     const { data: { user } } = await supabase.auth.getUser();

@@ -281,7 +281,7 @@ export function NotificationDropdown({
                       asChild
                       className="h-8 w-8"
                     >
-                      <Link href="/notifications/preferences">
+                      <Link href="/settings/notifications">
                         <Settings className="h-4 w-4" />
                         <span className="sr-only">Notification Settings</span>
                       </Link>

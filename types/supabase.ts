@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -1278,6 +1278,48 @@ export type Database = {
           },
         ]
       }
+      ReviewResponse: {
+        Row: {
+          created_at: string
+          id: string
+          response_text: string
+          review_id: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          response_text: string
+          review_id: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          response_text?: string
+          review_id?: string
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ReviewResponse_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "Review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ReviewResponse_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "Vendor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       SpecialOffer: {
         Row: {
           buttonlink: string | null
@@ -1519,7 +1561,7 @@ export type Database = {
     }
     Enums: {
       discount_type: "PERCENTAGE" | "FIXED_AMOUNT"
-      NotificationChannel: "IN_APP" | "EMAIL" | "SMS"
+      NotificationChannel: "IN_APP" | "PUSH"
       NotificationType:
         | "ORDER_STATUS_CHANGE"
         | "PICKUP_READY"
@@ -1562,6 +1604,7 @@ export type Database = {
         | "SECURITY_ALERT"
         | "MAINTENANCE_NOTICE"
         | "PAYMENT_RECEIVED"
+        | "PAYOUT_REQUEST"
       OrderItemStatus:
         | "PENDING"
         | "PROCESSING"
@@ -1717,7 +1760,7 @@ export const Constants = {
   public: {
     Enums: {
       discount_type: ["PERCENTAGE", "FIXED_AMOUNT"],
-      NotificationChannel: ["IN_APP", "EMAIL", "SMS"],
+      NotificationChannel: ["IN_APP", "PUSH"],
       NotificationType: [
         "ORDER_STATUS_CHANGE",
         "PICKUP_READY",
@@ -1760,6 +1803,7 @@ export const Constants = {
         "SECURITY_ALERT",
         "MAINTENANCE_NOTICE",
         "PAYMENT_RECEIVED",
+        "PAYOUT_REQUEST",
       ],
       OrderItemStatus: [
         "PENDING",

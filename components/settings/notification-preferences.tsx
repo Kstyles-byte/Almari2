@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bell, Clock, Volume, VolumeX, Moon, Sun } from 'lucide-react';
 import { Database } from '@/types/supabase';
 import { updateNotificationPreferenceAction, updateQuietHoursAction } from '@/actions/notification-preferences';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 type NotificationType = Database['public']['Enums']['NotificationType'];
 type NotificationChannel = Database['public']['Enums']['NotificationChannel'];

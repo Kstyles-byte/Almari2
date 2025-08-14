@@ -1,5 +1,4 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+// Note: createClient is imported dynamically in createSupabaseClient function
 import { 
   createNotificationFromTemplate, 
   createBatchNotifications 
@@ -38,35 +37,34 @@ interface User {
 }
 
 /**
- * Create Supabase SSR client for notifications
+ * Create Supabase client with service role key for admin notifications
+ * This bypasses RLS policies to allow admin operations
  */
-async function createSupabaseClient() {
-  const cookieStore = await cookies();
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
+function createSupabaseClient() {
+  const { createClient } = require('@supabase/supabase-js');
+  
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error("Supabase environment variables missing for admin notifications");
+  }
+
+  return createClient(supabaseUrl, supabaseServiceRoleKey);
 }
 
 /**
  * Get all admin user IDs from the system
  */
 async function getAdminUserIds(): Promise<string[]> {
-  const supabase = await createSupabaseClient();
+  const supabase = createSupabaseClient();
   
   const { data: adminUsers } = await supabase
     .from('User')
     .select('id')
     .eq('role', 'ADMIN');
   
-  return adminUsers?.map(user => user.id) || [];
+  return adminUsers?.map((user: any) => user.id) || [];
 }
 
 /**
@@ -74,7 +72,7 @@ async function getAdminUserIds(): Promise<string[]> {
  */
 export async function sendHighValueOrderAlert(orderId: string, threshold: number = 100000): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createSupabaseClient();
+    const supabase = createSupabaseClient();
     
     // Get order details
     const { data: order, error: orderError } = await supabase
@@ -152,7 +150,7 @@ export async function sendHighValueOrderAlert(orderId: string, threshold: number
  */
 export async function sendNewVendorApplicationNotification(vendorId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createSupabaseClient();
+    const supabase = createSupabaseClient();
     
     // Get vendor application details
     const { data: vendor, error: vendorError } = await supabase
@@ -284,11 +282,102 @@ export async function sendBatchNewVendorApplicationNotifications(
 }
 
 /**
+ * Send payout request notification to all admins
+ */
+export async function sendPayoutRequestNotification(payoutId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createSupabaseClient();
+    
+    // Get payout request details
+    const { data: payout, error: payoutError } = await supabase
+      .from('Payout')
+      .select(`
+        id,
+        vendor_id,
+        amount,
+        request_amount,
+        status,
+        created_at,
+        bank_details,
+        vendor:Vendor!inner(
+          id,
+          store_name,
+          user:User!inner(
+            id,
+            name,
+            email
+          )
+        )
+      `)
+      .eq('id', payoutId)
+      .single();
+
+    if (payoutError || !payout) {
+      throw new Error(`Payout not found: ${payoutError?.message}`);
+    }
+
+    // Only send notification for pending payout requests
+    if (payout.status !== 'PENDING') {
+      console.log(`[Admin Notifications] Payout ${payoutId} is not pending (status: ${payout.status})`);
+      return { success: true }; // Not an error, just not pending
+    }
+
+    // Get all admin user IDs
+    const adminUserIds = await getAdminUserIds();
+    
+    if (adminUserIds.length === 0) {
+      console.log('[Admin Notifications] No admin users found');
+      return { success: true }; // Not an error, just no admins to notify
+    }
+
+    const vendorName = payout.vendor?.user?.name || payout.vendor?.user?.email || 'Unknown Vendor';
+    const storeName = payout.vendor?.store_name || 'Unknown Store';
+    const requestAmount = payout.request_amount || payout.amount;
+
+    // Create notifications for all admins using template
+    const results = await Promise.all(
+      adminUserIds.map(async adminUserId => {
+        return await createNotificationFromTemplate(
+          'PAYOUT_REQUEST',
+          adminUserId,
+          {
+            vendorName,
+            storeName,
+            amount: requestAmount
+          },
+          {
+            referenceUrl: `/admin/payouts?filter=pending`
+          }
+        );
+      })
+    );
+
+    const failedResults = results.filter(result => !result.success);
+    if (failedResults.length > 0) {
+      const errors = failedResults.map(result => result.error).filter(Boolean);
+      throw new Error(errors.join(', ') || 'Some notifications failed to create');
+    }
+
+
+
+    console.log(`[Admin Notifications] Payout request notification sent for ${storeName} (₦${Number(requestAmount).toLocaleString()}) to ${adminUserIds.length} admin(s)`);
+    return { success: true };
+
+  } catch (error) {
+    console.error('[Admin Notifications] Error sending payout request notification:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to send payout request notification' 
+    };
+  }
+}
+
+/**
  * Comprehensive admin notification handler
  * This function handles all admin-related notifications based on the event type
  */
 export async function handleAdminNotification(
-  eventType: 'high_value_order' | 'new_vendor_application',
+  eventType: 'high_value_order' | 'new_vendor_application' | 'payout_request',
   entityId: string,
   additionalData?: {
     threshold?: number; // For high-value orders
@@ -303,6 +392,9 @@ export async function handleAdminNotification(
       
       case 'new_vendor_application':
         return await sendNewVendorApplicationNotification(entityId);
+      
+      case 'payout_request':
+        return await sendPayoutRequestNotification(entityId);
       
       default:
         throw new Error(`Unsupported admin notification event type: ${eventType}`);
@@ -338,5 +430,17 @@ export async function notifyNewVendorApplication(vendorId: string): Promise<void
   if (!result.success) {
     console.error(`[Admin Notifications] Failed to send vendor application notification: ${result.error}`);
     // Don't throw error to avoid blocking the main vendor application process
+  }
+}
+
+/**
+ * Integration helper for payout requests
+ */
+export async function notifyPayoutRequest(payoutId: string): Promise<void> {
+  const result = await handleAdminNotification('payout_request', payoutId);
+  
+  if (!result.success) {
+    console.error(`[Admin Notifications] Failed to send payout request notification: ${result.error}`);
+    // Don't throw error to avoid blocking the main payout request process
   }
 }
