@@ -355,6 +355,19 @@ export async function POST(req: NextRequest) {
       // Don't fail the order creation process due to notification errors
     }
 
+    // Send vendor notifications for new order
+    console.log('🔥 [Orders API] About to send vendor notification for order:', newOrder.id);
+    try {
+      const { notifyVendorsNewOrder } = await import('../../../lib/notifications/vendorOrderNotifications');
+      console.log('🔥 [Orders API] Successfully imported notifyVendorsNewOrder');
+      console.log(`🔥 [Orders API] Calling notifyVendorsNewOrder for order: ${newOrder.id}`);
+      await notifyVendorsNewOrder(newOrder.id);
+      console.log(`🔥 [Orders API] Completed notifyVendorsNewOrder for order: ${newOrder.id}`);
+    } catch (vendorNotificationError) {
+      console.error('🚨 [Orders API] Error sending vendor new order notifications:', vendorNotificationError);
+      // Don't fail the order creation process due to notification errors
+    }
+
     return NextResponse.json({
       order: {
         ...newOrder,

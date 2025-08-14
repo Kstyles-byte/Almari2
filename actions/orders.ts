@@ -449,6 +449,21 @@ export async function createOrder(formData: FormData) {
       // Don't fail the order creation process due to notification errors
     }
 
+    // Send vendor notifications for new orders
+    console.log('🔥 [Orders Action] About to send vendor notifications for orders:', orderIds);
+    try {
+      const { notifyVendorsNewOrder } = await import('../lib/notifications/vendorOrderNotifications');
+      console.log('🔥 [Orders Action] Successfully imported notifyVendorsNewOrder');
+      for (const orderId of orderIds) {
+        console.log(`🔥 [Orders Action] Calling notifyVendorsNewOrder for order: ${orderId}`);
+        await notifyVendorsNewOrder(orderId);
+        console.log(`🔥 [Orders Action] Completed notifyVendorsNewOrder for order: ${orderId}`);
+      }
+    } catch (vendorNotificationError) {
+      console.error('🚨 [Orders Action] Error sending vendor new order notifications:', vendorNotificationError);
+      // Don't fail the order creation process due to notification errors
+    }
+
     console.log('Orders created:', orderIds);
     return {
       success: true,

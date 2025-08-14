@@ -1,9 +1,11 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { 
-  createNotificationFromTemplate, 
   createBatchNotifications 
 } from '../services/notificationService';
+import type { Database } from '../../types/supabase';
+
+// Add extra logging for debugging
+console.log('[Vendor Notifications] Module loaded successfully');
 
 // Define types for vendor notifications
 type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'READY_FOR_PICKUP';
@@ -21,7 +23,6 @@ interface OrderWithItems {
 
 interface OrderItem {
   id: string;
-  order_id: string;
   vendor_id: string;
   product_id: string;
   quantity: number;
@@ -39,35 +40,48 @@ interface Vendor {
 }
 
 /**
- * Create Supabase SSR client for notifications
+ * Create Supabase service role client for notifications
  */
-async function createSupabaseClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
+function createSupabaseClient() {
+  // Check if we're running on the server side
+  if (typeof window !== 'undefined') {
+    throw new Error("Vendor notification service should only be used on the server side");
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // Log at the time of client creation attempt for debugging
+  console.log('[Vendor Notifications] Creating Supabase client on server side:');
+  console.log('[Vendor Notifications] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'defined' : 'undefined');
+  console.log('[Vendor Notifications] SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceRoleKey ? 'defined' : 'undefined');
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.error("[Vendor Notifications] Supabase URL or Service Role Key is missing in environment variables");
+    console.error("[Vendor Notifications] Available env vars:", Object.keys(process.env).filter(key => key.includes('SUPABASE')));
+    throw new Error("Supabase environment variables missing for vendor notification service");
+  }
+
+  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 }
 
 /**
  * Get vendor user IDs from vendor IDs
  */
 async function getVendorUserIds(vendorIds: string[]): Promise<Record<string, string>> {
-  const supabase = await createSupabaseClient();
+  const supabase = createSupabaseClient();
   const userIds: Record<string, string> = {};
 
   if (vendorIds.length > 0) {
-    const { data: vendors } = await supabase
+    const { data: vendors, error: vendorError } = await supabase
       .from('Vendor')
       .select('id, user_id')
       .in('id', vendorIds);
+    
+    if (vendorError) {
+      console.error(`[Vendor Notifications] Error fetching vendors:`, vendorError);
+      return userIds;
+    }
     
     vendors?.forEach(vendor => {
       userIds[vendor.id] = vendor.user_id;
@@ -82,7 +96,8 @@ async function getVendorUserIds(vendorIds: string[]): Promise<Record<string, str
  */
 export async function sendNewOrderNotificationToVendors(orderId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createSupabaseClient();
+    console.log(`[Vendor Notifications] Starting notification process for order ${orderId}`);
+    const supabase = createSupabaseClient();
     
     // Get order with items and vendor information
     const { data: order, error: orderError } = await supabase
@@ -112,7 +127,7 @@ export async function sendNewOrderNotificationToVendors(orderId: string): Promis
     }
 
     // Group order items by vendor
-    const vendorItems: Record<string, OrderItem[]> = {};
+    const vendorItems: Record<string, any[]> = {};
     order.OrderItem.forEach(item => {
       if (!vendorItems[item.vendor_id]) {
         vendorItems[item.vendor_id] = [];
@@ -127,7 +142,10 @@ export async function sendNewOrderNotificationToVendors(orderId: string): Promis
     const notifications = [];
     for (const vendorId of vendorIds) {
       const userId = vendorUserIds[vendorId];
-      if (!userId) continue;
+      if (!userId) {
+        console.warn(`[Vendor Notifications] No user ID found for vendor ${vendorId}, skipping`);
+        continue;
+      }
 
       const vendorItems_forVendor = vendorItems[vendorId];
       const vendorTotal = vendorItems_forVendor.reduce(
@@ -172,7 +190,7 @@ export async function sendNewOrderNotificationToVendors(orderId: string): Promis
  */
 export async function sendOrderProcessingReminder(orderId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createSupabaseClient();
+    const supabase = createSupabaseClient();
     
     // Get order items that are still pending
     const { data: orderItems, error: itemsError } = await supabase
@@ -254,7 +272,7 @@ export async function sendOrderProcessingReminder(orderId: string): Promise<{ su
  */
 export async function sendPaymentReceivedNotification(orderId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createSupabaseClient();
+    const supabase = createSupabaseClient();
     
     // Get order with items
     const { data: order, error: orderError } = await supabase
@@ -418,11 +436,19 @@ export async function handleVendorOrderNotification(
  * Integration helper for new order notifications
  */
 export async function notifyVendorsNewOrder(orderId: string): Promise<void> {
-  const result = await handleVendorOrderNotification(orderId, 'new_order');
+  console.log(`[Vendor Notifications] 🚀 notifyVendorsNewOrder called with orderId: ${orderId}`);
   
-  if (!result.success) {
-    console.error(`[Vendor Notifications] Failed to send new order notification: ${result.error}`);
-    // Don't throw error to avoid blocking the main order process
+  try {
+    const result = await handleVendorOrderNotification(orderId, 'new_order');
+    
+    if (!result.success) {
+      console.error(`[Vendor Notifications] ❌ Failed to send new order notification: ${result.error}`);
+      // Don't throw error to avoid blocking the main order process
+    } else {
+      console.log(`[Vendor Notifications] ✅ Successfully processed notification for order: ${orderId}`);
+    }
+  } catch (error) {
+    console.error(`[Vendor Notifications] 💥 Unexpected error in notifyVendorsNewOrder:`, error);
   }
 }
 
