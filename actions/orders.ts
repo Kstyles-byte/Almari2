@@ -325,6 +325,20 @@ export async function createOrder(formData: FormData) {
        ------------------------------------------------------------------ */
     const orderIds: string[] = [];
     for (const [vendorId, vendorItems] of itemsByVendor.entries()) {
+      // Get vendor commission rate for calculating commission
+      const { data: vendorData, error: vendorError } = await supabase
+        .from('Vendor')
+        .select('commission_rate')
+        .eq('id', vendorId)
+        .single();
+
+      if (vendorError) {
+        console.error('Failed to fetch vendor commission rate:', vendorError?.message);
+        // Continue with default commission rate of 0 if vendor not found
+      }
+
+      const vendorCommissionRate = vendorData?.commission_rate || 0;
+
       // Vendor-specific subtotal / discount split proportionally by subtotal share
       const vendorSubtotal = vendorItems.reduce((s, i) => s + (i.quantity * (i.product?.price || 0)), 0);
       const vendorDiscount = subtotal > 0 ? (discountAmount * vendorSubtotal) / subtotal : 0;
@@ -366,9 +380,12 @@ export async function createOrder(formData: FormData) {
 
       orderIds.push(orderRow.id);
 
-      // Insert order items for this vendor
+      // Insert order items for this vendor with commission calculations
       const orderItemRecords = vendorItems.map((ci) => {
         const p = ci.product!;
+        const itemTotal = ci.quantity * (p.price as number);
+        const commissionAmount = itemTotal * (vendorCommissionRate / 100);
+        
         return {
           order_id: orderRow.id,
           product_id: p.id,
@@ -376,6 +393,8 @@ export async function createOrder(formData: FormData) {
           quantity: ci.quantity,
           price_at_purchase: p.price as number,
           status: 'PENDING',
+          commission_rate: vendorCommissionRate,
+          commission_amount: commissionAmount,
         };
       });
 

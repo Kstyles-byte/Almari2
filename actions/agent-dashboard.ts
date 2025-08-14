@@ -200,6 +200,20 @@ export async function verifyOrderPickup(orderId: string, code: string): Promise<
 
     if (updErr) return { success: false, error: updErr.message };
 
+    // Update all order items to DELIVERED status as well
+    const { error: itemUpdateErr } = await supabase
+      .from('OrderItem')
+      .update({ 
+        status: 'DELIVERED',
+        updated_at: new Date().toISOString()
+      })
+      .eq('order_id', orderId);
+
+    if (itemUpdateErr) {
+      console.error('Failed to update order items to DELIVERED:', itemUpdateErr.message);
+      // Don't fail the entire operation, but log the error
+    }
+
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };

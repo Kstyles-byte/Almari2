@@ -269,6 +269,23 @@ export async function PUT(
                 console.error("API PUT Order - Admin Update Error:", adminUpdateError.message);
                 throw adminUpdateError;
              }
+             
+             // If order status is being updated to DELIVERED, update all order items to DELIVERED as well
+             if (body.status === 'DELIVERED') {
+               const { error: itemUpdateError } = await supabase
+                 .from('OrderItem')
+                 .update({ 
+                   status: 'DELIVERED',
+                   updated_at: new Date().toISOString()
+                 })
+                 .eq('order_id', orderId);
+               
+               if (itemUpdateError) {
+                 console.error("API PUT Order - Order Items Update Error:", itemUpdateError.message);
+                 // Don't fail the entire request, but log the error
+               }
+             }
+             
              updatedOrderData = adminUpdatedOrder;
              updatePerformed = true;
        } else {

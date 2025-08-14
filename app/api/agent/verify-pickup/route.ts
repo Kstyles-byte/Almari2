@@ -42,6 +42,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: updErr.message }, { status: 500 });
     }
 
+    // Update all order items to DELIVERED status as well
+    const { error: itemUpdateErr } = await supabase
+      .from('OrderItem')
+      .update({ 
+        status: 'DELIVERED',
+        updated_at: new Date().toISOString()
+      })
+      .eq('order_id', orderId);
+
+    if (itemUpdateErr) {
+      console.error('Failed to update order items to DELIVERED:', itemUpdateErr.message);
+      // Don't fail the entire operation, but log the error
+    }
+
     /* ------------------------------------------------------------------
        Notifications – customer & vendor
     ------------------------------------------------------------------ */
