@@ -44,21 +44,93 @@ class PushNotificationService {
   private vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   private isSupported = false;
   private registration: ServiceWorkerRegistration | null = null;
+  private browserInfo = this.detectBrowser();
 
   constructor() {
     this.checkSupport();
   }
 
   /**
+   * Detect browser type for specific handling
+   */
+  private detectBrowser() {
+    const userAgent = navigator.userAgent.toLowerCase();
+    
+    if (userAgent.includes('brave')) {
+      return { name: 'brave', needsUserInteraction: true, supportsVapid: true };
+    } else if (userAgent.includes('edg/')) {
+      return { name: 'edge', needsUserInteraction: true, supportsVapid: true };
+    } else if (userAgent.includes('chrome')) {
+      return { name: 'chrome', needsUserInteraction: false, supportsVapid: true };
+    } else if (userAgent.includes('firefox')) {
+      return { name: 'firefox', needsUserInteraction: false, supportsVapid: true };
+    } else if (userAgent.includes('safari')) {
+      return { name: 'safari', needsUserInteraction: true, supportsVapid: false };
+    } else {
+      return { name: 'unknown', needsUserInteraction: true, supportsVapid: true };
+    }
+  }
+
+  /**
    * Check if push notifications are supported
    */
   private checkSupport(): boolean {
-    this.isSupported = 
+    const basicSupport = 
       'serviceWorker' in navigator &&
       'PushManager' in window &&
       'Notification' in window;
     
+    // Additional browser-specific checks
+    if (basicSupport) {
+      if (this.browserInfo.name === 'safari' && !this.browserInfo.supportsVapid) {
+        console.warn('[PushNotificationService] Safari does not support VAPID keys');
+        this.isSupported = false;
+      } else {
+        this.isSupported = true;
+      }
+    } else {
+      this.isSupported = false;
+    }
+    
+    console.log('[PushNotificationService] Browser support check:', {
+      browser: this.browserInfo.name,
+      isSupported: this.isSupported,
+      basicSupport,
+      vapidSupport: this.browserInfo.supportsVapid
+    });
+    
     return this.isSupported;
+  }
+
+  /**
+   * Get browser compatibility info
+   */
+  getBrowserInfo() {
+    return {
+      ...this.browserInfo,
+      isSupported: this.isSupported,
+      message: this.getBrowserMessage()
+    };
+  }
+
+  /**
+   * Get browser-specific message
+   */
+  private getBrowserMessage(): string {
+    switch (this.browserInfo.name) {
+      case 'brave':
+        return 'Brave Browser detected. If push notifications fail, please check your Brave Shield settings.';
+      case 'edge':
+        return 'Microsoft Edge detected. You may need to interact with the page before enabling notifications.';
+      case 'safari':
+        return 'Safari has limited push notification support. Some features may not work as expected.';
+      case 'firefox':
+        return 'Firefox detected. Full push notification support available.';
+      case 'chrome':
+        return 'Chrome detected. Full push notification support available.';
+      default:
+        return 'Your browser may have limited push notification support.';
+    }
   }
 
   /**
@@ -77,7 +149,7 @@ class PushNotificationService {
   }
 
   /**
-   * Request notification permission
+   * Request notification permission with browser-specific handling
    */
   async requestPermission(): Promise<NotificationPermission> {
     if (!this.isSupported) {
@@ -86,8 +158,24 @@ class PushNotificationService {
     }
 
     try {
+      console.log(`[PushNotificationService] Requesting permission on ${this.browserInfo.name}`);
+      
+      // Edge and Brave need user interaction
+      if (this.browserInfo.needsUserInteraction) {
+        // Wait a bit to ensure user has interacted with the page
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       const permission = await Notification.requestPermission();
       console.log('[PushNotificationService] Permission status:', permission);
+      
+      // Log browser-specific messages
+      if (permission === 'denied' && this.browserInfo.name === 'brave') {
+        console.warn('[PushNotificationService] Brave: Permission denied. Check Brave Shield settings.');
+      } else if (permission === 'default' && this.browserInfo.name === 'edge') {
+        console.warn('[PushNotificationService] Edge: Permission not granted. Try clicking on a button first.');
+      }
+      
       return permission;
     } catch (error) {
       console.error('[PushNotificationService] Error requesting permission:', error);
@@ -123,15 +211,19 @@ class PushNotificationService {
   }
 
   /**
-   * Subscribe to push notifications
+   * Subscribe to push notifications with browser-specific handling
    */
-  async subscribe(userId: string): Promise<PushSubscription | null> {
+  async subscribe(userId: string, retryCount = 0): Promise<PushSubscription | null> {
     if (!this.vapidPublicKey) {
       console.error('[PushNotificationService] VAPID public key not configured');
       return null;
     }
 
+    const maxRetries = this.browserInfo.name === 'brave' ? 2 : 1;
+
     try {
+      console.log(`[PushNotificationService] Subscribing on ${this.browserInfo.name} (attempt ${retryCount + 1})`);
+      
       // Ensure we have permission
       const permission = await this.requestPermission();
       if (permission !== 'granted') {
@@ -147,11 +239,18 @@ class PushNotificationService {
         }
       }
 
-      // Subscribe to push manager
-      const subscription = await this.registration.pushManager.subscribe({
+      // Wait for service worker to be fully ready
+      await navigator.serviceWorker.ready;
+
+      // Browser-specific subscription options
+      const applicationServerKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
+      const subscriptionOptions = {
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
-      });
+        applicationServerKey: applicationServerKey
+      };
+
+      // Subscribe to push manager
+      const subscription = await this.registration.pushManager.subscribe(subscriptionOptions);
 
       console.log('[PushNotificationService] Push subscription created:', subscription);
 
@@ -160,7 +259,25 @@ class PushNotificationService {
 
       return subscription;
     } catch (error) {
-      console.error('[PushNotificationService] Failed to subscribe:', error);
+      console.error(`[PushNotificationService] Failed to subscribe on ${this.browserInfo.name}:`, error);
+      
+      // Handle browser-specific errors
+      if (error instanceof Error) {
+        if (error.name === 'AbortError' && this.browserInfo.name === 'brave') {
+          console.log('[PushNotificationService] Brave push service error - this is common with Brave shields');
+          
+          if (retryCount < maxRetries) {
+            console.log(`[PushNotificationService] Retrying subscription on Brave (${retryCount + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return this.subscribe(userId, retryCount + 1);
+          } else {
+            console.warn('[PushNotificationService] Brave: Max retries reached. Push notifications may not work with current shield settings.');
+          }
+        } else if (error.name === 'NotSupportedError' && this.browserInfo.name === 'edge') {
+          console.warn('[PushNotificationService] Edge: Push not supported or permission required');
+        }
+      }
+      
       return null;
     }
   }
@@ -171,7 +288,7 @@ class PushNotificationService {
   async unsubscribe(userId: string): Promise<boolean> {
     try {
       if (!this.registration) {
-        this.registration = await navigator.serviceWorker.getRegistration('/');
+        this.registration = (await navigator.serviceWorker.getRegistration('/')) || null;
       }
 
       if (!this.registration) {
@@ -206,7 +323,7 @@ class PushNotificationService {
   async getSubscription(): Promise<PushSubscription | null> {
     try {
       if (!this.registration) {
-        this.registration = await navigator.serviceWorker.getRegistration('/');
+        this.registration = (await navigator.serviceWorker.getRegistration('/')) || null;
       }
 
       if (!this.registration) {
@@ -236,25 +353,28 @@ class PushNotificationService {
 
       if (this.registration) {
         // Show via service worker for consistency
-        await this.registration.showNotification(payload.title, {
+        const notificationOptions: any = {
           body: payload.body,
           icon: payload.icon || '/icons/notification-icon.png',
           badge: payload.badge || '/icons/notification-badge.png',
-          image: payload.image,
           tag: payload.tag,
           data: payload.data,
-          actions: payload.actions,
           requireInteraction: payload.requireInteraction || false,
           silent: false
-        });
+        };
+        
+        // Add actions if supported
+        if (payload.actions && payload.actions.length > 0) {
+          notificationOptions.actions = payload.actions;
+        }
+        
+        await this.registration.showNotification(payload.title, notificationOptions);
       } else {
-        // Fallback to basic notification
+        // Fallback to basic notification (limited options)
         new Notification(payload.title, {
           body: payload.body,
           icon: payload.icon || '/icons/notification-icon.png',
           tag: payload.tag,
-          data: payload.data,
-          requireInteraction: payload.requireInteraction || false,
           silent: false
         });
       }
@@ -400,6 +520,66 @@ class PushNotificationService {
         }
       ]
     });
+  }
+
+  /**
+   * Alternative subscription method for problematic browsers
+   */
+  async subscribeWithFallback(userId: string): Promise<PushSubscription | null> {
+    try {
+      // Try normal subscription first
+      return await this.subscribe(userId);
+    } catch (error) {
+      console.log('[PushNotificationService] Normal subscription failed, trying fallback');
+      
+      if (this.browserInfo.name === 'brave') {
+        return await this.subscribeBraveCompatible(userId);
+      }
+      
+      return null;
+    }
+  }
+
+  /**
+   * Brave-specific subscription method
+   */
+  private async subscribeBraveCompatible(userId: string): Promise<PushSubscription | null> {
+    try {
+      // Unregister existing service worker first
+      const existingRegistration = await navigator.serviceWorker.getRegistration('/');
+      if (existingRegistration) {
+        await existingRegistration.unregister();
+      }
+
+      // Re-register with different scope
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/',
+        updateViaCache: 'none'
+      });
+
+      await navigator.serviceWorker.ready;
+      
+      // Try subscription with longer timeout
+      const applicationServerKey = this.urlBase64ToUint8Array(this.vapidPublicKey!);
+      const subscriptionPromise = registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: applicationServerKey
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Subscription timeout')), 10000);
+      });
+
+      const subscription = await Promise.race([subscriptionPromise, timeoutPromise]);
+      
+      await this.saveSubscription(userId, subscription);
+      this.registration = registration;
+      
+      return subscription;
+    } catch (error) {
+      console.error('[PushNotificationService] Brave-compatible subscription failed:', error);
+      return null;
+    }
   }
 }
 

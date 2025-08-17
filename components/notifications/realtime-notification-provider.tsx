@@ -118,7 +118,10 @@ export function RealtimeNotificationProvider({
     if (!userId || !enablePush) return;
 
     try {
+      const browserInfo = pushNotificationService.getBrowserInfo();
       const currentPermission = pushNotificationService.getPermissionStatus();
+      
+      console.log(`[RealtimeNotificationProvider] Browser: ${browserInfo.name}, Permission: ${currentPermission}`);
       
       // If permission is already granted, try to subscribe
       if (currentPermission === 'granted') {
@@ -130,16 +133,34 @@ export function RealtimeNotificationProvider({
         return;
       }
 
-      // If permission is default (not asked yet), request it
+      // Handle browser-specific permission requests
       if (currentPermission === 'default') {
+        if (browserInfo.name === 'edge') {
+          // Edge needs explicit user interaction - defer to manual activation
+          console.log('[RealtimeNotificationProvider] Edge detected - deferring push setup to user interaction');
+          return;
+        }
+        
+        if (browserInfo.name === 'brave') {
+          // Brave can be tricky - add delay and try
+          console.log('[RealtimeNotificationProvider] Brave detected - requesting permission with delay');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
         console.log('[RealtimeNotificationProvider] Requesting push notification permission');
         const permission = await pushNotificationService.requestPermission();
         
         if (permission === 'granted') {
           console.log('[RealtimeNotificationProvider] Push permission granted, subscribing');
-          await pushNotificationService.subscribe(userId);
+          
+          // Use fallback method for Brave to handle AbortError
+          if (browserInfo.name === 'brave') {
+            await pushNotificationService.subscribeWithFallback(userId);
+          } else {
+            await pushNotificationService.subscribe(userId);
+          }
         } else {
-          console.log('[RealtimeNotificationProvider] Push permission denied');
+          console.log(`[RealtimeNotificationProvider] Push permission ${permission} on ${browserInfo.name}`);
         }
       }
     } catch (error) {

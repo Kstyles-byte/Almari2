@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Bell, Check, ArrowRight, Settings } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 import { formatDistanceToNow } from "date-fns"
@@ -17,13 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 import { EmptyState } from "../ui/empty-state"
 import { Badge } from "../ui/badge"
 import { Spinner } from "../ui/spinner"
-
-import { 
-  getUserNotificationsAction, 
-  markNotificationAsReadAction,
-  markAllNotificationsAsReadAction,
-  getUnreadNotificationCountAction
-} from "../../actions/notifications"
+import { useNotificationContext } from "../../contexts/NotificationContext"
 
 // Notification interface
 interface Notification {
@@ -50,80 +44,46 @@ export const userHasUnreadNotificationsAtom = atomWithStorage('userHasUnreadNoti
 export function NotificationCenter({ className }: NotificationCenterProps) {
   const router = useRouter()
   
-  // State for notifications data
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadNotifications, setUnreadNotifications] = useState<Notification[]>([])
+  // Use notification context instead of local state and server actions
+  const {
+    notifications: allNotifications,
+    unreadCount,
+    loading: isLoading,
+    error,
+    markAsRead: contextMarkAsRead,
+    markAllAsRead: contextMarkAllAsRead,
+    fetchNotifications,
+    isConnected
+  } = useNotificationContext()
+
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("all")
-  const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   
   // Use Jotai for persistent state across components
   const [hasUnreadNotifications, setHasUnreadNotifications] = useAtom(userHasUnreadNotificationsAtom)
 
+  // Memoized computed values
+  const notifications = useMemo(() => {
+    return allNotifications.slice(0, 10)
+  }, [allNotifications])
+
+  const unreadNotifications = useMemo(() => {
+    return allNotifications.filter(n => !n.is_read).slice(0, 10)
+  }, [allNotifications])
+
+  // Update hasUnreadNotifications when unreadCount changes
+  useEffect(() => {
+    setHasUnreadNotifications(unreadCount > 0)
+  }, [unreadCount, setHasUnreadNotifications])
+
   // Function to open and close the notification panel
   const toggleNotifications = () => {
-    if (!isOpen) {
-      // Only fetch notifications when opening
+    if (!isOpen && (!isConnected || allNotifications.length === 0)) {
+      // Only fetch notifications when opening if not connected or no data
       fetchNotifications()
     }
     setIsOpen(!isOpen)
-  }
-
-  // Function to fetch notifications
-  const fetchNotifications = async () => {
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      // Fetch all notifications first
-      const result = await getUserNotificationsAction({ limit: 10 })
-      
-      if ('error' in result) {
-        setError(result.error || "An unknown error occurred")
-        
-        // Specifically handle authentication error
-        if (result.error === "You must be signed in to view notifications") {
-          toast.error("Please sign in to view notifications")
-        }
-        return
-      }
-      
-      setNotifications(result.data || [])
-      
-      // Then get unread notifications separately
-      const unreadResult = await getUserNotificationsAction({ 
-        limit: 10, 
-        unreadOnly: true 
-      })
-      
-      if (!('error' in unreadResult)) {
-        setUnreadNotifications(unreadResult.data || [])
-      }
-      
-      // Update unread notifications indicator
-      checkUnreadNotifications()
-    } catch (error) {
-      console.error("Error fetching notifications:", error)
-      setError("Failed to load notifications")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Function to check if user has unread notifications
-  const checkUnreadNotifications = async () => {
-    try {
-      const result = await getUnreadNotificationCountAction()
-      
-      // Check for success property first to ensure we're dealing with a success result
-      if (!('error' in result) && result.success && typeof result.count === 'number') {
-        setHasUnreadNotifications(result.count > 0)
-      }
-    } catch (error) {
-      console.error("Error checking unread notifications:", error)
-    }
   }
 
   // Function to mark a notification as read
@@ -134,31 +94,8 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     
     try {
       setIsSubmitting(true)
-      
-      const formData = new FormData()
-      formData.append("notificationId", id)
-      
-      const result = await markNotificationAsReadAction(formData)
-      
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      
-      // Update local notifications state
-      const updatedNotifications = notifications.map(notification => 
-        notification.id === id 
-          ? { ...notification, is_read: true } 
-          : notification
-      )
-      
-      setNotifications(updatedNotifications)
-      
-      // Update unread notifications state
-      setUnreadNotifications(prev => prev.filter(notification => notification.id !== id))
-      
-      // Check for any remaining unread notifications
-      checkUnreadNotifications()
+      await contextMarkAsRead(id)
+      toast.success("Notification marked as read")
     } catch (error) {
       console.error("Error marking notification as read:", error)
       toast.error("Failed to mark notification as read")
@@ -171,24 +108,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   const handleMarkAllAsRead = async () => {
     try {
       setIsSubmitting(true)
-      
-      const result = await markAllNotificationsAsReadAction()
-      
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      
-      // Update local state
-      const updatedNotifications = notifications.map(notification => ({
-        ...notification,
-        is_read: true
-      }))
-      
-      setNotifications(updatedNotifications)
-      setUnreadNotifications([])
-      setHasUnreadNotifications(false)
-      
+      await contextMarkAllAsRead()
       toast.success("All notifications marked as read")
     } catch (error) {
       console.error("Error marking all notifications as read:", error)
@@ -211,11 +131,12 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     }
   }
 
-  // Load unread notifications status on initial mount
+  // Fetch notifications when dropdown opens (only if not connected or no data)
   useEffect(() => {
-    checkUnreadNotifications()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (isOpen && (!isConnected || allNotifications.length === 0)) {
+      fetchNotifications()
+    }
+  }, [isOpen, isConnected, allNotifications.length, fetchNotifications])
 
   // Get notification type label
   const getTypeLabel = (type: string) => {
@@ -277,7 +198,14 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
             >
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Notifications</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold">Notifications</h2>
+                    {/* Connection Status Indicator */}
+                    <div className={cn(
+                      "w-2 h-2 rounded-full",
+                      isConnected ? "bg-green-500" : "bg-red-500"
+                    )} title={isConnected ? "Connected" : "Disconnected"} />
+                  </div>
                   
                   <div className="flex items-center gap-1">
                     {/* Mark All as Read Button */}
@@ -313,6 +241,58 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                   </div>
                 </div>
                 
+                {/* Debug Info */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mb-2 p-2 bg-gray-100 rounded text-xs">
+                    <div>Connected: {isConnected ? '✅' : '❌'}</div>
+                    <div>All: {allNotifications.length}, Filtered: {notifications.length}</div>
+                    <div>Unread: {unreadCount}</div>
+                  </div>
+                )}
+                
+                {/* Test Notification Button (Dev only) */}
+                {process.env.NODE_ENV === 'development' && (
+                  <Button
+                    onClick={async () => {
+                      try {
+                        // Get current user ID from Supabase
+                        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+                        
+                        const { createBrowserClient } = await import('@supabase/ssr');
+                        const supabase = createBrowserClient(supabaseUrl!, supabaseKey!);
+                        const { data: { user } } = await supabase.auth.getUser();
+                        
+                        if (user) {
+                          const response = await fetch('/api/test-notification', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              userId: user.id,
+                              templateKey: 'ORDER_CONFIRMATION',
+                              data: { orderId: Math.random().toString(36).substr(2, 9) }
+                            })
+                          });
+                          
+                          if (response.ok) {
+                            toast.success('Test notification created!');
+                          } else {
+                            toast.error('Failed to create test notification');
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Test notification error:', error);
+                        toast.error('Error creating test notification');
+                      }
+                    }}
+                    className="w-full mb-2"
+                    variant="outline"
+                    size="sm"
+                  >
+                    🧪 Create Test Notification
+                  </Button>
+                )}
+
                 {/* Tabs */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
                   <TabsList className="w-full grid grid-cols-2 mb-2">

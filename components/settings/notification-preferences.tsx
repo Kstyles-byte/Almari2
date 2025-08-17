@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Clock, Volume, VolumeX, Moon, Sun } from 'lucide-react';
+import { Bell, Clock, Volume, VolumeX, Moon, Sun, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Database } from '@/types/supabase';
 import { updateNotificationPreferenceAction, updateQuietHoursAction } from '@/actions/notification-preferences';
 import { useToast } from '@/components/ui/use-toast';
+import { pushNotificationService } from '@/lib/services/pushNotificationService';
 
 type NotificationType = Database['public']['Enums']['NotificationType'];
 type NotificationChannel = Database['public']['Enums']['NotificationChannel'];
@@ -191,7 +192,33 @@ export default function NotificationPreferences({ initialPreferences, userRole, 
     start_time: '22:00',
     end_time: '08:00'
   });
+  const [pushStatus, setPushStatus] = useState<{
+    permission: NotificationPermission;
+    isSubscribed: boolean;
+    browserInfo: any;
+  }>({
+    permission: 'default',
+    isSubscribed: false,
+    browserInfo: null
+  });
   const { toast } = useToast();
+
+  // Check push notification status on mount
+  useEffect(() => {
+    const checkPushStatus = async () => {
+      const permission = pushNotificationService.getPermissionStatus();
+      const subscription = await pushNotificationService.getSubscription();
+      const browserInfo = pushNotificationService.getBrowserInfo();
+      
+      setPushStatus({
+        permission,
+        isSubscribed: !!subscription,
+        browserInfo
+      });
+    };
+    
+    checkPushStatus();
+  }, []);
 
   // Create preference map for quick lookup
   const preferenceMap = new Map<string, boolean>();
@@ -256,10 +283,86 @@ export default function NotificationPreferences({ initialPreferences, userRole, 
     });
   };
 
+  const handleManualPushSetup = async () => {
+    startTransition(async () => {
+      try {
+        const permission = await pushNotificationService.requestPermission();
+        
+        if (permission === 'granted') {
+          // Use fallback method for browsers that might have issues
+          const subscription = pushStatus.browserInfo?.name === 'brave' 
+            ? await pushNotificationService.subscribeWithFallback(userId)
+            : await pushNotificationService.subscribe(userId);
+          
+          if (subscription) {
+            setPushStatus(prev => ({
+              ...prev,
+              permission,
+              isSubscribed: true
+            }));
+            
+            toast({
+              title: 'Push Notifications Enabled',
+              description: 'You will now receive push notifications from this browser',
+            });
+          } else {
+            let errorMessage = 'Failed to complete push notification setup.';
+            
+            if (pushStatus.browserInfo?.name === 'brave') {
+              errorMessage += ' Try disabling Brave Shields for this site.';
+            } else if (pushStatus.browserInfo?.name === 'edge') {
+              errorMessage += ' Make sure to interact with the page first.';
+            }
+            
+            toast({
+              title: 'Setup Failed',
+              description: errorMessage,
+              variant: 'destructive',
+            });
+          }
+        } else if (permission === 'denied') {
+          toast({
+            title: 'Permission Denied',
+            description: 'Push notifications were blocked. You can enable them in your browser settings.',
+            variant: 'destructive',
+          });
+        }
+        
+        // Update status regardless
+        setPushStatus(prev => ({
+          ...prev,
+          permission
+        }));
+      } catch (error) {
+        console.error('Error setting up push notifications:', error);
+        toast({
+          title: 'Setup Error',
+          description: 'An error occurred while setting up push notifications',
+          variant: 'destructive',
+        });
+      }
+    });
+  };
+
   const notifications = getNotificationsByRole(userRole);
 
   return (
     <div className="p-6">
+      {/* Debug Info for Development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+          <h4 className="font-medium text-sm">Debug Info</h4>
+          <div className="text-xs mt-1 space-y-1">
+            <div>User Role: {userRole}</div>
+            <div>User ID: {userId}</div>
+            <div>Push Permission: {pushStatus.permission}</div>
+            <div>Push Subscribed: {pushStatus.isSubscribed.toString()}</div>
+            <div>Browser: {pushStatus.browserInfo?.name || 'unknown'}</div>
+            <div>Preferences loaded: {initialPreferences.length}</div>
+          </div>
+        </div>
+      )}
+      
       <Tabs defaultValue="preferences" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="preferences">Notification Types</TabsTrigger>
@@ -348,20 +451,140 @@ export default function NotificationPreferences({ initialPreferences, userRole, 
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Enable {channel.label} notifications</span>
-                      <Switch
-                        checked={true} // Global channel toggle would go here
-                        disabled={isPending}
-                        onCheckedChange={() => {
-                          // Handle global channel toggle
-                          toast({
-                            title: 'Feature Coming Soon',
-                            description: 'Global channel toggles will be available soon',
-                          });
-                        }}
-                      />
-                    </div>
+                    {channel.value === 'PUSH' ? (
+                      <>
+                        {/* Browser Compatibility Info */}
+                        {pushStatus.browserInfo && (
+                          <div className={`p-3 rounded-md text-sm ${
+                            pushStatus.browserInfo.isSupported ? 'bg-blue-50 text-blue-700' : 'bg-yellow-50 text-yellow-700'
+                          }`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              {pushStatus.browserInfo.isSupported ? (
+                                <CheckCircle className="h-4 w-4" />
+                              ) : (
+                                <AlertTriangle className="h-4 w-4" />
+                              )}
+                              <span className="font-medium">
+                                {pushStatus.browserInfo.name.charAt(0).toUpperCase() + pushStatus.browserInfo.name.slice(1)} Browser
+                              </span>
+                            </div>
+                            <p className="text-xs">{pushStatus.browserInfo.message}</p>
+                          </div>
+                        )}
+                        
+                        {/* Push Notification Status */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Push notification status</span>
+                            <Badge variant={
+                              pushStatus.permission === 'granted' ? 'default' : 
+                              pushStatus.permission === 'denied' ? 'destructive' : 'secondary'
+                            }>
+                              {pushStatus.permission === 'granted' ? 'Enabled' :
+                               pushStatus.permission === 'denied' ? 'Blocked' : 'Not Set'}
+                            </Badge>
+                          </div>
+                          
+                          {pushStatus.permission === 'granted' && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm">Subscription status</span>
+                              <Badge variant={pushStatus.isSubscribed ? 'default' : 'secondary'}>
+                                {pushStatus.isSubscribed ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Manual Setup Button */}
+                        {(pushStatus.permission === 'default' || !pushStatus.isSubscribed) && (
+                          <Button
+                            onClick={handleManualPushSetup}
+                            disabled={isPending}
+                            className="w-full"
+                            variant={pushStatus.permission === 'default' ? 'default' : 'outline'}
+                          >
+                            {pushStatus.permission === 'default' ? 'Enable Push Notifications' : 'Retry Setup'}
+                          </Button>
+                        )}
+
+                        {/* Test Push Notification Button */}
+                        {pushStatus.permission === 'granted' && pushStatus.isSubscribed && (
+                          <Button
+                            onClick={async () => {
+                              try {
+                                await pushNotificationService.testNotification();
+                                toast({
+                                  title: 'Test Sent',
+                                  description: 'A test push notification has been sent',
+                                });
+                              } catch (error) {
+                                toast({
+                                  title: 'Test Failed',
+                                  description: 'Failed to send test notification',
+                                  variant: 'destructive',
+                                });
+                              }
+                            }}
+                            disabled={isPending}
+                            className="w-full"
+                            variant="outline"
+                          >
+                            Send Test Notification
+                          </Button>
+                        )}
+                        
+                        {/* Browser-specific help */}
+                        {pushStatus.permission === 'denied' && (
+                          <div className="p-3 bg-red-50 text-red-700 text-sm rounded-md">
+                            <p className="font-medium mb-1">Push notifications are blocked</p>
+                            <p className="text-xs">
+                              {pushStatus.browserInfo?.name === 'brave' && 
+                                'In Brave, go to Settings → Shields → Global Shield Settings and allow notifications.'
+                              }
+                              {pushStatus.browserInfo?.name === 'edge' && 
+                                'In Edge, click the notification icon in the address bar and select "Allow".'
+                              }
+                              {(!pushStatus.browserInfo?.name || ['chrome', 'firefox'].includes(pushStatus.browserInfo.name)) && 
+                                'Click the notification icon in your browser\'s address bar and select "Allow".'
+                              }
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Debug Info for Development */}
+                        {process.env.NODE_ENV === 'development' && pushStatus.browserInfo && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-gray-500">Debug Info</summary>
+                            <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
+                              {JSON.stringify({
+                                browser: pushStatus.browserInfo.name,
+                                permission: pushStatus.permission,
+                                isSubscribed: pushStatus.isSubscribed,
+                                supported: pushStatus.browserInfo.isSupported,
+                                needsInteraction: pushStatus.browserInfo.needsUserInteraction
+                              }, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </>
+                    ) : (
+                      /* In-App Channel */
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Enable {channel.label} notifications</span>
+                        <Switch
+                          checked={true} // Global channel toggle would go here
+                          disabled={isPending}
+                          onCheckedChange={() => {
+                            // Handle global channel toggle
+                            toast({
+                              title: 'Feature Coming Soon',
+                              description: 'Global channel toggles will be available soon',
+                            });
+                          }}
+                        />
+                      </div>
+                    )}
+                    
                     <p className="text-xs text-gray-500">
                       This will affect all notification types for this channel.
                     </p>
