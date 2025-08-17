@@ -516,6 +516,7 @@ class PushNotificationService {
       
     } catch (error) {
       console.error('[PushNotificationService] Failed to save subscription:', error);
+      throw error; // Re-throw the error so the caller knows it failed
     }
   }
 

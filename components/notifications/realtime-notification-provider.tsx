@@ -128,12 +128,20 @@ export function RealtimeNotificationProvider({
         const existingSubscription = await pushNotificationService.getSubscription();
         if (!existingSubscription) {
           console.log('[RealtimeNotificationProvider] Auto-subscribing to push notifications');
-          const subscription = await pushNotificationService.subscribe(userId);
-          
-          if (!subscription && browserInfo.name === 'brave') {
-            console.log('[RealtimeNotificationProvider] Brave auto-subscription failed - likely needs Google services enabled');
-            // Don't treat this as an error, just log it for user awareness
-            return;
+          try {
+            const subscription = await pushNotificationService.subscribe(userId);
+            
+            if (!subscription) {
+              console.error('[RealtimeNotificationProvider] Auto-subscription failed - no subscription returned');
+              if (browserInfo.name === 'brave') {
+                console.log('[RealtimeNotificationProvider] Brave auto-subscription failed - likely needs Google services enabled');
+              }
+              return;
+            }
+            
+            console.log('[RealtimeNotificationProvider] Auto-subscription successful');
+          } catch (error) {
+            console.error('[RealtimeNotificationProvider] Auto-subscription failed with error:', error);
           }
         }
         return;
