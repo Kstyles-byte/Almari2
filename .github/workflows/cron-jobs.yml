@@ -1,0 +1,123 @@
+name: Notification Cron Jobs
+
+on:
+  schedule:
+    # Inventory check: Every hour from 8 AM to 8 PM UTC
+    - cron: '0 8-20 * * *'
+    # Master notifications coordinator: Every 2 hours
+    - cron: '0 */2 * * *'
+    # Product notifications: Weekly on Sundays at 10 AM UTC
+    - cron: '0 10 * * 0'
+    # Coupon check: Daily at 9 AM UTC
+    - cron: '0 9 * * *'
+    # Review notifications: Daily at 11 AM UTC
+    - cron: '0 11 * * *'
+  
+  # Allow manual triggering for testing
+  workflow_dispatch:
+    inputs:
+      job_type:
+        description: 'Which job to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - inventory-check
+        - product-notifications
+        - notifications
+        - coupon-check
+        - review-notifications
+
+jobs:
+  # Inventory Check Job - Runs every hour 8 AM - 8 PM
+  inventory-check:
+    if: github.event.schedule == '0 8-20 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job_type == 'all' || github.event.inputs.job_type == 'inventory-check'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Inventory Check Endpoint
+        run: |
+          curl -X POST "${{ secrets.VERCEL_URL }}/api/cron/inventory-check" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d '{}' \
+            --fail-with-body \
+            -w "HTTP Status: %{http_code}\n"
+
+  # Master Notifications Coordinator - Runs every 2 hours
+  master-notifications:
+    if: github.event.schedule == '0 */2 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job_type == 'all' || github.event.inputs.job_type == 'notifications'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Master Notifications Endpoint
+        run: |
+          curl -X POST "${{ secrets.VERCEL_URL }}/api/cron/notifications" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d '{"jobs": ["inventory-check", "product-notifications"], "parallel": true}' \
+            --fail-with-body \
+            -w "HTTP Status: %{http_code}\n"
+
+  # Product Notifications - Runs weekly on Sundays at 10 AM
+  product-notifications:
+    if: github.event.schedule == '0 10 * * 0' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job_type == 'all' || github.event.inputs.job_type == 'product-notifications'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Product Notifications Endpoint
+        run: |
+          curl -X POST "${{ secrets.VERCEL_URL }}/api/cron/product-notifications" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d '{"type": "all"}' \
+            --fail-with-body \
+            -w "HTTP Status: %{http_code}\n"
+
+  # Coupon Check - Runs daily at 9 AM
+  coupon-check:
+    if: github.event.schedule == '0 9 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job_type == 'all' || github.event.inputs.job_type == 'coupon-check'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Coupon Check Endpoint
+        run: |
+          curl -X GET "${{ secrets.VERCEL_URL }}/api/cron/coupon-check" \
+            -H "authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --fail-with-body \
+            -w "HTTP Status: %{http_code}\n"
+
+  # Review Notifications - Runs daily at 11 AM
+  review-notifications:
+    if: github.event.schedule == '0 11 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job_type == 'all' || github.event.inputs.job_type == 'review-notifications'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Review Notifications Endpoint
+        run: |
+          curl -X GET "${{ secrets.VERCEL_URL }}/api/cron/review-notifications" \
+            -H "authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --fail-with-body \
+            -w "HTTP Status: %{http_code}\n"
+
+  # Health Check - Runs twice daily to ensure all systems are working
+  health-check:
+    if: github.event.schedule == '0 6,18 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.job_type == 'all')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health Check All Endpoints
+        run: |
+          echo "Running health checks on all cron endpoints..."
+          
+          # Check inventory endpoint
+          curl -X GET "${{ secrets.VERCEL_URL }}/api/cron/inventory-check" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -w "Inventory Check - HTTP Status: %{http_code}\n" || true
+          
+          # Check product notifications endpoint  
+          curl -X GET "${{ secrets.VERCEL_URL }}/api/cron/product-notifications" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -w "Product Notifications - HTTP Status: %{http_code}\n" || true
+          
+          # Check master notifications endpoint
+          curl -X GET "${{ secrets.VERCEL_URL }}/api/cron/notifications" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -w "Master Notifications - HTTP Status: %{http_code}\n" || true
+          
+          echo "Health checks completed!"
