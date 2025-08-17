@@ -2,7 +2,6 @@ import { atom } from 'jotai';
 
 // Atom to track whether the user has any unread notifications
 export const userHasUnreadNotificationsAtom = atom<boolean>(false);
-export const unreadNotificationCountAtom = atom<number>(0);
 
 // NEW EDIT BELOW: atoms for vendor live orders
 export interface VendorOrder {

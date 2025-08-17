@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/supabase';
+import { sendTypedPushNotification } from './pushNotificationBackend';
 
 // Define types locally to avoid dependency issues
 interface Notification {
@@ -122,6 +123,31 @@ export async function createNotification(data: {
     if (error) {
       console.error("[Notification Service] Error creating notification:", error.message);
       throw new Error(`Failed to create notification: ${error.message}`);
+    }
+
+    // Send push notification if we're on the server side
+    if (typeof window === 'undefined' && notification) {
+      try {
+        console.log('[Notification Service] Sending push notification for:', notification.id);
+        const pushResult = await sendTypedPushNotification(data.userId, {
+          id: notification.id,
+          title: data.title,
+          message: data.message,
+          type: data.type,
+          orderId: data.orderId,
+          returnId: data.returnId,
+          referenceUrl: data.referenceUrl
+        });
+        
+        if (pushResult.success) {
+          console.log(`[Notification Service] Push notification sent to ${pushResult.sent} devices`);
+        } else {
+          console.warn('[Notification Service] Push notification failed:', pushResult.error);
+        }
+      } catch (pushError) {
+        // Don't fail the notification creation if push fails
+        console.error('[Notification Service] Push notification error:', pushError);
+      }
     }
 
     return { success: true, notification };
@@ -642,7 +668,7 @@ export async function createTypedNotification(params: {
 /**
  * Helper to check if a notification preference is enabled (IN_APP channel only for now)
  */
-export async function isPreferenceEnabled(userId: string, type: NotificationType, channel: 'IN_APP' | 'EMAIL' | 'SMS' = 'IN_APP'): Promise<boolean> {
+export async function isPreferenceEnabled(userId: string, type: NotificationType, channel: 'IN_APP' | 'PUSH' = 'IN_APP'): Promise<boolean> {
   try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase

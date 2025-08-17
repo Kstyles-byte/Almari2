@@ -1021,6 +1021,53 @@ export type Database = {
           },
         ]
       }
+      PushSubscription: {
+        Row: {
+          auth_key: string
+          created_at: string
+          endpoint: string
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          p256dh_key: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          p256dh_key: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          p256dh_key?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "PushSubscription_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       RefundRequest: {
         Row: {
           admin_notes: string | null

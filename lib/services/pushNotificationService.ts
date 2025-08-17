@@ -476,22 +476,37 @@ class PushNotificationService {
    */
   private async saveSubscription(userId: string, subscription: PushSubscription): Promise<void> {
     try {
-      const subscriptionData: PushSubscriptionData = {
-        endpoint: subscription.endpoint,
-        keys: {
-          p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
-          auth: this.arrayBufferToBase64(subscription.getKey('auth')!)
+      const subscriptionData = {
+        subscription: {
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
+            auth: this.arrayBufferToBase64(subscription.getKey('auth')!)
+          }
         }
       };
 
-      // Store in a push_subscriptions table (you might need to create this)
-      // For now, we'll store it in localStorage as a fallback
+      // Save to database via API
+      const response = await fetch('/api/push-subscriptions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(subscriptionData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save subscription: ${response.status}`);
+      }
+
+      console.log('[PushNotificationService] Subscription saved to database for user:', userId);
+      
+      // Also keep localStorage as fallback for offline scenarios
       localStorage.setItem(
         `push_subscription_${userId}`, 
-        JSON.stringify(subscriptionData)
+        JSON.stringify(subscriptionData.subscription)
       );
-
-      console.log('[PushNotificationService] Subscription saved for user:', userId);
+      
     } catch (error) {
       console.error('[PushNotificationService] Failed to save subscription:', error);
     }
@@ -502,6 +517,24 @@ class PushNotificationService {
    */
   private async removeSubscription(userId: string): Promise<void> {
     try {
+      // Get current subscription to get endpoint
+      const subscription = await this.getSubscription();
+      if (subscription) {
+        // Remove from database via API
+        const response = await fetch('/api/push-subscriptions', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ endpoint: subscription.endpoint })
+        });
+
+        if (!response.ok) {
+          console.warn('[PushNotificationService] Failed to remove subscription from database:', response.status);
+        }
+      }
+
+      // Also remove from localStorage
       localStorage.removeItem(`push_subscription_${userId}`);
       console.log('[PushNotificationService] Subscription removed for user:', userId);
     } catch (error) {

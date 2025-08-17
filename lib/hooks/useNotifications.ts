@@ -266,7 +266,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
-          console.log('[useNotifications] Realtime notification:', payload);
+          console.log('[useNotifications] Realtime notification received:', payload.eventType, payload);
 
           switch (payload.eventType) {
             case 'INSERT':
