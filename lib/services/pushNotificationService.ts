@@ -487,6 +487,7 @@ class PushNotificationService {
       };
 
       // Save to database via API
+      console.log('[PushNotificationService] Attempting to save subscription to database...');
       const response = await fetch('/api/push-subscriptions', {
         method: 'POST',
         headers: {
@@ -495,10 +496,16 @@ class PushNotificationService {
         body: JSON.stringify(subscriptionData)
       });
 
+      console.log('[PushNotificationService] API response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`Failed to save subscription: ${response.status}`);
+        const errorText = await response.text();
+        console.error('[PushNotificationService] API error response:', errorText);
+        throw new Error(`Failed to save subscription: ${response.status} - ${errorText}`);
       }
 
+      const responseData = await response.json();
+      console.log('[PushNotificationService] API response:', responseData);
       console.log('[PushNotificationService] Subscription saved to database for user:', userId);
       
       // Also keep localStorage as fallback for offline scenarios

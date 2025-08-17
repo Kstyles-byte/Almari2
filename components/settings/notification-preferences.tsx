@@ -11,6 +11,7 @@ import { Database } from '@/types/supabase';
 import { updateNotificationPreferenceAction, updateQuietHoursAction } from '@/actions/notification-preferences';
 import { useToast } from '@/components/ui/use-toast';
 import { pushNotificationService } from '@/lib/services/pushNotificationService';
+import { PushSubscriptionDebug } from '../notifications/push-subscription-debug';
 
 type NotificationType = Database['public']['Enums']['NotificationType'];
 type NotificationChannel = Database['public']['Enums']['NotificationChannel'];
@@ -727,7 +728,9 @@ export default function NotificationPreferences({ initialPreferences, userRole, 
         </TabsContent>
       </Tabs>
       
-      <div className="mt-8 pt-6 border-t">
+      <div className="mt-8 pt-6 border-t space-y-6">
+        <PushSubscriptionDebug userId={userId} />
+        
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-500">
             Changes are saved automatically
