@@ -539,7 +539,7 @@ export default function NotificationPreferences({ initialPreferences, userRole, 
                             <p className="font-medium mb-1">Push notifications are blocked</p>
                             <p className="text-xs">
                               {pushStatus.browserInfo?.name === 'brave' && 
-                                'In Brave, go to Settings → Shields → Global Shield Settings and allow notifications.'
+                                'In Brave, click the notification icon in the address bar and select "Allow", or check Settings → Shields → Global Shield Settings.'
                               }
                               {pushStatus.browserInfo?.name === 'edge' && 
                                 'In Edge, click the notification icon in the address bar and select "Allow".'
@@ -548,6 +548,23 @@ export default function NotificationPreferences({ initialPreferences, userRole, 
                                 'Click the notification icon in your browser\'s address bar and select "Allow".'
                               }
                             </p>
+                          </div>
+                        )}
+
+                        {/* Brave-specific configuration help */}
+                        {pushStatus.browserInfo?.name === 'brave' && pushStatus.permission === 'granted' && !pushStatus.isSubscribed && (
+                          <div className="p-3 bg-yellow-50 text-yellow-800 text-sm rounded-md">
+                            <p className="font-medium mb-1">Brave Browser Configuration Required</p>
+                            <p className="text-xs mb-2">
+                              Brave disables Google services by default. To enable push notifications:
+                            </p>
+                            <ol className="text-xs list-decimal list-inside space-y-1 pl-2">
+                              <li>Open a new tab and go to: <code className="bg-yellow-100 px-1 rounded">brave://settings/privacy</code></li>
+                              <li>Scroll to "Privacy and security"</li>
+                              <li>Enable "Use Google services for push messaging"</li>
+                              <li>Restart your browser</li>
+                              <li>Return here and try again</li>
+                            </ol>
                           </div>
                         )}
 

@@ -128,7 +128,13 @@ export function RealtimeNotificationProvider({
         const existingSubscription = await pushNotificationService.getSubscription();
         if (!existingSubscription) {
           console.log('[RealtimeNotificationProvider] Auto-subscribing to push notifications');
-          await pushNotificationService.subscribe(userId);
+          const subscription = await pushNotificationService.subscribe(userId);
+          
+          if (!subscription && browserInfo.name === 'brave') {
+            console.log('[RealtimeNotificationProvider] Brave auto-subscription failed - likely needs Google services enabled');
+            // Don't treat this as an error, just log it for user awareness
+            return;
+          }
         }
         return;
       }
@@ -153,11 +159,22 @@ export function RealtimeNotificationProvider({
         if (permission === 'granted') {
           console.log('[RealtimeNotificationProvider] Push permission granted, subscribing');
           
+          let subscription;
           // Use fallback method for Brave to handle AbortError
           if (browserInfo.name === 'brave') {
-            await pushNotificationService.subscribeWithFallback(userId);
+            subscription = await pushNotificationService.subscribeWithFallback(userId);
           } else {
-            await pushNotificationService.subscribe(userId);
+            subscription = await pushNotificationService.subscribe(userId);
+          }
+          
+          if (!subscription && browserInfo.name === 'brave') {
+            console.log('[RealtimeNotificationProvider] Brave subscription failed - Google services likely disabled');
+            // This is expected behavior for Brave without proper configuration
+            // The user will see guidance in the notification settings UI
+          } else if (!subscription) {
+            console.warn(`[RealtimeNotificationProvider] Push subscription failed on ${browserInfo.name}`);
+          } else {
+            console.log('[RealtimeNotificationProvider] Push subscription successful');
           }
         } else {
           console.log(`[RealtimeNotificationProvider] Push permission ${permission} on ${browserInfo.name}`);

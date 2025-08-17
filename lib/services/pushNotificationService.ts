@@ -56,7 +56,8 @@ class PushNotificationService {
   private detectBrowser() {
     const userAgent = navigator.userAgent.toLowerCase();
     
-    if (userAgent.includes('brave')) {
+    // Check for Brave browser using multiple methods
+    if (this.isBraveBrowser(userAgent)) {
       return { name: 'brave', needsUserInteraction: true, supportsVapid: true };
     } else if (userAgent.includes('edg/')) {
       return { name: 'edge', needsUserInteraction: true, supportsVapid: true };
@@ -69,6 +70,46 @@ class PushNotificationService {
     } else {
       return { name: 'unknown', needsUserInteraction: true, supportsVapid: true };
     }
+  }
+
+  /**
+   * Comprehensive Brave browser detection
+   */
+  private isBraveBrowser(userAgent: string): boolean {
+    // Method 1: Check for navigator.brave (most reliable)
+    if (typeof navigator !== 'undefined' && (navigator as any).brave && (navigator as any).brave.isBrave) {
+      console.log('[PushNotificationService] Brave detected via navigator.brave');
+      return true;
+    }
+
+    // Method 2: Check user agent string patterns specific to Brave
+    if (userAgent.includes('brave')) {
+      console.log('[PushNotificationService] Brave detected via user agent string');
+      return true;
+    }
+
+    // Method 3: Check for Brave-specific patterns in user agent
+    // Brave often includes "Chrome" but has specific versioning patterns
+    if (userAgent.includes('chrome') && !userAgent.includes('edge')) {
+      // Check for Brave-specific patterns or absence of certain Chrome patterns
+      try {
+        // Method 4: Feature detection - check if Brave-specific APIs exist
+        if (typeof navigator !== 'undefined') {
+          // Brave has specific wallet and crypto APIs
+          const hasBraveWallet = 'ethereum' in window && (window as any).ethereum?.isBrave;
+          const hasBraveShields = (navigator as any).brave;
+          
+          if (hasBraveWallet || hasBraveShields) {
+            console.log('[PushNotificationService] Brave detected via feature detection');
+            return true;
+          }
+        }
+      } catch (error) {
+        // Feature detection failed, continue with other methods
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -119,7 +160,7 @@ class PushNotificationService {
   private getBrowserMessage(): string {
     switch (this.browserInfo.name) {
       case 'brave':
-        return 'Brave Browser detected. If push notifications fail, please check your Brave Shield settings.';
+        return 'Brave Browser detected. To enable push notifications: Go to brave://settings/privacy and turn on "Use Google services for push messaging". Brave shields may also block notifications.';
       case 'edge':
         return 'Microsoft Edge detected. You may need to interact with the page before enabling notifications.';
       case 'safari':
@@ -264,14 +305,17 @@ class PushNotificationService {
       // Handle browser-specific errors
       if (error instanceof Error) {
         if (error.name === 'AbortError' && this.browserInfo.name === 'brave') {
-          console.log('[PushNotificationService] Brave push service error - this is common with Brave shields');
+          console.error('[PushNotificationService] Brave push service error - Google services for push messaging likely disabled');
+          console.error('[PushNotificationService] To fix: Go to brave://settings/privacy and enable "Use Google services for push messaging"');
           
           if (retryCount < maxRetries) {
             console.log(`[PushNotificationService] Retrying subscription on Brave (${retryCount + 1}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Longer wait for Brave
             return this.subscribe(userId, retryCount + 1);
           } else {
-            console.warn('[PushNotificationService] Brave: Max retries reached. Push notifications may not work with current shield settings.');
+            console.error('[PushNotificationService] Brave: Max retries reached. Push notifications require enabling Google services in brave://settings/privacy');
+            // Return null instead of throwing to allow graceful degradation
+            return null;
           }
         } else if (error.name === 'NotSupportedError' && this.browserInfo.name === 'edge') {
           console.warn('[PushNotificationService] Edge: Push not supported or permission required');
@@ -493,6 +537,30 @@ class PushNotificationService {
       binary += String.fromCharCode(bytes[i]);
     }
     return window.btoa(binary);
+  }
+
+  /**
+   * Check if Brave browser needs configuration for push notifications
+   */
+  checkBraveConfiguration(): { needsConfiguration: boolean; message: string } {
+    if (this.browserInfo.name !== 'brave') {
+      return { needsConfiguration: false, message: '' };
+    }
+
+    // If we're in Brave and getting errors, provide configuration guidance
+    const message = `
+      Brave Browser Configuration Required:
+      
+      1. Open a new tab and go to: brave://settings/privacy
+      2. Scroll down to "Privacy and security"
+      3. Enable "Use Google services for push messaging"
+      4. Restart your browser
+      5. Try enabling notifications again
+      
+      Note: This is required because Brave disables Google services by default for privacy.
+    `;
+
+    return { needsConfiguration: true, message };
   }
 
   /**
