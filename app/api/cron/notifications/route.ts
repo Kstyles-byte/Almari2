@@ -55,8 +55,17 @@ function verifyCronRequest(request: NextRequest): boolean {
  */
 async function callCronEndpoint(endpoint: string, body?: any): Promise<any> {
   try {
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const url = `${baseUrl}/api/cron/${endpoint}`;
+    // Get the base URL from multiple possible sources
+    const baseUrl = process.env.VERCEL_URL 
+      || process.env.NEXTAUTH_URL 
+      || process.env.NEXT_PUBLIC_SITE_URL
+      || 'http://localhost:3000';
+    
+    // Ensure URL has protocol
+    const fullBaseUrl = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`;
+    const url = `${fullBaseUrl}/api/cron/${endpoint}`;
+    
+    console.log(`[Notifications Cron] Calling internal endpoint: ${url}`);
     
     const response = await fetch(url, {
       method: 'POST',

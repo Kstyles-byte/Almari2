@@ -44,17 +44,21 @@ jobs:
             --fail-with-body \
             -w "HTTP Status: %{http_code}\n"
 
-  # Master Notifications Coordinator - Runs every 2 hours
-  master-notifications:
+  # Coordinated Notifications - Runs every 2 hours (calls jobs directly)
+  coordinated-notifications:
     if: github.event.schedule == '0 */2 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job_type == 'all' || github.event.inputs.job_type == 'notifications'))
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        job: [inventory-check, product-notifications]
+      max-parallel: 2
     steps:
-      - name: Call Master Notifications Endpoint
+      - name: Call ${{ matrix.job }} Endpoint
         run: |
-          curl -X POST "${{ secrets.VERCEL_URL }}/api/cron/notifications" \
+          curl -X POST "${{ secrets.VERCEL_URL }}/api/cron/${{ matrix.job }}" \
             -H "Content-Type: application/json" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -d '{"jobs": ["inventory-check", "product-notifications"], "parallel": true}' \
+            -d '{}' \
             --fail-with-body \
             -w "HTTP Status: %{http_code}\n"
 
