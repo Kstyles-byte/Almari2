@@ -27,6 +27,13 @@ export function RealtimeNotificationProvider({
     }
   }, [enablePush]);
 
+  // Auto-request push permissions for new users
+  useEffect(() => {
+    if (userId && enablePush) {
+      requestPushPermissionIfNeeded();
+    }
+  }, [userId, enablePush]);
+
   const initializeUser = async () => {
     try {
       const supabase = createBrowserClient<Database>(
@@ -55,12 +62,15 @@ export function RealtimeNotificationProvider({
           if (event === 'SIGNED_IN' && session?.user) {
             setUserId(session.user.id);
             
-            // Auto-subscribe to push notifications if enabled
-            if (enablePush && pushNotificationService.isEnabled()) {
+            // Request push notification permission and subscribe if enabled
+            if (enablePush) {
               try {
-                await pushNotificationService.subscribe(session.user.id);
+                // Use a small delay to allow UI to settle before requesting permission
+                setTimeout(() => {
+                  requestPushPermissionIfNeeded();
+                }, 1000);
               } catch (error) {
-                console.error('[RealtimeNotificationProvider] Failed to auto-subscribe to push:', error);
+                console.error('[RealtimeNotificationProvider] Failed to request push permission:', error);
               }
             }
           } else if (event === 'SIGNED_OUT') {
@@ -101,6 +111,39 @@ export function RealtimeNotificationProvider({
         .catch((error) => {
           console.error('[RealtimeNotificationProvider] Service Worker registration failed:', error);
         });
+    }
+  };
+
+  const requestPushPermissionIfNeeded = async () => {
+    if (!userId || !enablePush) return;
+
+    try {
+      const currentPermission = pushNotificationService.getPermissionStatus();
+      
+      // If permission is already granted, try to subscribe
+      if (currentPermission === 'granted') {
+        const existingSubscription = await pushNotificationService.getSubscription();
+        if (!existingSubscription) {
+          console.log('[RealtimeNotificationProvider] Auto-subscribing to push notifications');
+          await pushNotificationService.subscribe(userId);
+        }
+        return;
+      }
+
+      // If permission is default (not asked yet), request it
+      if (currentPermission === 'default') {
+        console.log('[RealtimeNotificationProvider] Requesting push notification permission');
+        const permission = await pushNotificationService.requestPermission();
+        
+        if (permission === 'granted') {
+          console.log('[RealtimeNotificationProvider] Push permission granted, subscribing');
+          await pushNotificationService.subscribe(userId);
+        } else {
+          console.log('[RealtimeNotificationProvider] Push permission denied');
+        }
+      }
+    } catch (error) {
+      console.error('[RealtimeNotificationProvider] Error requesting push permission:', error);
     }
   };
 

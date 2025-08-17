@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useCallback } from "react"
+import React, { useEffect, useState, useCallback, useMemo } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Check, ArrowRight, Settings, Loader2 } from "lucide-react"
 import Link from "next/link"
@@ -15,12 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs"
 import { Badge } from "./badge"
 import { Separator } from "./separator"
 import { NotificationItem } from "./notification-item"
-
-import { 
-  getUserNotificationsAction, 
-  markNotificationAsReadAction,
-  markAllNotificationsAsReadAction 
-} from "../../actions/notifications"
+import { useNotificationContext } from "../../contexts/NotificationContext"
 
 // Notification interface
 interface Notification {
@@ -60,59 +55,36 @@ export function NotificationDropdown({
 }: NotificationDropdownProps) {
   const router = useRouter()
   
-  // State for notifications data
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadNotifications, setUnreadNotifications] = useState<Notification[]>([])
+  // Use notification context instead of local state and server actions
+  const {
+    notifications: allNotifications,
+    unreadCount,
+    loading: isLoading,
+    error,
+    markAsRead: contextMarkAsRead,
+    markAllAsRead: contextMarkAllAsRead,
+    fetchNotifications,
+    isConnected
+  } = useNotificationContext()
+  
   const [activeTab, setActiveTab] = useState("all")
-  const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  // Function to fetch notifications
-  const fetchNotifications = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      // Fetch all notifications first
-      const result = await getUserNotificationsAction({ limit })
-      
-      if ('error' in result) {
-        setError(result.error || "An unknown error occurred")
-        
-        // Specifically handle authentication error
-        if (result.error === "You must be signed in to view notifications") {
-          toast.error("Please sign in to view notifications")
-        }
-        return
-      }
-      
-      setNotifications(result.data || [])
-      
-      // Then get unread notifications separately
-      const unreadResult = await getUserNotificationsAction({ 
-        limit, 
-        unreadOnly: true 
-      })
-      
-      if (!('error' in unreadResult)) {
-        setUnreadNotifications(unreadResult.data || [])
-      }
-      
-    } catch (error) {
-      console.error("Error fetching notifications:", error)
-      setError("Failed to load notifications")
-    } finally {
-      setIsLoading(false)
-    }
-  }, [limit])
+  // Memoized computed values
+  const notifications = useMemo(() => {
+    return allNotifications.slice(0, limit)
+  }, [allNotifications, limit])
 
-  // Fetch notifications when dropdown opens
+  const unreadNotifications = useMemo(() => {
+    return allNotifications.filter(n => !n.is_read).slice(0, limit)
+  }, [allNotifications, limit])
+
+  // Fetch notifications when dropdown opens (only if not connected or no data)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && (!isConnected || allNotifications.length === 0)) {
       fetchNotifications()
     }
-  }, [isOpen, fetchNotifications])
+  }, [isOpen, isConnected, allNotifications.length, fetchNotifications])
 
   // Function to mark a notification as read
   const handleMarkAsRead = async (id: string, e?: React.MouseEvent) => {
@@ -122,29 +94,8 @@ export function NotificationDropdown({
     
     try {
       setIsSubmitting(true)
-      
-      const formData = new FormData()
-      formData.append("notificationId", id)
-      
-      const result = await markNotificationAsReadAction(formData)
-      
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      
-      // Update local notifications state
-      const updatedNotifications = notifications.map(notification => 
-        notification.id === id 
-          ? { ...notification, is_read: true } 
-          : notification
-      )
-      
-      setNotifications(updatedNotifications)
-      
-      // Update unread notifications state
-      setUnreadNotifications(prev => prev.filter(notification => notification.id !== id))
-      
+      await contextMarkAsRead(id)
+      toast.success("Notification marked as read")
     } catch (error) {
       console.error("Error marking notification as read:", error)
       toast.error("Failed to mark notification as read")
@@ -157,23 +108,7 @@ export function NotificationDropdown({
   const handleMarkAllAsRead = async () => {
     try {
       setIsSubmitting(true)
-      
-      const result = await markAllNotificationsAsReadAction()
-      
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      
-      // Update local state
-      const updatedNotifications = notifications.map(notification => ({
-        ...notification,
-        is_read: true
-      }))
-      
-      setNotifications(updatedNotifications)
-      setUnreadNotifications([])
-      
+      await contextMarkAllAsRead()
       toast.success("All notifications marked as read")
     } catch (error) {
       console.error("Error marking all notifications as read:", error)
@@ -252,7 +187,14 @@ export function NotificationDropdown({
             <div className="p-4">
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Notifications</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">Notifications</h2>
+                  {/* Connection Status Indicator */}
+                  <div className={cn(
+                    "w-2 h-2 rounded-full",
+                    isConnected ? "bg-green-500" : "bg-red-500"
+                  )} title={isConnected ? "Connected" : "Disconnected"} />
+                </div>
                 
                 <div className="flex items-center gap-1">
                   {/* Mark All as Read Button */}

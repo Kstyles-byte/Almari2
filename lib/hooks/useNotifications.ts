@@ -79,14 +79,14 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
   }, []);
 
   // Fetch notifications
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (currentPage = page) => {
     if (!userId || !supabaseClient.current) return;
 
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
       const params = new URLSearchParams({
-        page: state.currentPage.toString(),
+        page: currentPage.toString(),
         limit: limit.toString(),
         unreadOnly: unreadOnly.toString()
       });
@@ -104,6 +104,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
         ...prev,
         notifications: result.data,
         hasMore: result.pagination.hasNextPage,
+        currentPage: currentPage,
         loading: false
       }));
     } catch (error) {
@@ -114,7 +115,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
         loading: false
       }));
     }
-  }, [userId, state.currentPage, limit, unreadOnly]);
+  }, [userId, limit, unreadOnly]);
 
   // Fetch more notifications (pagination)
   const fetchMore = useCallback(async () => {
@@ -154,7 +155,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
         loading: false
       }));
     }
-  }, [userId, state.currentPage, state.hasMore, state.loading, limit, unreadOnly]);
+  }, [userId, limit, unreadOnly]);
 
   // Refresh unread count
   const refreshCount = useCallback(async () => {
@@ -374,7 +375,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     return () => {
       unsubscribe();
     };
-  }, [userId, enableRealtime]); // Only re-run when userId or enableRealtime changes
+  }, [userId, enableRealtime, fetchNotifications, refreshCount, subscribe, unsubscribe]); // Only re-run when userId or enableRealtime changes
 
   // Cleanup on unmount
   useEffect(() => {
