@@ -127,13 +127,30 @@ export async function sendPushNotification(
     // Send to all user's subscriptions
     for (const subscription of subscriptions) {
       try {
+        // Fix FCM endpoint format if needed
+        let correctedEndpoint = subscription.endpoint;
+        
+        // Transform old FCM format to new format
+        if (correctedEndpoint.includes('fcm.googleapis.com/fcm/send/')) {
+          correctedEndpoint = correctedEndpoint.replace(
+            'https://fcm.googleapis.com/fcm/send/',
+            'https://fcm.googleapis.com/wp/'
+          );
+          console.log(`[PushNotificationBackend] Converted FCM endpoint format from /fcm/send/ to /wp/`);
+        }
+        
+        // Reconstruct the push subscription object in the correct format for webpush
         const pushSubscription = {
-          endpoint: subscription.endpoint,
+          endpoint: correctedEndpoint,
           keys: {
             p256dh: subscription.p256dh_key,
             auth: subscription.auth_key
           }
         };
+
+        console.log(`[PushNotificationBackend] Attempting to send to endpoint: ${correctedEndpoint.substring(0, 50)}...`);
+        console.log(`[PushNotificationBackend] P256DH key length: ${subscription.p256dh_key.length}`);
+        console.log(`[PushNotificationBackend] Auth key length: ${subscription.auth_key.length}`);
 
         await webpush.sendNotification(pushSubscription, pushPayload);
         sentCount++;
@@ -146,9 +163,22 @@ export async function sendPushNotification(
         console.error(`[PushNotificationBackend] Failed to send to endpoint ${subscription.endpoint.substring(0, 50)}...:`, error);
         failedSubscriptions.push(subscription.endpoint);
         
-        // If subscription is invalid (410 Gone), mark as inactive
-        if (error instanceof Error && error.message.includes('410')) {
-          await deactivateSubscription(userId, subscription.endpoint);
+        // Handle different error types
+        if (error instanceof Error) {
+          // If subscription is invalid (410 Gone or 404 Not Found), mark as inactive
+          if (error.message.includes('410') || error.message.includes('404')) {
+            console.log(`[PushNotificationBackend] Marking subscription as inactive due to ${error.message.includes('410') ? '410 Gone' : '404 Not Found'} error`);
+            await deactivateSubscription(userId, subscription.endpoint);
+          }
+          
+          // Log additional context for FCM-specific errors
+          if (error.message.includes('Received unexpected response code')) {
+            console.error(`[PushNotificationBackend] FCM Error Details:`, {
+              originalEndpoint: subscription.endpoint,
+              correctedEndpoint: subscription.endpoint,
+              errorMessage: error.message
+            });
+          }
         }
       }
     }

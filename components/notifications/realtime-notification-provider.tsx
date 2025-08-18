@@ -30,7 +30,11 @@ export function RealtimeNotificationProvider({
   // Auto-request push permissions for new users
   useEffect(() => {
     if (userId && enablePush) {
-      requestPushPermissionIfNeeded();
+      console.log('[RealtimeNotificationProvider] 🚀 Triggering auto-subscription check for user:', userId);
+      // Add a small delay to ensure service worker is ready
+      setTimeout(() => {
+        requestPushPermissionIfNeeded();
+      }, 1000);
     }
   }, [userId, enablePush]);
 
@@ -128,21 +132,42 @@ export function RealtimeNotificationProvider({
         const existingSubscription = await pushNotificationService.getSubscription();
         if (!existingSubscription) {
           console.log('[RealtimeNotificationProvider] Auto-subscribing to push notifications');
+          console.log('[RealtimeNotificationProvider] User ID:', userId);
+          console.log('[RealtimeNotificationProvider] Browser:', browserInfo.name);
+          
           try {
             const subscription = await pushNotificationService.subscribe(userId);
             
             if (!subscription) {
-              console.error('[RealtimeNotificationProvider] Auto-subscription failed - no subscription returned');
+              console.error('[RealtimeNotificationProvider] ❌ Auto-subscription failed - no subscription returned');
+              console.error('[RealtimeNotificationProvider] This means the subscribe() call completed but returned null');
+              
               if (browserInfo.name === 'brave') {
                 console.log('[RealtimeNotificationProvider] Brave auto-subscription failed - likely needs Google services enabled');
               }
               return;
             }
             
-            console.log('[RealtimeNotificationProvider] Auto-subscription successful');
+            console.log('[RealtimeNotificationProvider] ✅ Auto-subscription successful');
+            console.log('[RealtimeNotificationProvider] Subscription endpoint:', subscription.endpoint.substring(0, 50) + '...');
+            
+            // Verify subscription was saved to database
+            try {
+              const verifyResponse = await fetch('/api/push-subscriptions');
+              const verifyData = await verifyResponse.json();
+              console.log('[RealtimeNotificationProvider] Database verification:', verifyData);
+            } catch (verifyError) {
+              console.error('[RealtimeNotificationProvider] Failed to verify subscription in database:', verifyError);
+            }
+            
           } catch (error) {
-            console.error('[RealtimeNotificationProvider] Auto-subscription failed with error:', error);
+            console.error('[RealtimeNotificationProvider] ❌ Auto-subscription failed with error:', error);
+            console.error('[RealtimeNotificationProvider] Error details:', error.message);
+            console.error('[RealtimeNotificationProvider] This indicates an exception during subscribe()');
           }
+        } else {
+          console.log('[RealtimeNotificationProvider] ✅ Existing subscription found');
+          console.log('[RealtimeNotificationProvider] Endpoint:', existingSubscription.endpoint.substring(0, 50) + '...');
         }
         return;
       }
