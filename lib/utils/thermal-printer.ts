@@ -1,9 +1,10 @@
 /**
- * Thermal printer utility functions for 58mm paper width
- * Standard 58mm thermal printers typically support 32 characters per line
+ * Thermal printer utility functions for 50mm x 30mm paper
+ * 50mm thermal printers typically support 24-26 characters per line
+ * 30mm height requires minimal content for readability
  */
 
-const LINE_WIDTH = 32;
+const LINE_WIDTH = 24; // Reduced for 50mm width
 const DIVIDER = '='.repeat(LINE_WIDTH);
 const DASHED_DIVIDER = '-'.repeat(LINE_WIDTH);
 
@@ -58,110 +59,72 @@ export function maskPhone(phone: string): string {
 }
 
 /**
- * Generates dropoff label text
+ * Generates compact dropoff label text for 50mm x 30mm paper
  */
 export function generateDropoffLabel(data: LabelData): string {
   const lines: string[] = [];
   
-  lines.push(DIVIDER);
-  lines.push(centerText('AGENT DROP-OFF'));
-  lines.push(DIVIDER);
+  // Header with order ID on same line
+  lines.push(`DROP-OFF #${data.orderId.slice(0, 6)}`);
   
-  if (data.location) {
-    lines.push(centerText(data.location.toUpperCase()));
-    lines.push('');
-  }
-  
-  lines.push(`ORDER: ${data.orderId.slice(0, 8).toUpperCase()}`);
-  lines.push(DASHED_DIVIDER);
-  
+  // VDC (Vendor Drop Code) instead of CODE
   if (data.dropoffCode) {
-    lines.push(`DROP-OFF CODE: ${data.dropoffCode}`);
-    lines.push('');
+    lines.push(`VDC:${data.dropoffCode}`);
   }
   
+  // Customer info (first name only)
   if (data.customerName) {
-    lines.push(`CUSTOMER: ${data.customerName}`);
-  }
-  
-  if (data.customerPhone) {
-    lines.push(`PHONE: ${maskPhone(data.customerPhone)}`);
+    const firstName = data.customerName.split(' ')[0];
+    lines.push(firstName.slice(0, 12)); // Max 12 chars for better fit
   }
   
   lines.push(DASHED_DIVIDER);
   
+  // Pickup code on same line as label
   if (data.pickupCode) {
-    lines.push('PICKUP CODE:');
-    lines.push(centerText(data.pickupCode));
-    lines.push('');
-    lines.push(centerText('[QR CODE]'));
+    lines.push(`PICKUP:${data.pickupCode}`);
   }
-  
-  lines.push('');
-  lines.push(DASHED_DIVIDER);
-  lines.push(`Printed: ${data.timestamp ? data.timestamp.toLocaleString() : new Date().toLocaleString()}`);
-  lines.push(DIVIDER);
   
   return lines.join('\n');
 }
 
 /**
- * Generates pickup receipt text
+ * Generates compact pickup receipt text for 50mm x 30mm paper
  */
 export function generatePickupReceipt(data: LabelData): string {
   const lines: string[] = [];
   
-  lines.push(DIVIDER);
-  lines.push(centerText('PICKUP RECEIPT'));
-  lines.push(DIVIDER);
+  // Very compact header
+  lines.push(centerText('PICKUP'));
+  lines.push(`#${data.orderId.slice(0, 6)}`);
   
-  if (data.location) {
-    lines.push(centerText(data.location));
-    lines.push('');
-  }
+  // Just date, no time to save space
+  const date = data.timestamp ? data.timestamp.toLocaleDateString() : new Date().toLocaleDateString();
+  lines.push(date);
   
-  lines.push(`ORDER: ${data.orderId.slice(0, 8).toUpperCase()}`);
-  lines.push(`DATE: ${data.timestamp ? data.timestamp.toLocaleDateString() : new Date().toLocaleDateString()}`);
-  lines.push(`TIME: ${data.timestamp ? data.timestamp.toLocaleTimeString() : new Date().toLocaleTimeString()}`);
-  
+  // Customer name (first name only)
   if (data.customerName) {
-    lines.push('');
-    lines.push(`CUSTOMER: ${data.customerName}`);
+    const firstName = data.customerName.split(' ')[0];
+    lines.push(firstName.slice(0, 12));
   }
   
+  // Only show first 2-3 items to fit on small paper
   if (data.items && data.items.length > 0) {
-    lines.push('');
     lines.push(DASHED_DIVIDER);
-    lines.push('ITEMS:');
-    lines.push('');
-    
-    data.items.forEach(item => {
-      const itemLine = `${item.name}`;
+    const maxItems = 3;
+    data.items.slice(0, maxItems).forEach(item => {
+      const itemName = item.name.slice(0, 16); // Truncate long names
       const qtyText = `x${item.quantity}`;
-      const spaces = LINE_WIDTH - itemLine.length - qtyText.length;
-      
-      if (spaces > 0) {
-        lines.push(itemLine + ' '.repeat(spaces) + qtyText);
-      } else {
-        // Item name is too long, wrap it
-        const wrapped = wrapText(itemLine, LINE_WIDTH - 5);
-        wrapped.forEach((line, index) => {
-          if (index === wrapped.length - 1) {
-            const spaces2 = LINE_WIDTH - line.length - qtyText.length;
-            lines.push(line + ' '.repeat(Math.max(1, spaces2)) + qtyText);
-          } else {
-            lines.push(line);
-          }
-        });
-      }
+      lines.push(`${itemName} ${qtyText}`);
     });
+    
+    if (data.items.length > maxItems) {
+      lines.push(`+${data.items.length - maxItems} more`);
+    }
   }
   
-  lines.push('');
   lines.push(DASHED_DIVIDER);
   lines.push(centerText('THANK YOU!'));
-  lines.push(centerText('Keep this receipt'));
-  lines.push(DIVIDER);
   
   return lines.join('\n');
 }

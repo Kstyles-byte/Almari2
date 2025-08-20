@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Copy, Download, Printer, Smartphone } from 'lucide-react';
+import { Copy, Download, Printer, Smartphone, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateDropoffLabel, LabelData, toESCPOS } from '@/lib/utils/thermal-printer';
 
@@ -29,6 +29,7 @@ export default function DropoffLabelPage() {
   const [labelText, setLabelText] = useState<string>('');
   const [printMethod, setPrintMethod] = useState<'browser' | 'mobile'>('mobile');
   const [hasBluetoothChar, setHasBluetoothChar] = useState(false);
+  const [platform, setPlatform] = useState<string>('');
 
   // Fetch order once
   useEffect(() => {
@@ -68,8 +69,20 @@ export default function DropoffLabelPage() {
   }, [order]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).__almariPrinterChar) {
-      setHasBluetoothChar(true);
+    if (typeof window !== 'undefined') {
+      if ((window as any).__almariPrinterChar) {
+        setHasBluetoothChar(true);
+      }
+      
+      // Detect platform
+      const userAgent = navigator.userAgent.toLowerCase();
+      if (userAgent.includes('android')) {
+        setPlatform('android');
+      } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
+        setPlatform('ios');
+      } else {
+        setPlatform('desktop');
+      }
     }
   }, []);
 
@@ -107,6 +120,36 @@ export default function DropoffLabelPage() {
       console.error(err);
       toast.error('Failed to send label');
     }
+  };
+
+  const openInRawBT = () => {
+    // URL scheme for RawBT app
+    const encodedText = encodeURIComponent(labelText);
+    const rawbtUrl = `rawbt://print?text=${encodedText}`;
+    
+    // Try to open RawBT app
+    window.location.href = rawbtUrl;
+    
+    // Fallback: copy to clipboard if app not installed
+    setTimeout(() => {
+      navigator.clipboard.writeText(labelText);
+      toast.success('Label copied! Paste in your printer app if RawBT didn\'t open.');
+    }, 1000);
+  };
+
+  const openInThermalPrinter = () => {
+    // For iOS thermal printer apps that accept text via URL schemes
+    // Some apps accept data:// URLs or custom schemes
+    const encodedText = encodeURIComponent(labelText);
+    const thermalUrl = `thermal://print?data=${encodedText}`;
+    
+    window.location.href = thermalUrl;
+    
+    // Fallback: copy to clipboard
+    setTimeout(() => {
+      navigator.clipboard.writeText(labelText);
+      toast.success('Label copied! Paste in your thermal printer app if it didn\'t open automatically.');
+    }, 1000);
   };
 
   if (!order) {
@@ -154,14 +197,38 @@ export default function DropoffLabelPage() {
           {/* Mobile Printing Section */}
           {printMethod === 'mobile' && (
             <div className="space-y-4">
+              {platform === 'ios' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium">iOS Printing Method</p>
+                      <p>Web Bluetooth isn't supported on iOS. Use a thermal printer app from the App Store.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium mb-2">Mobile Printing Instructions:</h3>
-                <ol className="text-sm space-y-1 text-gray-600">
-                  <li>1. Make sure your XPrinter is connected via Bluetooth to your phone</li>
-                  <li>2. Open your thermal printer app (e.g., "Thermal Printer" or "RawBT")</li>
-                  <li>3. Copy or download the label text below</li>
-                  <li>4. Paste the text in your printer app and print</li>
-                </ol>
+                <h3 className="font-medium mb-2">
+                  {platform === 'ios' ? 'iOS Printing Instructions:' : 'Mobile Printing Instructions:'}
+                </h3>
+                {platform === 'ios' ? (
+                  <ol className="text-sm space-y-1 text-gray-600">
+                    <li>1. Download "RawBT" or "Thermal Printer" from App Store</li>
+                    <li>2. Pair your XPrinter in iOS Settings → Bluetooth</li>
+                    <li>3. Open the printer app and connect to your paired printer</li>
+                    <li>4. Copy the label text below and paste in the app</li>
+                    <li>5. Print directly from the app</li>
+                  </ol>
+                ) : (
+                  <ol className="text-sm space-y-1 text-gray-600">
+                    <li>1. Make sure your XPrinter is connected via Bluetooth to your phone</li>
+                    <li>2. Open your thermal printer app (e.g., "Thermal Printer" or "RawBT")</li>
+                    <li>3. Copy or download the label text below</li>
+                    <li>4. Paste the text in your printer app and print</li>
+                  </ol>
+                )}
               </div>
 
               {/* Label Preview */}
@@ -178,21 +245,36 @@ export default function DropoffLabelPage() {
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3 flex-wrap">
-                <Button onClick={copyLabelText} className="flex items-center gap-2">
-                  <Copy className="h-4 w-4" />
-                  Copy Label Text
-                </Button>
-                <Button variant="outline" onClick={downloadLabelText} className="flex items-center gap-2">
-                  <Download className="h-4 w-4" />
-                  Download as TXT
-                </Button>
-                {hasBluetoothChar && (
-                  <Button onClick={printBluetooth} className="flex items-center gap-2 bg-zervia-600 text-white hover:bg-zervia-700">
-                    <Printer className="h-4 w-4" />
-                    Print via Bluetooth
-                  </Button>
+              <div className="space-y-3">
+                {platform === 'ios' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Button onClick={openInRawBT} className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700">
+                      <Smartphone className="h-4 w-4" />
+                      Open in RawBT
+                    </Button>
+                    <Button onClick={openInThermalPrinter} variant="outline" className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4" />
+                      Open in Thermal App
+                    </Button>
+                  </div>
                 )}
+                
+                <div className="flex gap-3 flex-wrap">
+                  <Button onClick={copyLabelText} className="flex items-center gap-2">
+                    <Copy className="h-4 w-4" />
+                    Copy Label Text
+                  </Button>
+                  <Button variant="outline" onClick={downloadLabelText} className="flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    Download as TXT
+                  </Button>
+                  {hasBluetoothChar && (
+                    <Button onClick={printBluetooth} className="flex items-center gap-2 bg-zervia-600 text-white hover:bg-zervia-700">
+                      <Printer className="h-4 w-4" />
+                      Print via Bluetooth
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -218,7 +300,7 @@ export default function DropoffLabelPage() {
       {/* Hidden printable content for browser printing */}
       <div id="printable-label" style={{ display: 'none' }}>
         <style>{`
-          @page { size: 58mm auto; margin: 0; }
+          @page { size: 50mm 30mm; margin: 0; }
           @media print {
             body * { visibility: hidden !important; }
             #printable-label, #printable-label * { visibility: visible !important; }
@@ -227,26 +309,25 @@ export default function DropoffLabelPage() {
               position: absolute; 
               left: 0; 
               top: 0; 
-              width: 58mm;
+              width: 50mm;
+              height: 30mm;
               font-family: monospace;
-              padding: 4px;
+              padding: 1mm;
+              font-size: 8px;
+              line-height: 1.1;
             }
           }
         `}</style>
-        <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: '20px', margin: '4px 0' }}>AGENT DROP-OFF</h1>
-          <div style={{ fontSize: '26px', fontWeight: 700, margin: '6px 0' }}>ORDER {order.id.slice(0, 8)}</div>
-          <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '4px 0' }} />
-          <div>CUSTOMER: {order.customer?.user?.name ?? ''} {maskedPhone}</div>
-          <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '4px 0' }} />
-          <div style={{ fontSize: '18px', margin: '6px 0' }}>PICK-UP CODE: {order.pickup_code}</div>
-          {qrDataUrl && (
-            <div style={{ textAlign: 'center' }}>
-              <img src={qrDataUrl} style={{ width: '160px', height: '160px' }} alt="QR" />
-            </div>
-          )}
-          <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '4px 0' }} />
-          <small style={{ fontSize: '10px', display: 'block' }}>Printed {new Date().toLocaleString()}</small>
+        <div style={{ textAlign: 'left' }}>
+          <div style={{ fontSize: '9px', margin: '0' }}>DROP-OFF #{order.id.slice(0, 6)}</div>
+          <div style={{ fontSize: '8px', margin: '1px 0' }}>VDC:{order.dropoff_code}</div>
+          <div style={{ fontSize: '8px', margin: '1px 0' }}>
+            {order.customer?.user?.name?.split(' ')[0]?.slice(0, 12)}
+          </div>
+          <div style={{ fontSize: '8px', margin: '1px 0', borderTop: '1px dashed #000', paddingTop: '1px' }}>
+            ------------------------
+          </div>
+          <div style={{ fontSize: '8px', margin: '1px 0' }}>PICKUP:{order.pickup_code}</div>
         </div>
       </div>
     </div>

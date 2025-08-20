@@ -40,7 +40,11 @@ export default function PrinterSetup() {
 
   const connectPrinter = async () => {
     if (!isBluetoothSupported) {
-      toast.error('Web Bluetooth is only supported on Chrome for Android. Please use the mobile app method below.');
+      if (platform === 'ios') {
+        toast.error('iOS doesn\'t support Web Bluetooth. Please use the iOS printer apps recommended below.');
+      } else {
+        toast.error('Web Bluetooth is only supported on Chrome for Android. Please use the mobile app method below.');
+      }
       return;
     }
 
@@ -165,17 +169,56 @@ export default function PrinterSetup() {
         <div className="border-t pt-6">
           <h3 className="font-medium mb-2 flex items-center gap-2">
             <Smartphone className="h-5 w-5" />
-            Mobile App Alternative
+            {platform === 'ios' ? 'iOS Printer Apps' : 'Mobile App Alternative'}
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
-            For better printing experience, you can use a thermal printer app on your phone:
-          </p>
-          <ol className="text-sm space-y-2 text-gray-600">
-            <li>1. Download a thermal printer app (e.g., "Thermal Printer" or "RawBT")</li>
-            <li>2. Connect your XPrinter via Bluetooth in the app</li>
-            <li>3. Click "Generate Label" below to create printable text</li>
-            <li>4. Copy the text and paste it in your printer app</li>
-          </ol>
+          
+          {platform === 'ios' ? (
+            <>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium">iOS Web Bluetooth Limitation</p>
+                    <p>Apple Safari doesn't support Web Bluetooth. Use a thermal printer app instead.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-600 mb-4">
+                Recommended thermal printer apps for iOS:
+              </p>
+              <div className="space-y-3 mb-4">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="font-medium text-sm">🎯 Recommended: "RawBT"</p>
+                  <p className="text-xs text-gray-600">Best for XPrinter and ESC/POS thermal printers</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="font-medium text-sm">📱 Alternative: "Thermal Printer"</p>
+                  <p className="text-xs text-gray-600">Good compatibility with 58mm thermal printers</p>
+                </div>
+              </div>
+              
+              <ol className="text-sm space-y-2 text-gray-600">
+                <li>1. Download a thermal printer app from App Store</li>
+                <li>2. Pair your XPrinter via iOS Bluetooth settings first</li>
+                <li>3. Open the printer app and connect to your paired printer</li>
+                <li>4. Use the "Copy Label" or "Download Label" buttons below</li>
+                <li>5. Paste the text directly in your printer app</li>
+              </ol>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                For better printing experience, you can use a thermal printer app on your phone:
+              </p>
+              <ol className="text-sm space-y-2 text-gray-600">
+                <li>1. Download a thermal printer app (e.g., "Thermal Printer" or "RawBT")</li>
+                <li>2. Connect your XPrinter via Bluetooth in the app</li>
+                <li>3. Click "Generate Label" below to create printable text</li>
+                <li>4. Copy the text and paste it in your printer app</li>
+              </ol>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

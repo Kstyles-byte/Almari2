@@ -23,7 +23,7 @@ function createPrinter() {
       • printer:auto               – first system printer
     */
 
-  const widthChars = Number(process.env.PRINTER_WIDTH) || 48; // typical 80 mm paper
+  const widthChars = Number(process.env.PRINTER_WIDTH) || 24; // 50mm paper width
 
   return new ThermalPrinter({
     type: printerType,
@@ -60,29 +60,21 @@ app.post('/print', async (req, res) => {
     // ensure exact contents (supports alphanum perfectly).
     // If the printer supports native QR, we can just call printer.printQR.
 
-    printer.alignCenter();
+    printer.alignLeft(); // Left align for compact format
 
-    printer.bold(true);
-    printer.println(agentLocation.toUpperCase());
-    printer.bold(false);
-
-    printer.setTextSize(2, 2);
-    printer.println(`ORDER ${orderId.slice(0, 8)}`);
+    // Compact layout for 50mm x 30mm paper
     printer.setTextSize(1, 1);
+    printer.println(`DROP-OFF #${orderId.slice(0, 6)}`);
+    printer.println(`VDC:${dropoffCode}`);
+    
+    // Customer first name only
+    printer.println(customerFirstName.slice(0, 12));
 
-    printer.println(`DROP-OFF CODE: ${dropoffCode}`);
-    printer.println(`CUSTOMER: ${customerFirstName} ${customerMaskedPhone}`);
-
-    printer.newLine();
-    printer.println('PICKUP CODE:');
-
-    // Print QR code natively (faster & crisper than rasterising PNG)
-    printer.printQR(pickupCode, { cellSize: 6, correction: 'M' });
-    printer.newLine();
-    printer.println(pickupCode);
-
-    printer.newLine();
-    printer.println(`Printed: ${new Date(timestamp).toLocaleString()}`);
+    printer.println('------------------------');
+    
+    // Pickup code on same line
+    printer.println(`PICKUP:${pickupCode}`);
+    
     printer.cut();
 
     const success = await printer.execute();
