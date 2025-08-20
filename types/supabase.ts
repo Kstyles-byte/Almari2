@@ -1665,6 +1665,7 @@ export type Database = {
         | "DELIVERED"
         | "CANCELLED"
         | "READY_FOR_PICKUP"
+        | "DROPPED_OFF"
       PaymentStatus: "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED"
       payoutholdstatus: "ACTIVE" | "RELEASED" | "EXPIRED"
       PayoutStatus: "PENDING" | "COMPLETED" | "FAILED"
@@ -1866,6 +1867,7 @@ export const Constants = {
         "DELIVERED",
         "CANCELLED",
         "READY_FOR_PICKUP",
+        "DROPPED_OFF",
       ],
       PaymentStatus: ["PENDING", "COMPLETED", "FAILED", "REFUNDED"],
       payoutholdstatus: ["ACTIVE", "RELEASED", "EXPIRED"],

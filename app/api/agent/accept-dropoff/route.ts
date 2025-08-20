@@ -81,8 +81,9 @@ export async function POST(req: NextRequest) {
     // Update order: assign agent and mark ready for pickup
     const nowIso = new Date().toISOString();
     const updatePayload: Record<string, any> = {
-      status: 'READY_FOR_PICKUP',
-      pickup_status: 'READY_FOR_PICKUP',
+      // New flow: mark order as dropped off first, pickup status remains pending
+      status: 'DROPPED_OFF',
+      pickup_status: 'PENDING',
       updated_at: nowIso,
     };
     if (agentId) updatePayload.agent_id = agentId;

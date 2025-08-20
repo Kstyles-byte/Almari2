@@ -162,7 +162,9 @@ export function RealtimeNotificationProvider({
             
           } catch (error) {
             console.error('[RealtimeNotificationProvider] ❌ Auto-subscription failed with error:', error);
-            console.error('[RealtimeNotificationProvider] Error details:', error.message);
+            if (error instanceof Error) {
+              console.error('[RealtimeNotificationProvider] Error details:', error.message);
+            }
             console.error('[RealtimeNotificationProvider] This indicates an exception during subscribe()');
           }
         } else {
