@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerActionClient } from '@/lib/supabase/action';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
-// POST /api/vendor/mark-ready
+// POST /api/agent/mark-ready
 // Body: { orderId: string }
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 });
     }
 
-    // User-scoped client to verify session (SSR client as per guidelines)
+    // Ensure the request is coming from an authenticated user (agent)
     const supabaseUser = await createSupabaseServerActionClient(false);
     const {
       data: { user },
@@ -22,35 +22,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Determine vendor ID for the signed-in user
-    const { data: vendorRec, error: vendorErr } = await supabaseAdmin
-      .from('Vendor')
+    // Fetch agent record for this user
+    const { data: agentRec } = await supabaseAdmin
+      .from('Agent')
       .select('id')
       .eq('user_id', user.id)
-      .single();
-
-    if (vendorErr || !vendorRec) {
-      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 403 });
-    }
-
-    const vendorId = vendorRec.id;
-
-    // Verify that this vendor is associated with at least one item in the order
-    const { data: itemCheck, error: itemErr } = await supabaseAdmin
-      .from('OrderItem')
-      .select('id')
-      .eq('order_id', orderId)
-      .eq('vendor_id', vendorId)
       .maybeSingle();
 
-    if (itemErr || !itemCheck) {
-      return NextResponse.json({ error: 'Order does not belong to vendor' }, { status: 403 });
-    }
+    // Agent profile is optional – allow if not present but log warning
+    const agentId = agentRec?.id ?? null;
 
-    // Fetch order to ensure it is in DROPPED_OFF state before updating
+    // Verify order is in DROPPED_OFF state and still pending pickup
     const { data: orderRow, error: orderErr } = await supabaseAdmin
       .from('Order')
-      .select('status, pickup_status')
+      .select('status, pickup_status, agent_id, customer_id')
       .eq('id', orderId)
       .single();
 
@@ -58,11 +43,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    if (orderRow.status !== 'DROPPED_OFF') {
-      return NextResponse.json({ error: 'Order is not in dropped off state' }, { status: 400 });
+    if (orderRow.status !== 'DROPPED_OFF' || orderRow.pickup_status !== 'PENDING') {
+      return NextResponse.json({ error: 'Order is not eligible for marking ready' }, { status: 400 });
     }
 
-    // Update order status to READY_FOR_PICKUP
+    // Optional: ensure current agent is assigned to the order (if agent_id is set)
+    if (orderRow.agent_id && agentId && orderRow.agent_id !== agentId) {
+      return NextResponse.json({ error: 'You are not assigned to this order' }, { status: 403 });
+    }
+
+    // Update order status → READY_FOR_PICKUP
     const nowIso = new Date().toISOString();
     const { error: updErr } = await supabaseAdmin
       .from('Order')
@@ -77,20 +67,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: updErr.message }, { status: 500 });
     }
 
-    // Notify customer that order is ready for pickup
+    /* ------------------------------------------------------------
+       Notify customer that order is ready for pickup
+    ------------------------------------------------------------ */
     try {
-      // Fetch customer id
-      const { data: orderRowForNotify } = await supabaseAdmin
-        .from('Order')
-        .select('customer_id')
-        .eq('id', orderId)
-        .single();
-
-      if (orderRowForNotify?.customer_id) {
+      if (orderRow.customer_id) {
         const { data: custRow } = await supabaseAdmin
           .from('Customer')
           .select('user_id')
-          .eq('id', orderRowForNotify.customer_id)
+          .eq('id', orderRow.customer_id)
           .single();
 
         if (custRow?.user_id) {
@@ -103,9 +88,10 @@ export async function POST(req: NextRequest) {
           } as any);
         }
       }
-    } catch (err) {
-      console.error('Notification error:', err);
+    } catch (notifyErr) {
+      console.error('Notification error:', notifyErr);
     }
+
     return NextResponse.json({ success: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

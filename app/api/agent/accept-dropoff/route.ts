@@ -154,9 +154,9 @@ export async function POST(req: NextRequest) {
       if (customerRec?.user_id) {
         inserts.push({
           user_id: customerRec.user_id,
-          title: 'Order Ready for Pickup',
-          message: `Your order #${orderId.substring(0, 8)} is now ready at the pickup point.`,
-          type: 'PICKUP_READY',
+          title: 'Order Dropped Off',
+          message: `Your order #${orderId.substring(0, 8)} has been dropped off and is being prepared. We'll notify you when it's ready for pickup.`,
+          type: 'ORDER_STATUS_CHANGE',
           order_id: orderId,
         });
       }

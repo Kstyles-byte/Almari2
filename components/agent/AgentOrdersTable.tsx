@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 const filters = [
   { label: 'All', value: '' },
   { label: 'Pending', value: 'PENDING' },
+  { label: 'Dropped Off', value: 'DROPPED_OFF' },
   { label: 'Ready', value: 'READY_FOR_PICKUP' },
   { label: 'Picked Up', value: 'PICKED_UP' },
 ];

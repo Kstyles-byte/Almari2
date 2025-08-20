@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import VerifyPickupForm from '@/components/agent/VerifyPickupForm';
 import AcceptDropoffForm from '@/components/agent/AcceptDropoffForm';
+import MarkReadyButton from '@/components/agent/MarkReadyButton';
 
 interface Props {
   params: { id: string };
@@ -80,6 +81,10 @@ export default async function AgentOrderDetailPage({ params }: Props & { params:
 
       {order.pickup_status === 'READY_FOR_PICKUP' && (
         <VerifyPickupForm orderId={order.id} pickupCode={order.pickup_code} />
+      )}
+
+      {order.status === 'DROPPED_OFF' && order.pickup_status === 'PENDING' && (
+        <MarkReadyButton orderId={order.id} />
       )}
     </div>
   );

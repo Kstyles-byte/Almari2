@@ -6,7 +6,14 @@ import {
 } from '../services/notificationService';
 
 // Define types for order notifications
-type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'READY_FOR_PICKUP';
+type OrderStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SHIPPED'
+  | 'DELIVERED'
+  | 'CANCELLED'
+  | 'READY_FOR_PICKUP'
+  | 'DROPPED_OFF';
 type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 type PickupStatus = 'PENDING' | 'READY_FOR_PICKUP' | 'PICKED_UP';
 
@@ -226,6 +233,9 @@ export async function sendOrderStatusChangeNotification(
     switch (newStatus) {
       case 'PROCESSING':
         templateKey = 'ORDER_PROCESSING';
+        break;
+      case 'DROPPED_OFF':
+        templateKey = 'ORDER_DROPPED_OFF'; // Ensure template exists; otherwise default below
         break;
       case 'READY_FOR_PICKUP':
         templateKey = 'ORDER_READY_FOR_PICKUP';
