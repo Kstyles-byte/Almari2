@@ -25,12 +25,14 @@ export default async function AgentOrderDetailPage({ params }: Props & { params:
 
       <h2 className="text-xl font-semibold">Order #{order.id.substring(0, 8)}</h2>
 
-      {/* Print label */}
-      <div>
-        <Button asChild variant="outline">
-          <Link href={`/agent/dropoff-label/${order.id}`}>Print Drop-off Label</Link>
-        </Button>
-      </div>
+      {/* Print label - hide for pending pickup status */}
+      {order.pickup_status !== 'PENDING' && (
+        <div>
+          <Button asChild variant="outline">
+            <Link href={`/agent/dropoff-label/${order.id}`}>Print Drop-off Label</Link>
+          </Button>
+        </div>
+      )}
 
       <div className="bg-white rounded-md shadow divide-y">
         <div className="p-4 grid grid-cols-2 gap-4 text-sm">

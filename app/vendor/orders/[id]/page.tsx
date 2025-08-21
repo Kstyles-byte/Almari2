@@ -5,10 +5,7 @@ import Link from 'next/link';
 import { ChevronLeft, Package, Clock, CheckCircle, XCircle, TruckIcon } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import OrderStatusActions from '@/components/vendor/order-status-actions';
-import dynamicImport from 'next/dynamic';
-
-// Lazy load to avoid SSR issues
-const MarkReadyButton = dynamicImport(() => import('@/components/vendor/MarkReadyButton'), { ssr: false });
+import MarkReadyButtonWrapper from '@/components/vendor/MarkReadyButtonWrapper';
 
 export const dynamic = 'force-dynamic';
 
@@ -227,7 +224,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 {/* Show mark ready button for vendor if order dropped off */}
                 {orderData.status === 'DROPPED_OFF' && (
                   <div className="ml-4">
-                    <MarkReadyButton orderId={orderData.id} />
+                    <MarkReadyButtonWrapper orderId={orderData.id} />
                   </div>
                 )}
               </div>
