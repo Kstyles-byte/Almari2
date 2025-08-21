@@ -270,7 +270,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                             body: JSON.stringify({
                               userId: user.id,
                               templateKey: 'ORDER_CONFIRMATION',
-                              data: { orderId: Math.random().toString(36).substr(2, 9) }
+                              data: { orderId: `test-${Date.now()}` }
                             })
                           });
                           

@@ -51,8 +51,8 @@ interface CartContextValue {
 export const CartContext = createContext<CartContextValue | null>(null);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize reducer with any items already stored in localStorage (guest cart)
-  const [items, dispatch] = useReducer(reducer, [], () => readGuestCart());
+  // Initialize reducer with empty array to ensure server/client consistency
+  const [items, dispatch] = useReducer(reducer, []);
   const [hydrated, setHydrated] = useState(false);
 
   // Coupon state (persisted to localStorage)
@@ -182,6 +182,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initial hydration + merge attempt
   useEffect(() => {
     (async () => {
+      // First, load guest cart items to ensure we start with the right state
+      const guestItems = readGuestCart();
+      dispatch({ type: 'SET', items: guestItems });
+
       let {
         data: { session },
       } = await supabase.auth.getSession();
@@ -278,10 +282,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })();
   }, [items, hydrated]);
 
-  if (!hydrated) return null;
-
+  // Always render, but provide consistent state during hydration
   const value: CartContextValue = {
-    items,
+    items: hydrated ? items : [], // Show empty cart until hydrated
     add,
     remove,
     updateQty,
