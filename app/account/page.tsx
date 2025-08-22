@@ -14,16 +14,18 @@ export default async function AccountRedirectPage() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // Use ANON key here as we're just getting the user
       {
         cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
+          getAll() {
+            return cookieStore.getAll();
           },
-          // We might not need set/remove here if we're just reading the session,
-          // but include them for completeness based on ssr pattern.
-          set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: any) {
-            cookieStore.set({ name, value: '', ...options });
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch {
+              // The `setAll` method was called from a Server Component.
+              // This can be ignored if you have middleware refreshing user sessions.
+            }
           },
         },
       }
@@ -45,9 +47,19 @@ export default async function AccountRedirectPage() {
       process.env.SUPABASE_SERVICE_ROLE_KEY!, // Use SERVICE key to read User table
       {
         cookies: {
-          get(name: string) { return cookieStoreAdmin.get(name)?.value; },
-          set(name: string, value: string, options: any) { cookieStoreAdmin.set({ name, value, ...options }); },
-          remove(name: string, options: any) { cookieStoreAdmin.set({ name, value: '', ...options }); },
+          getAll() {
+            return cookieStoreAdmin.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStoreAdmin.set(name, value, options)
+              );
+            } catch {
+              // The `setAll` method was called from a Server Component.
+              // This can be ignored if you have middleware refreshing user sessions.
+            }
+          },
         },
       }
     );
@@ -78,9 +90,11 @@ export default async function AccountRedirectPage() {
       // Default to customer dashboard
       return redirect('/customer/dashboard');
     }
-  } catch (error: any) { // Type as any to access digest safely
+  } catch (error: unknown) { // Use unknown for better type safety
     // Check if the error is the specific Next.js redirect error by checking its digest
-    if (typeof error?.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
+    if (error && typeof error === 'object' && 'digest' in error && 
+        typeof (error as { digest?: string }).digest === 'string' && 
+        (error as { digest: string }).digest.startsWith('NEXT_REDIRECT')) {
       throw error; // Re-throw the error so Next.js can handle the redirect
     }
     // Handle other unexpected errors
