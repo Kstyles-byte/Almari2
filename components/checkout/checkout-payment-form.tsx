@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { createOrder } from '@/actions/orders';
 import { toast } from 'sonner';
+import { CartContext } from '@/components/providers/CartProvider';
+import { clearGuestCart } from '@/lib/utils/guest-cart';
 
 interface CheckoutPaymentFormProps {
   amount: number;
@@ -21,6 +23,7 @@ export function CheckoutPaymentForm({
 }: CheckoutPaymentFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const cartCtx = useContext(CartContext);
   
   const handleProceedToPayment = async () => {
     onPaymentInit();
@@ -41,6 +44,16 @@ export function CheckoutPaymentForm({
         toast.error(`Payment Initialization Failed: ${result.error}`);
         setIsLoading(false);
       } else if (result.success && result.payment?.authorizationUrl) {
+        console.log("Order created successfully, clearing cart before payment redirect");
+        
+        // Clear cart immediately after successful order creation
+        cartCtx?.clear();
+        cartCtx?.setDiscount(0, null);
+        clearGuestCart();
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('zervia_coupon_code');
+        }
+        
         console.log("Redirecting to Paystack:", result.payment.authorizationUrl);
         window.location.href = result.payment.authorizationUrl;
       } else {

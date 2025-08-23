@@ -91,8 +91,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // STEP 1 – Attempt to merge local guest cart → server
     // ---------------------------------------------
     const guestItems = readGuestCart();
-    // Attempt merge whenever we have guest-cart items
-    if (guestItems.length) {
+    
+    // Skip merge if we're on post-checkout pages to prevent re-merging cleared carts
+    const isPostCheckoutPage = typeof window !== 'undefined' && 
+      (window.location.pathname.includes('/checkout/complete') || 
+       window.location.pathname.includes('/checkout/thank-you'));
+    
+    // Attempt merge whenever we have guest-cart items (but not on post-checkout pages)
+    if (guestItems.length && !isPostCheckoutPage) {
       console.log('[CartProvider] Guest cart has', guestItems.length, 'items – attempting merge');
       try {
         console.log('[CartProvider] Sending POST /api/cart/merge');
@@ -112,6 +118,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.error('[CartProvider] Failed to POST /api/cart/merge', err);
       }
+    } else if (isPostCheckoutPage && guestItems.length) {
+      console.log('[CartProvider] Skipping merge on post-checkout page, clearing stale guest cart');
+      clearGuestCart();
     }
 
     // ---------------------------------------------
@@ -256,7 +265,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Persist/sync cart whenever it changes – but only *after* initial hydration
   useEffect(() => {
     if (!hydrated) return;          // 1) don't run before first real render
-    if (items.length === 0) return; // 2) <-- ADD THIS GUARD
+    if (items.length === 0) return; // 2) don't sync empty carts
+    
+    // 3) Skip sync on post-checkout pages to prevent re-syncing cleared carts
+    const isPostCheckoutPage = typeof window !== 'undefined' && 
+      (window.location.pathname.includes('/checkout/complete') || 
+       window.location.pathname.includes('/checkout/thank-you'));
+    
+    if (isPostCheckoutPage) {
+      console.log('[CartProvider] Skipping cart sync on post-checkout page');
+      return;
+    }
 
     (async () => {
       const {
