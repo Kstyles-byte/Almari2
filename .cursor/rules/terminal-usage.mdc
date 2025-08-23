@@ -1,8 +1,0 @@
----
-description: 
-globs: 
-alwaysApply: true
----
-- When running a terminal command, always check if you are in almari-app folder first. If not, then cd almari-app
-
-- No need to do npm run dev, to check if the app is running. Just make the changes and i will check if its running myself when im ready.

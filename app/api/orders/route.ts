@@ -323,10 +323,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Clear cart after successful order (ideally in RPC/transaction)
+    // NOTE: use snake_case column name `cart_id` to match DB schema
     const { error: deleteCartError } = await supabase
       .from('CartItem')
       .delete()
-      .eq('cartId', cartId);
+      .eq('cart_id', cartId);
 
     if (deleteCartError) {
       console.error("Failed to clear cart:", deleteCartError.message);

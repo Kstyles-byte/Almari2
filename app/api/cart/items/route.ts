@@ -66,11 +66,11 @@ export async function POST(req: NextRequest) {
     const { error: upsertError } = await supabase
         .from('CartItem')
         .upsert({
-            cartId: cartId,
-            productId: productId,
+            cart_id: cartId,
+            product_id: productId,
             quantity: numQuantity,
         }, {
-            onConflict: 'cartId, productId',
+            onConflict: 'cart_id, product_id',
         });
 
     if (upsertError) {
@@ -131,7 +131,7 @@ export async function DELETE(req: NextRequest) {
       .from('CartItem')
       .select('id')
       .eq('id', itemId)
-      .eq('cartId', cartId)
+      .eq('cart_id', cartId)
       .maybeSingle();
 
     if (fetchItemError) {

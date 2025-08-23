@@ -231,9 +231,17 @@ export async function createOrder(formData: FormData) {
         console.error('Error fetching product details:', productsError?.message);
         return { error: productsError?.message || 'Failed to fetch product details.' };
       }
+      // Define ProductLite type for type safety
+      type ProductLite = {
+        id: string;
+        name: string;
+        price: number;
+        inventory: number;
+        vendor_id: string;
+      };
 
-      const productMap = new Map(productsData.map((p) => [p.id, p]));
-      cartItems = rawCartItems.map((item) => ({ ...item, product: productMap.get(item.product_id) }));
+      const productMap = new Map<string, ProductLite>(productsData.map((p) => [p.id, p as ProductLite]));
+      cartItems = rawCartItems.map((item) => ({ ...item, product: productMap.get(item.product_id) || null }));
     }
 
     // ----- Validation of cart items (inventory, etc.) stays the same -----
@@ -451,9 +459,35 @@ export async function createOrder(formData: FormData) {
       console.error('Error initializing Paystack payment:', payError);
     }
 
-    // OPTIONAL: clear cart after order creation if using server cart
-    if (cartId) {
-      await supabase.from('CartItem').delete().eq('cart_id', cartId);
+    // Clear server cart after order creation (regardless of how items were sourced)
+    try {
+      let resolvedCartId = cartId;
+      if (!resolvedCartId) {
+        const { data: foundCart, error: findCartError } = await supabase
+          .from('Cart')
+          .select('id')
+          .eq('customer_id', customer.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (findCartError) {
+          console.error('[createOrder] Failed to locate cart for clearing:', findCartError.message);
+        }
+        resolvedCartId = foundCart?.id || null;
+      }
+
+      if (resolvedCartId) {
+        const { error: clearErr } = await supabase
+          .from('CartItem')
+          .delete()
+          .eq('cart_id', resolvedCartId);
+        if (clearErr) {
+          console.error('[createOrder] Failed to clear cart items:', clearErr.message);
+        }
+      }
+    } catch (clearCatchErr) {
+      console.error('[createOrder] Unexpected error while clearing cart:', clearCatchErr);
     }
 
     // Check for high-value orders and send admin notifications
