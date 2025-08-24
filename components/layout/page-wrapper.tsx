@@ -16,6 +16,7 @@ export function PageWrapper({ children, className }: PageWrapperProps) {
   
   return (
     <main className={cn(
+      'flex-grow',
       isHomePage 
         ? '' // No container or padding for homepage
         : isDashboard

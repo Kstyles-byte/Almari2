@@ -40,11 +40,11 @@ export default function RootLayout({
           <LoadingProvider>
             <CartProvider>
               <RealtimeNotificationProvider enablePush={true} enableRealtime={true}>
-                <div className="flex flex-col min-h-screen">
+                
                   <Header />
                   <PageWrapper>{children}</PageWrapper>
                   <Footer />
-                </div>
+                
                 <Toaster />
               </RealtimeNotificationProvider>
             </CartProvider>
