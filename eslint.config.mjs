@@ -32,6 +32,7 @@ const eslintConfig = [
       "@typescript-eslint/no-var-requires": "off",
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-empty-function": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-misused-promises": "off",
       "@typescript-eslint/no-floating-promises": "off",
       "@typescript-eslint/consistent-type-definitions": "off",
