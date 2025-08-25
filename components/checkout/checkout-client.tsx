@@ -41,7 +41,7 @@ type CheckoutFormData = {
   email: string;
   firstName: string;
   lastName?: string;
-  phone?: string;
+  phone: string;
   deliveryMethod: 'pickup' | 'delivery';
   addressLine1?: string;
   addressLine2?: string;
@@ -415,7 +415,7 @@ export function CheckoutClient({
     formData.append('email', checkoutInfo.email);
     formData.append('firstName', checkoutInfo.firstName);
     formData.append('lastName', checkoutInfo.lastName || '');
-    formData.append('phone', checkoutInfo.phone || '');
+    formData.append('phone', checkoutInfo.phone);
     formData.append('deliveryMethod', checkoutInfo.deliveryMethod);
     
     // Add address information

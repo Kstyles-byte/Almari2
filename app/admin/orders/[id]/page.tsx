@@ -402,7 +402,7 @@ export default async function OrderDetailsPage({ params }: OrderDetailsPageProps
                   <p className="font-medium">{order.customer?.user?.name}</p>
                   <p className="text-sm text-muted-foreground">{order.customer?.user?.email}</p>
                   {order.customer?.phone_number && (
-                    <p className="text-sm text-muted-foreground">{order.customer.phone_number}</p>
+                    <p className="text-sm text-muted-foreground">WhatsApp: {order.customer.phone_number}</p>
                   )}
                 </div>
                 <Link href={`/admin/customers/${order.customer?.id}`}>

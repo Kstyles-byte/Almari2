@@ -24,7 +24,7 @@ const checkoutInformationSchema = z.object({
   // automatically once they are fetched. The user will no longer input these fields.
   firstName: z.string().min(1, { message: "First name is required." }),
   lastName: z.string().optional(),
-  phone: z.string().optional(),
+  phone: z.string().min(1, { message: "WhatsApp number is required." }),
   deliveryMethod: z.enum(['pickup', 'delivery']),
   // Address fields are optional at the top level
   addressLine1: z.string().optional(),
@@ -192,8 +192,8 @@ export function CheckoutInformationForm({
               <Input id="email" value={readOnlyEmail || ''} disabled />
             </div>
             <div>
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
-              <Input id="phone" {...register('phone')} placeholder="+1 234 567 890" />
+              <Label htmlFor="phone">WhatsApp Number</Label>
+              <Input id="phone" {...register('phone')} placeholder="+234 803 123 4567" />
               {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone.message}</p>}
             </div>
           </div>

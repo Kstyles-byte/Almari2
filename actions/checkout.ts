@@ -10,7 +10,7 @@ const checkoutInfoSchema = z.object({
   email: z.string().email("Invalid email address"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  phone: z.string().optional(),
+  phone: z.string().min(1, "WhatsApp number is required"),
   deliveryMethod: z.enum(['pickup', 'delivery']),
   addressLine1: z.string().optional(),
   addressLine2: z.string().optional(),

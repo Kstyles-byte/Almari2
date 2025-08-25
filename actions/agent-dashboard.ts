@@ -131,13 +131,23 @@ export async function getAgentOrderById(orderId: string): Promise<ActionResult<a
     }
 
     // ----------------------------------------------------------------
-    // 1. Fetch base order row (no joins) – use supabaseAdmin to bypass
+    // 1. Fetch base order row with customer info – use supabaseAdmin to bypass
     //    any RLS that could block the user-scoped client after it picks
-    //    up the user’s access token.
+    //    up the user's access token.
     // ----------------------------------------------------------------
     const { data: orderRow, error: orderErr } = await supabaseAdmin
       .from('Order')
-      .select('*')
+      .select(`
+        *,
+        customer:Customer(
+          id,
+          phone_number,
+          user:User(
+            name,
+            email
+          )
+        )
+      `)
       .eq('id', orderId)
       .single();
 

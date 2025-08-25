@@ -52,6 +52,23 @@ export async function createOrder(formData: FormData) {
     console.log("Customer ID from profile:", customer.id);
     console.log("User ID from auth:", user.id);
     
+    // Update customer phone number if provided in form
+    const phoneNumber = formData.get("phone") as string;
+    if (phoneNumber && phoneNumber !== customer.phone_number) {
+      console.log("Updating customer phone number:", phoneNumber);
+      const { error: phoneUpdateError } = await supabase
+        .from('Customer')
+        .update({ phone_number: phoneNumber })
+        .eq('id', customer.id);
+        
+      if (phoneUpdateError) {
+        console.error("Error updating customer phone:", phoneUpdateError.message);
+        // Non-critical error, continue with order creation
+      } else {
+        console.log("Customer phone number updated successfully");
+      }
+    }
+    
     // Get the selected agent ID
     const agentId = formData.get("agentId") as string;
     if (!agentId) {

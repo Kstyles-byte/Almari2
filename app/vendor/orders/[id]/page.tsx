@@ -347,9 +347,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <div className="p-6">
               <div className="mb-4">
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Contact Information</h4>
-                <p className="text-sm text-gray-600">{customer?.name || 'Customer'}</p>
-                <p className="text-sm text-gray-600">{customer?.email || 'No email provided'}</p>
-                <p className="text-sm text-gray-600">{customer?.phone || 'No phone provided'}</p>
+                <p className="text-sm text-gray-600"><span className="font-medium">Name:</span> {customer?.name || 'Customer'}</p>
+                <p className="text-sm text-gray-600"><span className="font-medium">Email:</span> {customer?.email || 'No email provided'}</p>
+                <p className="text-sm text-gray-600"><span className="font-medium">WhatsApp:</span> {customer?.phone || 'No WhatsApp number provided'}</p>
               </div>
               {orderData.BillingAddress && (
                 <div>

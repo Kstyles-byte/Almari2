@@ -62,6 +62,18 @@ export default async function AgentOrderDetailPage({ params }: Props & { params:
           </div>
         </div>
 
+        {/* Customer Information */}
+        {order.customer && (
+          <div className="p-4">
+            <h3 className="font-medium mb-2">Customer Information</h3>
+            <div className="text-sm space-y-1">
+              <p><span className="font-medium">Name:</span> {order.customer.user?.name || 'N/A'}</p>
+              <p><span className="font-medium">Email:</span> {order.customer.user?.email || 'N/A'}</p>
+              <p><span className="font-medium">WhatsApp:</span> {order.customer.phone_number || 'No WhatsApp number provided'}</p>
+            </div>
+          </div>
+        )}
+
         {/* Items */}
         <div className="p-4">
           <h3 className="font-medium mb-2">Items</h3>
