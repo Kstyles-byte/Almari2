@@ -18,7 +18,7 @@ export async function getUserDashboardUrl(): Promise<string> {
     
     if (userError || !user) {
       // If no user, redirect to login
-      return '/login?callbackUrl=/account&message=Please+log+in+to+access+your+account.';
+      return '/login?message=Please+log+in+to+access+your+account.';
     }
 
     // Get user role from the User table

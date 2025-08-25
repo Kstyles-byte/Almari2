@@ -29,7 +29,7 @@ export default async function VendorPendingPage() {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return redirect('/login?callbackUrl=/account&message=Please+log+in+to+access+your+account.');
+    return redirect('/login?message=Please+log+in+to+access+your+account.');
   }
 
   // Get vendor data to verify status
@@ -72,7 +72,7 @@ export default async function VendorPendingPage() {
               {vendorData.store_name}
             </h3>
             <p className="text-sm text-gray-500 mb-6">
-              Your vendor application is currently under review. Our team will evaluate your application and get back to you soon. You'll receive an email notification once your account is approved.
+              Your vendor application is currently under review. Our team will evaluate your application and get back to you soon. You&apos;ll receive an email notification once your account is approved.
             </p>
             
             <div className="mt-6 flex flex-col space-y-3">

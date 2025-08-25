@@ -37,7 +37,7 @@ export default async function AccountRedirectPage() {
     // If still no user after checking, redirect to login
     if (!user) {
       console.log('AccountRedirectPage: No user session found, redirecting to login.');
-      return redirect('/login?callbackUrl=/account&message=Your+session+may+have+expired.+Please+log+in+again.');
+      return redirect('/login?message=Your+session+may+have+expired.+Please+log+in+again.');
     }
 
     // Get user role from the custom User table (using Service Role Key for this specific query)
@@ -73,7 +73,7 @@ export default async function AccountRedirectPage() {
     if (userError) {
         console.error("Error fetching user role in AccountRedirectPage:", userError.message);
         // Decide how to handle - maybe redirect to a generic error page or customer dashboard?
-        return redirect('/login?callbackUrl=/account&message=Error+retrieving+user+role.+Please+try+again.');
+        return redirect('/login?message=Error+retrieving+user+role.+Please+log+in+again.');
     }
 
     // Determine redirect based on user role
@@ -99,6 +99,6 @@ export default async function AccountRedirectPage() {
     }
     // Handle other unexpected errors
     console.error('Unexpected error in account redirect page:', error);
-    return redirect('/login?callbackUrl=/account&message=An+unexpected+authentication+error+occurred.+Please+log+in+again.');
+    return redirect('/login?message=An+unexpected+authentication+error+occurred.+Please+log+in+again.');
   }
 } 

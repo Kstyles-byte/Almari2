@@ -447,9 +447,9 @@ export async function signUpAsVendor(values: z.infer<typeof VendorSignUpSchema>)
   //   .eq('id', userId);
   // if (updateRoleError) { ... handle error ... }
 
-  // 4. Redirect user (e.g., to login page with success/pending message)
+  // 4. Redirect user directly to vendor dashboard with pending message
   console.log('[Action] Vendor signup process complete.');
-  return redirect('/login?message=Signup successful! Your vendor application is pending review.');
+  return redirect('/vendor/dashboard?message=Signup successful! Your vendor application is pending review.');
 }
 
 /**

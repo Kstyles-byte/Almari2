@@ -32,7 +32,7 @@ export async function redirectToDashboard() {
     // If no user, redirect to login
     if (!user) {
       console.log('Dashboard redirect: No user session found, redirecting to login.');
-      return redirect('/login?callbackUrl=/account&message=Your+session+may+have+expired.+Please+log+in+again.');
+      return redirect('/login?message=Your+session+may+have+expired.+Please+log+in+again.');
     }
 
     // Get user role from the custom User table (using Service Role Key for this specific query)
@@ -57,7 +57,7 @@ export async function redirectToDashboard() {
 
     if (userError) {
         console.error("Error fetching user role in dashboard redirect:", userError.message);
-        return redirect('/login?callbackUrl=/account&message=Error+retrieving+user+role.+Please+try+again.');
+        return redirect('/login?message=Error+retrieving+user+role.+Please+log+in+again.');
     }
 
     // Determine redirect based on user role
@@ -81,6 +81,6 @@ export async function redirectToDashboard() {
     }
     // Handle other unexpected errors
     console.error('Unexpected error in dashboard redirect:', error);
-    return redirect('/login?callbackUrl=/account&message=An+unexpected+authentication+error+occurred.+Please+log+in+again.');
+    return redirect('/login?message=An+unexpected+authentication+error+occurred.+Please+log+in+again.');
   }
 }
