@@ -48,7 +48,7 @@ export async function getVendors({
 
   let query = supabase
     .from('Vendor')
-    .select('id, store_name, is_approved, created_at, User(email,name)', {
+    .select('id, store_name, is_approved, created_at, whatsapp_phone, User(email,name)', {
       count: 'exact',
     })
     .order('created_at', { ascending: false })

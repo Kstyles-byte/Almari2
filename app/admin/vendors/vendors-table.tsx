@@ -17,6 +17,7 @@ type VendorRow = {
   created_at: string;
   User?: any;
   ownerEmail?: string;
+  whatsapp_phone?: string;
   statusText?: string;
   actionText?: string;
 };
@@ -26,6 +27,7 @@ export function VendorsTable({ vendors, pagination, searchParams }: { vendors: V
   const columns: Column<VendorRow>[] = [
     { header: 'Store Name', accessor: 'store_name', sortable: true },
     { header: 'Owner Email', accessor: 'ownerEmail', sortable: true },
+    { header: 'WhatsApp Phone', accessor: 'whatsapp_phone', sortable: true },
     {
       header: 'Status',
       accessor: 'statusText',

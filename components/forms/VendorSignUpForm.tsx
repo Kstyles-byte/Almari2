@@ -30,6 +30,7 @@ const formSchema = z.object({
   description: z.string().optional(),
   bankName: z.string().min(2, "Bank name is required"),
   accountNumber: z.string().regex(/^[0-9]{10}$/, "Enter a valid 10-digit account number"),
+  whatsappPhone: z.string().min(10, "WhatsApp phone number is required (10+ digits)").regex(/^[+]?[0-9]{10,15}$/, "Enter a valid WhatsApp phone number"),
 });
 
 export function VendorSignUpForm() {
@@ -48,6 +49,7 @@ export function VendorSignUpForm() {
       description: "",
       bankName: "",
       accountNumber: "",
+      whatsappPhone: "",
     },
   });
 
@@ -119,6 +121,20 @@ export function VendorSignUpForm() {
                   <FormLabel>Password</FormLabel>
                   <FormControl>
                     <Input type="password" placeholder="••••••••" {...field} disabled={isPending} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* WhatsApp Phone Field */}
+            <FormField
+              control={form.control}
+              name="whatsappPhone"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>WhatsApp Phone Number</FormLabel>
+                  <FormControl>
+                    <Input type="tel" placeholder="e.g., +2348123456789 or 08123456789" {...field} disabled={isPending} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

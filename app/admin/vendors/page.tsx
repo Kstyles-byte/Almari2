@@ -34,6 +34,7 @@ async function VendorsPageContent({ searchParams }: { searchParams: SearchParams
     ownerEmail: vendor.User 
       ? (Array.isArray(vendor.User) ? vendor.User[0]?.email ?? '-' : vendor.User.email ?? '-')
       : '-',
+    whatsapp_phone: vendor.whatsapp_phone || '-',
   }));
 
   return <VendorsTable vendors={processedVendors} pagination={pagination} searchParams={searchParams} />;

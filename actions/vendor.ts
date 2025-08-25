@@ -12,6 +12,7 @@ const VendorApplicationSchema = z.object({
   description: z.string().optional(),
   bankName: z.string().min(2, "Bank name is required"),
   accountNumber: z.string().regex(/^[0-9]{10}$/, "Enter a valid 10-digit account number"),
+  whatsappPhone: z.string().min(10, "WhatsApp phone number is required (10+ digits)").regex(/^[+]?[0-9]{10,15}$/, "Enter a valid WhatsApp phone number"),
   // Add other fields like logo/banner later if needed via separate actions/uploads
 });
 
@@ -43,7 +44,7 @@ export async function applyForVendor(values: z.infer<typeof VendorApplicationSch
     };
   }
   console.log('[Action] Validation successful.');
-  const { storeName, description, bankName, accountNumber } = validatedFields.data;
+  const { storeName, description, bankName, accountNumber, whatsappPhone } = validatedFields.data;
 
   // 3. Check if user already has a vendor application/profile
   const { data: existingVendor, error: checkError } = await supabase
@@ -73,6 +74,7 @@ export async function applyForVendor(values: z.infer<typeof VendorApplicationSch
     commission_rate: 10, // Set a default commission rate, admin can change
     bank_name: bankName,
     account_number: accountNumber,
+    whatsapp_phone: whatsappPhone,
     // logo and banner might be added later
   };
 

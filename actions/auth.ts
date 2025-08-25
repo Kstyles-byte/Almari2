@@ -38,6 +38,7 @@ const VendorSignUpSchema = SignUpSchema.extend({
   description: z.string().optional(),
   bankName: z.string().min(2, "Bank name is required"),
   accountNumber: z.string().regex(/^[0-9]{10}$/, "Enter a valid 10-digit account number"),
+  whatsappPhone: z.string().min(10, "WhatsApp phone number is required (10+ digits)").regex(/^[+]?[0-9]{10,15}$/, "Enter a valid WhatsApp phone number"),
 });
 
 // Schema for Agent SignUp (Agent accounts manage pickup locations)
@@ -372,7 +373,7 @@ export async function signUpAsVendor(values: z.infer<typeof VendorSignUpSchema>)
   }
   console.log('[Action] Vendor sign up validation successful.');
 
-  const { name, email, password, storeName, description, bankName, accountNumber } = validatedFields.data;
+  const { name, email, password, storeName, description, bankName, accountNumber, whatsappPhone } = validatedFields.data;
 
   // 2. Sign up the user via Supabase Auth
   console.log(`[Action] Attempting Supabase Auth signup for vendor: ${email}`);
@@ -414,6 +415,7 @@ export async function signUpAsVendor(values: z.infer<typeof VendorSignUpSchema>)
     commission_rate: 10, // Corrected field name
     bank_name: bankName, // Corrected field name
     account_number: accountNumber, // Corrected field name
+    whatsapp_phone: whatsappPhone, // Add WhatsApp phone field
   };
 
   console.log(`[Action] Inserting Vendor profile for user ${userId}...`);
