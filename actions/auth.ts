@@ -440,14 +440,21 @@ export async function signUpAsVendor(values: z.infer<typeof VendorSignUpSchema>)
     // Don't fail the signup process due to notification errors
   }
 
-  // Optionally: Update the role in public.User table immediately?
-  // Or leave it as CUSTOMER until admin approval?
-  // Let's leave it as CUSTOMER, consistent with Flow 1 (pending approval)
-  // const { error: updateRoleError } = await supabase
-  //   .from('User')
-  //   .update({ role: 'VENDOR' })
-  //   .eq('id', userId);
-  // if (updateRoleError) { ... handle error ... }
+  // Update the role in public.User table immediately so redirects work correctly
+  // The is_approved field in Vendor table will control actual vendor operations
+  console.log(`[Action] Updating user role to VENDOR for user ${userId}...`);
+  const { error: updateRoleError } = await supabase
+    .from('User')
+    .update({ role: 'VENDOR' })
+    .eq('id', userId);
+  
+  if (updateRoleError) {
+    console.error("[Action] Error updating user role to VENDOR:", updateRoleError);
+    // Don't fail the entire process, just log the error
+    // User will still be redirected but role might not be updated
+  } else {
+    console.log(`[Action] User role successfully updated to VENDOR for user ${userId}`);
+  }
 
   // 4. Redirect user directly to vendor dashboard with pending message
   console.log('[Action] Vendor signup process complete.');
