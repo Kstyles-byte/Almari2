@@ -23,7 +23,7 @@ const payoutSchema = z.object({
   amount: z.coerce
     .number()
     .positive({ message: 'Amount must be greater than zero' })
-    .min(1000, { message: 'Minimum payout amount is ₦1,000' }),
+    .min(2000, { message: 'Minimum payout amount is ₦2,000' }),
   accountName: z.string().min(3, { message: 'Account name is required' }),
   accountNumber: z.string()
     .length(10, { message: 'Account number must be 10 digits' })
@@ -57,7 +57,7 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
   const watchAmount = watch('amount');
 
   const onRequestMax = () => {
-    const requestAmount = Math.max(1000, Math.floor(availableBalance));
+    const requestAmount = Math.max(2000, Math.floor(availableBalance));
     setValue('amount', requestAmount, { shouldValidate: true });
   };
 
@@ -121,8 +121,8 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
             id="amount"
             {...register('amount')}
             className="block w-full pl-7 pr-12 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
-            placeholder="1000.00"
-            disabled={isSubmitting || availableBalance < 1000}
+            placeholder="2000.00"
+            disabled={isSubmitting || availableBalance < 2000}
             step="any"
           />
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
@@ -130,7 +130,7 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
               type="button"
               onClick={onRequestMax}
               className="text-xs text-zervia-600 hover:text-zervia-500 font-medium"
-              disabled={isSubmitting || availableBalance < 1000}
+              disabled={isSubmitting || availableBalance < 2000}
             >
               MAX
             </button>
@@ -139,7 +139,7 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
         {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>}
         
         <div className="mt-1 flex justify-between text-xs text-gray-500">
-          <span>Min: {formatCurrency(1000)}</span>
+          <span>Min: {formatCurrency(2000)}</span>
           <span>Available: {formatCurrency(availableBalance)}</span>
         </div>
       </div>
@@ -193,7 +193,7 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
       <div className="pt-2">
         <button
           type="submit"
-          disabled={isSubmitting || availableBalance < 1000 || !watchAmount || watchAmount < 1000}
+          disabled={isSubmitting || availableBalance < 2000 || !watchAmount || watchAmount < 2000}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-zervia-600 hover:bg-zervia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zervia-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
@@ -201,7 +201,7 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
               <Loader2 className="animate-spin mr-2 h-4 w-4" />
               Processing...
             </>
-          ) : availableBalance < 1000 ? (
+          ) : availableBalance < 2000 ? (
             'Insufficient Balance'
           ) : (
             'Request Payout'
@@ -209,9 +209,9 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
         </button>
       </div>
       
-      {availableBalance < 1000 && (
+      {availableBalance < 2000 && (
         <div className="mt-2 text-xs text-center text-yellow-600 bg-yellow-50 p-2 rounded-md">
-          You need a minimum balance of {formatCurrency(1000)} to request a payout.
+          You need a minimum balance of {formatCurrency(2000)} to request a payout.
         </div>
       )}
       

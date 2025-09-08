@@ -260,7 +260,7 @@ export default async function VendorPayoutsPage() {
                 </div>
                 <div className="ml-3">
                   <p className="font-medium text-gray-900">Request Payout</p>
-                  <p>Submit a payout request with your bank details (minimum ₦5,000).</p>
+                  <p>Submit a payout request with your bank details (minimum ₦2,000).</p>
                 </div>
               </div>
               <div className="flex items-start">
