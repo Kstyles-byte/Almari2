@@ -359,10 +359,10 @@ export async function createOrder(formData: FormData) {
 
       if (vendorError) {
         console.error('Failed to fetch vendor commission rate:', vendorError?.message);
-        // Continue with default commission rate of 0 if vendor not found
+        // Continue with default commission rate of 5% if vendor not found
       }
 
-      const vendorCommissionRate = vendorData?.commission_rate || 0;
+      const vendorCommissionRate = vendorData?.commission_rate || 5;
 
       // Vendor-specific subtotal / discount split proportionally by subtotal share
       const vendorSubtotal = vendorItems.reduce((s, i) => s + (i.quantity * (i.product?.price || 0)), 0);

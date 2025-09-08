@@ -412,7 +412,7 @@ export async function signUpAsVendor(values: z.infer<typeof VendorSignUpSchema>)
     store_name: storeName, // Corrected field name
     description: description || null,
     is_approved: false, // Corrected field name
-    commission_rate: 10, // Corrected field name
+    commission_rate: 5, // Corrected field name
     bank_name: bankName, // Corrected field name
     account_number: accountNumber, // Corrected field name
     whatsapp_phone: whatsappPhone, // Add WhatsApp phone field

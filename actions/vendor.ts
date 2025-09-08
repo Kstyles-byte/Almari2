@@ -71,7 +71,7 @@ export async function applyForVendor(values: z.infer<typeof VendorApplicationSch
     store_name: storeName,
     description: description || null,
     is_approved: false, // Application starts as not approved
-    commission_rate: 10, // Set a default commission rate, admin can change
+    commission_rate: 5, // Set a default commission rate, admin can change
     bank_name: bankName,
     account_number: accountNumber,
     whatsapp_phone: whatsappPhone,

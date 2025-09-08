@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { createClient } from '@supabase/supabase-js';
-import type { Vendor, Product } from '../../types/supabase'; // Import Vendor and Product types
+import type { Vendor, Product } from '../../types/index'; // Import Vendor and Product types
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -136,14 +136,14 @@ export async function createVendorProfile(
       .from('Vendor')
       .insert({
         user_id: userId,
-        storeName: data.storeName,
+        store_name: data.storeName,
         description: data.description,
-        logo: data.logo,
-        banner: data.banner,
-        bankName: data.bankName,
-        accountNumber: data.accountNumber,
-        isApproved: false, // Default requires admin approval
-        commissionRate: 10, // Default commission rate (adjust as needed) - check schema
+        logo_url: data.logo,
+        banner_url: data.banner,
+        bank_name: data.bankName,
+        account_number: data.accountNumber,
+        is_approved: false, // Default requires admin approval
+        commission_rate: 5, // Default commission rate (adjust as needed) - check schema
         // createdAt/updatedAt are handled by DB defaults/triggers
       })
       .select('*') // Select the newly created vendor data
@@ -184,14 +184,14 @@ export async function updateVendorProfile(
   try {
     // Construct the update object, removing undefined fields
     const updateData: Partial<Vendor> = {};
-    if (data.storeName !== undefined) updateData.storeName = data.storeName;
+    if (data.storeName !== undefined) updateData.store_name = data.storeName;
     if (data.description !== undefined) updateData.description = data.description;
-    if (data.logo !== undefined) updateData.logo = data.logo;
-    if (data.banner !== undefined) updateData.banner = data.banner;
-    if (data.bankName !== undefined) updateData.bankName = data.bankName;
-    if (data.accountNumber !== undefined) updateData.accountNumber = data.accountNumber;
+    if (data.logo !== undefined) updateData.logo_url = data.logo;
+    if (data.banner !== undefined) updateData.banner_url = data.banner;
+    if (data.bankName !== undefined) updateData.bank_name = data.bankName;
+    if (data.accountNumber !== undefined) updateData.account_number = data.accountNumber;
     // Add updatedAt timestamp
-    updateData.updatedAt = new Date().toISOString();
+    updateData.updated_at = new Date().toISOString();
 
     if (Object.keys(updateData).length <= 1) { // Only contains updatedAt
       // No actual data to update, maybe fetch and return current data or throw error?
@@ -394,13 +394,13 @@ export async function getVendorProducts(
  */
 export async function approveVendor(vendorId: string, commissionRate?: number): Promise<Vendor | null> {
   try {
-    const updateData: Partial<Vendor> & { updatedAt: string } = {
-      isApproved: true,
-      updatedAt: new Date().toISOString(),
+    const updateData: Partial<Vendor> & { updated_at: string } = {
+      is_approved: true,
+      updated_at: new Date().toISOString(),
     };
 
     if (commissionRate !== undefined && commissionRate >= 0) {
-      updateData.commissionRate = commissionRate;
+      updateData.commission_rate = commissionRate;
     }
 
     const { data: updatedVendor, error } = await supabase

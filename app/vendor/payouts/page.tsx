@@ -271,7 +271,7 @@ export default async function VendorPayoutsPage() {
                 </div>
                 <div className="ml-3">
                   <p className="font-medium text-gray-900">Admin Review</p>
-                  <p>Your request will be reviewed and processed within 2-3 business days.</p>
+                  <p>Your request will be reviewed and processed within 1-2 business days.</p>
                 </div>
               </div>
               <div className="flex items-start">

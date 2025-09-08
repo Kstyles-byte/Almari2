@@ -216,7 +216,7 @@ export default function PayoutRequestForm({ availableBalance, vendorData }: Payo
       )}
       
       <div className="text-xs text-gray-500 mt-4">
-        <p>Note: Payouts are processed within 2-3 business days. A 1% processing fee may apply.</p>
+        <p>Note: Payouts are processed within 1-2 business days. A 1% processing fee may apply.</p>
       </div>
     </form>
   );
