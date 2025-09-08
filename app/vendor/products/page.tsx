@@ -62,7 +62,7 @@ export default async function VendorProductsPage({
       is_published,
       created_at,
       ProductImage(url),
-      Category:category_id(name)
+      Category(name)
     `)
     .eq('vendor_id', vendorData.id)
     .order('created_at', { ascending: false });
@@ -78,7 +78,7 @@ export default async function VendorProductsPage({
       ? product.ProductImage[0].url
       : '/assets/placeholder-product.svg';
     
-    const categoryName = product.Category && product.Category[0] ? product.Category[0].name : 'Uncategorized';
+    const categoryName = product.Category ? product.Category.name : 'Uncategorized';
     
     return {
       ...product,

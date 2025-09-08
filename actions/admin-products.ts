@@ -42,7 +42,19 @@ export async function getProducts({
 
   let query = supabase
     .from('Product')
-    .select('id,name,is_published,created_at,vendor_id', {
+    .select(`
+      id,
+      name,
+      is_published,
+      created_at,
+      vendor_id,
+      Vendor!inner(
+        id,
+        User!inner(
+          name
+        )
+      )
+    `, {
       count: 'exact',
     })
     .order('created_at', { ascending: false })

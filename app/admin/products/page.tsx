@@ -46,7 +46,7 @@ async function ProductsTable({ searchParams }: { searchParams: SearchParams }) {
     name: p.name,
     is_published: p.is_published,
     created_at: p.created_at,
-    vendor_name: '-',
+    vendor_name: p.Vendor?.User?.name || '-',
   }));
 
   const toQueryString = (params: Record<string, any>) => {
