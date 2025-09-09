@@ -206,7 +206,7 @@ export default async function VendorDashboardPage() {
       <RecentOrdersWidget />
       
       {/* Quick Action Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link href="/vendor/products" className="block bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100 hover:bg-gray-50">
           <div className="bg-zervia-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
             <ShoppingBag className="text-zervia-600" size={20} />
@@ -229,6 +229,14 @@ export default async function VendorDashboardPage() {
           </div>
           <h3 className="font-semibold text-gray-900 mb-2">View Analytics</h3>
           <p className="text-sm text-gray-500">Track your sales performance and customer insights.</p>
+        </Link>
+
+        <Link href="/vendor/settings" className="block bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100 hover:bg-gray-50">
+          <div className="bg-zervia-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
+            <Users className="text-zervia-600" size={20} />
+          </div>
+          <h3 className="font-semibold text-gray-900 mb-2">Manage Profile</h3>
+          <p className="text-sm text-gray-500">Update your store information, images, and payment details.</p>
         </Link>
       </div>
     </div>

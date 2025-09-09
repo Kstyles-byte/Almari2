@@ -44,6 +44,8 @@ export default async function VendorSettingsPage() {
       commission_rate,
       bank_name,
       account_number,
+      account_name,
+      whatsapp_phone,
       User:user_id(name, email)
     `)
     .eq('user_id', user.id)
@@ -69,7 +71,7 @@ export default async function VendorSettingsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Vendor Profile</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sidebar - Navigation */}
@@ -81,7 +83,7 @@ export default async function VendorSettingsPage() {
                   href="#store-details" 
                   className="block px-3 py-2 rounded-md bg-zervia-50 text-zervia-600 font-medium"
                 >
-                  Store Details
+                  Store Profile
                 </a>
                 <a 
                   href="#payment-info" 
@@ -108,10 +110,11 @@ export default async function VendorSettingsPage() {
         
         {/* Main Content */}
         <div className="lg:col-span-2">
-          {/* Store Details */}
+          {/* Store Profile */}
           <div id="store-details" className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mb-6">
             <div className="px-6 py-4 border-b border-gray-100">
-              <h2 className="font-semibold text-gray-900">Store Details</h2>
+              <h2 className="font-semibold text-gray-900">Store Profile</h2>
+              <p className="text-sm text-gray-500 mt-1">Manage your store information and contact details</p>
             </div>
             <div className="p-6">
               <Suspense fallback={<div>Loading...</div>}>
@@ -124,6 +127,7 @@ export default async function VendorSettingsPage() {
           <div id="payment-info" className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mb-6">
             <div className="px-6 py-4 border-b border-gray-100">
               <h2 className="font-semibold text-gray-900">Payment Information</h2>
+              <p className="text-sm text-gray-500 mt-1">Update your bank details for payouts</p>
             </div>
             <div className="p-6">
               <Suspense fallback={<div>Loading...</div>}>
@@ -136,6 +140,7 @@ export default async function VendorSettingsPage() {
           <div id="security" className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
               <h2 className="font-semibold text-gray-900">Security</h2>
+              <p className="text-sm text-gray-500 mt-1">Manage your account security and password</p>
             </div>
             <div className="p-6">
               <Suspense fallback={<div>Loading...</div>}>

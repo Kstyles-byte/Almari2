@@ -51,7 +51,7 @@ const navItems = [
     { name: 'Refunds', href: '/vendor/refunds', icon: RotateCcw },
     { name: 'Payouts', href: '/vendor/payouts', icon: DollarSign },
     { name: 'Analytics', href: '/vendor/analytics', icon: BarChart2 },
-    { name: 'Settings', href: '/vendor/settings', icon: Settings },
+    { name: 'Profile', href: '/vendor/settings', icon: Settings },
   ];
   
   const toggleMobileMenu = () => {

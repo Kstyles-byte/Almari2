@@ -14,6 +14,8 @@ type VendorData = {
   banner_url: string | null;
   bank_name: string | null;
   account_number: string | null;
+  account_name: string | null;
+  whatsapp_phone: string | null;
   User?: { name: string | null; email: string | null; }[];
 };
 
@@ -119,8 +121,24 @@ export function StoreDetailsForm({ vendorData, onSuccess, onError }: FormSection
           name="description"
           rows={4}
           defaultValue={vendorData.description || ''}
+          placeholder="Tell customers about your store, products, and what makes you unique..."
           className="block w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
         />
+      </div>
+
+      <div>
+        <label htmlFor="whatsappPhone" className="block text-sm font-medium text-gray-700 mb-1">
+          WhatsApp Phone Number
+        </label>
+        <input
+          type="tel"
+          id="whatsappPhone"
+          name="whatsappPhone"
+          defaultValue={vendorData.whatsapp_phone || ''}
+          placeholder="+234 XXX XXX XXXX"
+          className="block w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
+        />
+        <p className="mt-1 text-xs text-gray-500">Customers can contact you directly on WhatsApp for order inquiries</p>
       </div>
       
       <div>
@@ -272,6 +290,20 @@ export function PaymentInfoForm({ vendorData, onSuccess, onError }: FormSectionP
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
+      <div>
+        <label htmlFor="accountName" className="block text-sm font-medium text-gray-700 mb-1">
+          Account Holder Name
+        </label>
+        <input
+          type="text"
+          id="accountName"
+          name="accountName"
+          defaultValue={vendorData.account_name || ''}
+          placeholder="Full name as it appears on your bank account"
+          className="block w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="bankName" className="block text-sm font-medium text-gray-700 mb-1">
@@ -282,6 +314,7 @@ export function PaymentInfoForm({ vendorData, onSuccess, onError }: FormSectionP
             id="bankName"
             name="bankName"
             defaultValue={vendorData.bank_name || ''}
+            placeholder="e.g., First Bank of Nigeria"
             className="block w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
           />
         </div>
@@ -295,6 +328,7 @@ export function PaymentInfoForm({ vendorData, onSuccess, onError }: FormSectionP
             id="accountNumber"
             name="accountNumber"
             defaultValue={vendorData.account_number || ''}
+            placeholder="10-digit account number"
             className="block w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
           />
         </div>

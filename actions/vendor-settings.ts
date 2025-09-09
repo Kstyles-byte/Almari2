@@ -41,6 +41,7 @@ export async function updateStoreDetails(formData: FormData) {
       updateData = {
         store_name: formData.get("storeName") as string || undefined,
         description: formData.get("description") as string || undefined,
+        whatsapp_phone: formData.get("whatsappPhone") as string || undefined,
       };
 
       // Handle logo upload if a file is provided
@@ -80,6 +81,7 @@ export async function updateStoreDetails(formData: FormData) {
       updateData = {
         bank_name: formData.get("bankName") as string || undefined,
         account_number: formData.get("accountNumber") as string || undefined,
+        account_name: formData.get("accountName") as string || undefined,
       };
     } else if (section === "security") {
       // Password changes are handled through Supabase Auth
