@@ -14,7 +14,11 @@ const nextConfig = {
   // Don't attempt to statically optimize the checkout page and related routes
   // This ensures these pages are rendered dynamically at request time
   // Remove deprecated options; Next.js 15 no longer supports these keys
-  experimental: {},
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '6mb', // Allow up to 6MB for image uploads
+    },
+  },
   images: {
     remotePatterns: [
       {
