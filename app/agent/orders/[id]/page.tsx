@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { getAgentOrderById } from '@/actions/agent-dashboard';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { BackButtonHeader } from '@/components/ui/back-button';
 import VerifyPickupForm from '@/components/agent/VerifyPickupForm';
 import AcceptDropoffForm from '@/components/agent/AcceptDropoffForm';
 import MarkReadyButton from '@/components/agent/MarkReadyButton';
@@ -21,9 +22,11 @@ export default async function AgentOrderDetailPage({ params }: Props & { params:
 
   return (
     <div className="space-y-6">
-      <Link href="/agent/orders" className="text-sm text-zervia-600 hover:underline">← Back to orders</Link>
-
-      <h2 className="text-xl font-semibold">Order #{order.id.substring(0, 8)}</h2>
+      <BackButtonHeader
+        title={`Order #${order.id.substring(0, 8)}`}
+        href="/agent/orders"
+        backLabel="Back to Orders"
+      />
 
       {/* Print label - hide for pending pickup status */}
       {order.pickup_status !== 'PENDING' && (

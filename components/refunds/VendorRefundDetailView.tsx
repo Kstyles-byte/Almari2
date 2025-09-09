@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { BackButtonHeader } from '@/components/ui/back-button';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -46,21 +47,23 @@ export function VendorRefundDetailView({ refund }: VendorRefundDetailViewProps) 
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6 space-y-6">
+      <BackButtonHeader
+        title={`Refund Details #${refund.id.slice(0, 8)}`}
+        subtitle={`Product: ${refund.orderItem?.product?.name} • Customer: ${refund.customer?.user?.name || 'Unknown'}`}
+        href="/vendor/refunds"
+        backLabel="Back to Refunds"
+      >
+        <Badge variant={refund.status === 'APPROVED' ? 'default' : 'secondary'}>
+          {refund.status}
+        </Badge>
+      </BackButtonHeader>
+      
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl font-bold">
-            Refund Details #{refund.id.slice(0, 8)}
+          <CardTitle className="text-lg font-semibold">
+            Refund Information
           </CardTitle>
-          <div className="text-sm text-muted-foreground">
-            Customer: {refund.customer?.user?.name || 'Unknown'}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Product: {refund.orderItem?.product?.name}
-          </div>
-          <Badge variant={refund.status === 'APPROVED' ? 'default' : 'secondary'}>
-            {refund.status}
-          </Badge>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 p-2">

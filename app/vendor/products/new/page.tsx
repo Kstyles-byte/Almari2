@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
+import { BackButtonHeader } from '@/components/ui/back-button';
 import ProductForm from '@/components/vendor/product-form';
 
 export const dynamic = 'force-dynamic';
@@ -61,16 +62,12 @@ export default async function NewProductPage() {
 
   return (
     <div>
-      <div className="flex items-center mb-6">
-        <Link 
-          href="/vendor/products" 
-          className="text-zervia-600 hover:text-zervia-700 flex items-center mr-4"
-        >
-          <ChevronLeft size={20} />
-          <span>Back to Products</span>
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Add New Product</h1>
-      </div>
+      <BackButtonHeader
+        title="Add New Product"
+        href="/vendor/products"
+        backLabel="Back to Products"
+        className="mb-6"
+      />
       
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">

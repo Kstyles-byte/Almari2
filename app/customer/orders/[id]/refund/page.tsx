@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import RefundRequestForm from '@/components/refunds/RefundRequestForm';
 import { Database } from '@/types/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BackButtonHeader } from '@/components/ui/back-button';
 
 interface RefundRequestPageProps {
   params: Promise<{
@@ -95,12 +96,12 @@ export default async function CustomerRefundRequestPage({ params }: RefundReques
     return (
       <div className="p-4 md:p-8">
         <div className="space-y-6">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">Request Refund</h1>
-            <p className="text-muted-foreground">
-              Select items to refund from order #{order.id.slice(0, 8)}
-            </p>
-          </div>
+          <BackButtonHeader
+            title="Request Refund"
+            subtitle={`Select items to refund from order #${order.id.slice(0, 8)}`}
+            href={`/customer/orders/${orderId}`}
+            backLabel="Back to Order"
+          />
 
           {/* Render a RefundRequestForm per item */}
           {Array.isArray(orderItems) && orderItems.length > 0 ? (

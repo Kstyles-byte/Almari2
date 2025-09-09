@@ -15,6 +15,7 @@ import { WishlistButton } from '@/components/products/WishlistButton';
 import { isInWishlist } from '@/actions/wishlist';
 import { ReviewItem } from '../../../components/products/ReviewItem'; // Import the new component
 import { WriteReviewButton } from '@/components/products/WriteReviewButton'; // Import the WriteReviewButton
+import { BackButton } from '@/components/ui/back-button';
 
 // Dynamic Metadata Generation
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }, parent: ResolvingMetadata): Promise<Metadata> {
@@ -85,8 +86,11 @@ export default async function ProductDetail(props: { params: Promise<{ slug: str
 
   return (
     <div className="bg-white">
-      {/* Breadcrumb - Now using dynamic data */}
+      {/* Breadcrumb and Back Button */}
       <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between mb-2">
+          <BackButton href="/products" label="Back to Products" variant="minimal" />
+        </div>
         <div className="flex items-center text-sm flex-wrap">
           <Link href="/" className="text-zervia-500 hover:text-zervia-600">Home</Link>
           <span className="mx-2">/</span>

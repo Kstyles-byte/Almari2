@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BackButtonHeader } from '@/components/ui/back-button';
 import { getCategoryById, getAllCategories, updateCategory } from '../../../../../../actions/content';
 import type { Category } from '@/types';
 
@@ -65,7 +66,13 @@ export default async function EditCategoryPage(props: Props) {
   return (
     <AdminLayout>
       <div className="container mx-auto max-w-lg py-10">
-        <h1 className="text-2xl font-bold mb-6">Edit Category</h1>
+        <BackButtonHeader
+          title="Edit Category"
+          subtitle={category.name}
+          href="/admin/content/categories"
+          backLabel="Back to Categories"
+          className="mb-6"
+        />
 
         <form action={handleSubmit} className="space-y-4">
           <div>

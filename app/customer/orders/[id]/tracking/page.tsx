@@ -1,5 +1,6 @@
 import { getOrderById } from '@/actions/orders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BackButtonHeader } from '@/components/ui/back-button';
 import { Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { notFound } from 'next/navigation';
@@ -20,7 +21,11 @@ export default async function OrderTrackingPage(
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-zervia-900">Track Order</h1>
+      <BackButtonHeader
+        title="Track Order"
+        href={`/customer/orders/${params.id}`}
+        backLabel="Back to Order"
+      />
 
       <Card>
         <CardHeader>

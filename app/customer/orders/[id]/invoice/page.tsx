@@ -1,6 +1,7 @@
 import { getOrderById } from '@/actions/orders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { BackButtonHeader } from '@/components/ui/back-button';
 import { format } from 'date-fns';
 import { notFound } from 'next/navigation';
 
@@ -18,7 +19,11 @@ export default async function OrderInvoicePage(
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-zervia-900">Invoice</h1>
+      <BackButtonHeader
+        title="Invoice"
+        href={`/customer/orders/${params.id}`}
+        backLabel="Back to Order"
+      />
 
       <Card>
         <CardHeader>

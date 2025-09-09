@@ -2,6 +2,7 @@ import StoreHeader from '@/components/store/StoreHeader';
 import StoreCategories from '@/components/store/StoreCategories';
 import { getVendorStoreMeta, getVendorStoreProducts } from '@/actions/store';
 import { ProductGrid } from '@/components/products/product-grid';
+import { BackButton } from '@/components/ui/back-button';
 
 interface StorePageProps {
   params: Promise<{ vendorId: string }>;
@@ -34,6 +35,10 @@ export default async function StorePage(props: StorePageProps) {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <div className="mb-6">
+        <BackButton href="/vendors" label="Back to All Stores" variant="minimal" />
+      </div>
+      
       <StoreHeader
         vendor={meta.vendor}
         averageRating={meta.averageRating}

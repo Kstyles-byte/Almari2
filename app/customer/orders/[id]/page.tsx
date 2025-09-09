@@ -5,6 +5,7 @@ import { Database } from '@/types/supabase';
 import { notFound } from 'next/navigation';
 import { CancelOrderForm } from '@/components/customer/cancel-order-form';
 import { OrderDetailWrapper } from '@/components/customer/order-detail-wrapper';
+import { BackButtonHeader } from '@/components/ui/back-button';
 import Link from 'next/link';
 
 export default async function CustomerOrderDetailPage(
@@ -52,8 +53,11 @@ export default async function CustomerOrderDetailPage(
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-zervia-900">Order Details</h1>
+      <BackButtonHeader 
+        title="Order Details" 
+        href="/customer/orders" 
+        backLabel="Back to Orders"
+      >
         <div className="flex gap-2">
           {/* Only show cancel button for pending/processing orders */}
           {(order.status === 'pending' || order.status === 'processing') && (
@@ -69,7 +73,7 @@ export default async function CustomerOrderDetailPage(
             </Link>
           )}
         </div>
-      </div>
+      </BackButtonHeader>
       
       <OrderDetailWrapper order={order} />
 
