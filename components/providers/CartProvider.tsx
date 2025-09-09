@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, createContext, useContext, useReducer } from 'react';
+import { usePathname } from 'next/navigation';
 import { readGuestCart, writeGuestCart, clearGuestCart, LocalCartItem } from '@/lib/utils/guest-cart';
 import { createClient } from '@supabase/supabase-js';
 
@@ -55,6 +56,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize reducer with empty array to ensure server/client consistency
   const [items, dispatch] = useReducer(reducer, []);
   const [hydrated, setHydrated] = useState(false);
+  const pathname = usePathname();
+  
+  // Skip cart operations for admin, agent, and vendor routes
+  const isAdminRoute = pathname?.startsWith('/admin');
+  const isAgentRoute = pathname?.startsWith('/agent');
+  const isVendorRoute = pathname?.startsWith('/vendor');
 
   // Coupon state (persisted to localStorage)
   const [discount, setDiscountState] = useState(0);
@@ -192,6 +199,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initial hydration + merge attempt
   useEffect(() => {
     (async () => {
+      // Skip cart operations for admin/agent/vendor routes
+      if (isAdminRoute || isAgentRoute || isVendorRoute) {
+        setHydrated(true);
+        return;
+      }
+      
       // First, load guest cart items to ensure we start with the right state
       const guestItems = readGuestCart();
       dispatch({ type: 'SET', items: guestItems });
@@ -261,7 +274,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       listener?.subscription.unsubscribe();
     };
-  }, []);
+  }, [isAdminRoute, isAgentRoute, isVendorRoute]);
 
   // Persist/sync cart whenever it changes – but only *after* initial hydration
   useEffect(() => {

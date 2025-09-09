@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import { Inter, Montserrat } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
 import { Toaster } from "sonner";
 import AuthProvider from "@/components/providers/AuthProvider";
 import { LoadingProvider } from "@/components/providers/LoadingProvider";
 import { CartProvider } from "@/components/providers/CartProvider";
 import { PageWrapper } from "../components/layout/page-wrapper";
 import { RealtimeNotificationProvider } from "@/components/notifications/realtime-notification-provider";
+import { ConditionalLayout } from "@/components/layout/conditional-layout";
 
 // Initialize the Inter font with Latin subset
 const inter = Inter({
@@ -40,11 +39,9 @@ export default function RootLayout({
           <LoadingProvider>
             <CartProvider>
               <RealtimeNotificationProvider enablePush={true} enableRealtime={true}>
-                
-                  <Header />
+                <ConditionalLayout>
                   <PageWrapper>{children}</PageWrapper>
-                  <Footer />
-                
+                </ConditionalLayout>
                 <Toaster />
               </RealtimeNotificationProvider>
             </CartProvider>
