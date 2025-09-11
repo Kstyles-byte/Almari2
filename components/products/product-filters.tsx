@@ -33,12 +33,14 @@ interface ProductFiltersProps {
     // Add colors, sizes later if needed
   };
   className?: string;
+  onFiltersApplied?: () => void; // Optional callback for when filters are applied (e.g., to close mobile sheet)
 }
 
 // Inner component that uses the hook
 function ProductFiltersContent({
   filterData,
-  className
+  className,
+  onFiltersApplied
 }: ProductFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -145,6 +147,9 @@ function ProductFiltersContent({
     router.replace(`${pathname}?${params.toString()}`);
     setPendingFilters({});
     setHasPendingChanges(false);
+    
+    // Call the callback if provided (e.g., to close mobile sheet)
+    onFiltersApplied?.();
   };
 
   const handleClearFilters = () => {

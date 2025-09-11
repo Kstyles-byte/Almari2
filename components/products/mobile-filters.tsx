@@ -22,6 +22,12 @@ interface MobileFiltersProps {
 }
 
 export function MobileFilters({ filterData }: MobileFiltersProps) {
+  const sheetCloseRef = React.useRef<HTMLButtonElement>(null)
+  
+  const closeSheet = () => {
+    sheetCloseRef.current?.click()
+  }
+
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -33,12 +39,12 @@ export function MobileFilters({ filterData }: MobileFiltersProps) {
         <SheetHeader className="mb-4">
           <SheetTitle>Filters</SheetTitle>
         </SheetHeader>
-        <ProductFilters filterData={filterData} />
-        <div className="mt-6 sticky bottom-0 bg-white py-4 border-t">
-          <SheetClose asChild>
-            <Button className="w-full">Apply Filters</Button>
-          </SheetClose>
-        </div>
+        <ProductFilters 
+          filterData={filterData} 
+          onFiltersApplied={closeSheet}
+        />
+        {/* Hidden SheetClose button controlled programmatically */}
+        <SheetClose ref={sheetCloseRef} className="hidden" />
       </SheetContent>
     </Sheet>
   )
