@@ -472,7 +472,7 @@ export async function getProducts({
         id, name, slug, description, price, compare_at_price, inventory, is_published, created_at, updated_at,
         ProductImage(*),
         Category!inner(*),
-        Vendor(*),
+        Vendor(id, store_name),
         Review(*)
       `)
       .eq('is_published', true)
@@ -515,10 +515,6 @@ export async function getProducts({
     queryBuilder = queryBuilder.range(offset, offset + limit - 1);
 
 const { data: productsData, error, count } = await queryBuilder;
-  
-  console.log("Raw products from database:", productsData);
-  console.log("Query error:", error);
-  console.log("Product count:", count);
 
     if (error) {
       console.error("Error fetching products:", error.message);

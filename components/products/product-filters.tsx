@@ -46,20 +46,23 @@ function ProductFiltersContent({
 
   // Get current filters from URL
   const currentFilters = React.useMemo(() => {
-    const filters: Record<string, string[]> = {};
+    const filters: Record<string, string[]> = {
+      [filterData.categories.id]: [],
+      [filterData.brands.id]: [],
+      price: ['0', '1000']
+    };
+    
     filterData.categories.options.forEach(opt => {
         if (searchParams.has(filterData.categories.id, opt.id)) {
-            if (!filters[filterData.categories.id]) filters[filterData.categories.id] = [];
             filters[filterData.categories.id].push(opt.id);
         }
     });
-     filterData.brands.options.forEach(opt => {
+    
+    filterData.brands.options.forEach(opt => {
         if (searchParams.has(filterData.brands.id, opt.id)) {
-            if (!filters[filterData.brands.id]) filters[filterData.brands.id] = [];
             filters[filterData.brands.id].push(opt.id);
         }
     });
-    // TODO: Add logic for colors, sizes
     
     // Price range - get min/max from URL
     filters.price = [
@@ -74,52 +77,101 @@ function ProductFiltersContent({
      [parseInt(currentFilters.price?.[0] || '0'), parseInt(currentFilters.price?.[1] || '1000')] 
   );
 
+  // Local state for pending filters (not yet applied)
+  const [pendingFilters, setPendingFilters] = React.useState<Record<string, string[]>>({});
+  const [hasPendingChanges, setHasPendingChanges] = React.useState(false);
+
   React.useEffect(() => {
      // Update local price range if URL changes externally
      setLocalPriceRange([
        parseInt(searchParams.get('priceMin') || '0'),
        parseInt(searchParams.get('priceMax') || '1000')
      ]);
+     // Reset pending filters when URL changes externally
+     setPendingFilters({});
+     setHasPendingChanges(false);
   }, [searchParams]);
 
   const handleFilterChange = (filterType: string, optionId: string, checked: boolean) => {
-    const params = new URLSearchParams(searchParams.toString());
-    
-    // Handle multi-select filters (like category, brand)
-    const currentValues = params.getAll(filterType);
-    if (checked) {
-      if (!currentValues.includes(optionId)) {
-        params.append(filterType, optionId);
+    // Store changes in local state instead of immediately applying
+    setPendingFilters(prev => {
+      const current = prev[filterType] || [...(currentFilters[filterType] || [])];
+      let updated;
+      
+      if (checked) {
+        updated = current.includes(optionId) ? current : [...current, optionId];
+      } else {
+        updated = current.filter(val => val !== optionId);
       }
-    } else {
-      params.delete(filterType); // Delete all existing values
-      currentValues.filter(val => val !== optionId).forEach(val => params.append(filterType, val)); // Re-add others
-    }
-    
-    params.set('page', '1'); // Reset page when filters change
-    router.push(`${pathname}?${params.toString()}`);
+      
+      const newPending = { ...prev, [filterType]: updated };
+      setHasPendingChanges(true);
+      return newPending;
+    });
   };
   
   const handlePriceChange = (value: number[]) => {
     setLocalPriceRange([value[0], value[1]]);
+    setHasPendingChanges(true);
   }
   
-  const handlePriceChangeCommitted = (value: number[]) => {
+  // Apply all pending filters at once
+  const applyFilters = () => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set('priceMin', value[0].toString());
-    params.set('priceMax', value[1].toString());
+    
+    // Clear existing filter params
+    filterData.categories.options.forEach(opt => params.delete(filterData.categories.id));
+    filterData.brands.options.forEach(opt => params.delete(filterData.brands.id));
+    params.delete('priceMin');
+    params.delete('priceMax');
+    
+    // Apply pending category and brand filters
+    Object.entries(pendingFilters).forEach(([filterType, values]) => {
+      values.forEach(value => params.append(filterType, value));
+    });
+    
+    // Apply current filters that don't have pending changes
+    Object.entries(currentFilters).forEach(([filterType, values]) => {
+      if (!pendingFilters[filterType] && filterType !== 'price') {
+        values.forEach(value => params.append(filterType, value));
+      }
+    });
+    
+    // Apply price range
+    params.set('priceMin', localPriceRange[0].toString());
+    params.set('priceMax', localPriceRange[1].toString());
     params.set('page', '1'); // Reset page
-    router.push(`${pathname}?${params.toString()}`);
-  }
+    
+    router.replace(`${pathname}?${params.toString()}`);
+    setPendingFilters({});
+    setHasPendingChanges(false);
+  };
 
   const handleClearFilters = () => {
      const params = new URLSearchParams();
      // Keep essential params like query or sort if needed, otherwise clear all
      if (searchParams.has('q')) params.set('q', searchParams.get('q')!);
      if (searchParams.has('sort')) params.set('sort', searchParams.get('sort')!);
+     if (searchParams.has('category')) params.set('category', searchParams.get('category')!);
      // Navigate to base path or path with minimal params
-     router.push(`${pathname}?${params.toString()}`);
+     router.replace(`${pathname}?${params.toString()}`);
+     setPendingFilters({});
+     setHasPendingChanges(false);
   }
+
+  const resetPendingFilters = () => {
+    setPendingFilters({});
+    setHasPendingChanges(false);
+    setLocalPriceRange([
+      parseInt(searchParams.get('priceMin') || '0'),
+      parseInt(searchParams.get('priceMax') || '1000')
+    ]);
+  }
+
+  // Get effective filter values (current + pending)
+  const getEffectiveFilters = (filterType: string) => {
+    return pendingFilters[filterType] || currentFilters[filterType] || [];
+  };
   
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -136,7 +188,7 @@ function ProductFiltersContent({
         <div key={option.id} className="flex items-center space-x-2">
           <Checkbox
             id={`${group.id}-${option.id}`}
-            checked={currentFilters[group.id]?.includes(option.id)}
+            checked={getEffectiveFilters(group.id).includes(option.id)}
             onCheckedChange={(checked) => {
               handleFilterChange(group.id, option.id, !!checked);
             }}
@@ -169,6 +221,30 @@ function ProductFiltersContent({
           Clear all
         </Button>
       </div>
+
+      {/* Apply/Reset Filter Buttons */}
+      {hasPendingChanges && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
+          <p className="text-sm text-gray-600 mb-3">You have unsaved filter changes</p>
+          <div className="flex gap-2">
+            <Button
+              onClick={applyFilters}
+              size="sm"
+              className="flex-1 bg-zervia-600 hover:bg-zervia-700 text-white"
+            >
+              Apply Filters
+            </Button>
+            <Button
+              onClick={resetPendingFilters}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      )}
       
       <Accordion type="multiple" defaultValue={["category", "price", "brand"]} className="w-full">
         {/* Categories */}
@@ -196,7 +272,6 @@ function ProductFiltersContent({
                 step={10} // Adjust step as needed
                 value={localPriceRange}
                 onValueChange={handlePriceChange}
-                onValueCommit={handlePriceChangeCommitted}
                 className="mb-4"
               />
               <div className="flex justify-between text-sm text-gray-700">

@@ -28,7 +28,7 @@ function ProductSortContent({}: ProductSortProps) {
     params.set('sort', value);
     // Reset page to 1 when sort changes
     params.set('page', '1'); 
-    router.push(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`);
   };
 
   return (

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Filter, Grid2X2, List, ArrowDown, ArrowUp, Star, Heart, ShoppingCart } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -22,7 +22,7 @@ import { PaginationControls } from './pagination-controls';
 import { ProductSort } from './product-sort';
 import { RecentlyViewedProducts } from './recently-viewed-products';
 import { getProducts } from '@/actions/products';
-import { ProductGrid } from './product-grid';
+import { ProductGrid, type Product } from './product-grid';
 import { getCategoryBySlug, getRootCategories } from '@/actions/content';
 import { getAllBrands } from '@/actions/brands';
 import type { Tables } from '../../types/supabase';
@@ -30,145 +30,161 @@ import { isInWishlist } from '@/actions/wishlist';
 
 type Category = Tables<'Category'>;
 
-interface ProductListingItem {
-  id: string;
-  name: string;
-  slug: string;
-  price: number;
-  comparePrice: number | null;
-  image: string;
-  rating: number;
-  reviews: number;
-  isNew: boolean;
-  vendor: string;
-  category: string;
-  inventory: number;
-  initialInWishlist?: boolean;
-}
-
-// Type for search params coming from the URL
-type SearchParams = {
-  category?: string;
-  sort?: string;
-  page?: string;
-  view?: 'grid' | 'list';
-  q?: string;
-  brand?: string | string[];
-  priceMin?: string;
-  priceMax?: string;
-  [key: string]: string | string[] | undefined;
-};
-
 interface ProductsListingClientProps {
-  searchParams?: SearchParams; // Made optional since we'll use useSearchParams
+ // Made optional since we'll use useSearchParams
 }
 
 const ProductsListingClient: React.FC<ProductsListingClientProps> = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   
-  // Extract search params from URL
-  const page = searchParams.get('page') || '1';
-  const sort = searchParams.get('sort') || 'featured';
-  const query = searchParams.get('q') || '';
-  const category = searchParams.get('category');
-  const brand = searchParams.get('brand');
-  const priceMin = searchParams.get('priceMin');
-  const priceMax = searchParams.get('priceMax');
-
   // State management
-  const [products, setProducts] = useState<ProductListingItem[]>([]);
-  const [count, setCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const [allProducts, setAllProducts] = useState<Product[]>([]); // Store all products
   const [categoryDetails, setCategoryDetails] = useState<any>(null);
   const [rootCategories, setRootCategories] = useState<Category[]>([]);
   const [allBrandsData, setAllBrandsData] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true); // Only for initial data fetch
   const [error, setError] = useState<string | null>(null);
 
-  // Parse values
-  const currentPage = parseInt(page, 10);
-  const currentSort = sort;
-  const currentQuery = query;
-  const categorySlug = category;
-  const brandParams = brand;
-  const priceMinValue = priceMin ? parseInt(priceMin, 10) : undefined;
-  const priceMaxValue = priceMax ? parseInt(priceMax, 10) : undefined;
-  const itemsPerPage = 12;
+  // Create filters from URL params
+  const filters = useMemo(() => {
+    const category = searchParams.get('category');
+    const query = searchParams.get('q') || '';
+    const brands = searchParams.getAll('brand').map(brand => decodeURIComponent(brand)); // Decode URL-encoded brands
+    const priceMin = searchParams.get('priceMin');
+    const priceMax = searchParams.get('priceMax');
+    const sort = searchParams.get('sort') || 'newest';
+    const page = parseInt(searchParams.get('page') || '1', 10);
 
-  // Fetch data on component mount and when search params change
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
 
-        // Fetch category details, root categories, and brands
-        const [categoryRes, rootCategoriesRes, brandsRes] = await Promise.all([
-          categorySlug ? getCategoryBySlug(categorySlug) : Promise.resolve(null),
-          getRootCategories(),
-          getAllBrands()
-        ]);
-
-console.log("Category Details:", categoryRes);
-        setCategoryDetails(categoryRes);
-        setRootCategories(rootCategoriesRes);
-        setAllBrandsData(brandsRes);
-
-        // Build filters for getProducts action
-        const filtersForAction: Record<string, any> = {};
-        if (brandParams) {
-          filtersForAction.brands = Array.isArray(brandParams) ? brandParams : [brandParams];
-        }
-        if (priceMinValue !== undefined) filtersForAction.priceMin = priceMinValue;
-        if (priceMaxValue !== undefined) filtersForAction.priceMax = priceMaxValue;
-
-        // Fetch products
-        const { products: rawProducts, count: productCount, totalPages: pages } = await getProducts({
-          categorySlug: categorySlug,
-          query: currentQuery,
-          sortBy: currentSort,
-          page: currentPage,
-          limit: itemsPerPage,
-          filters: filtersForAction
-        });
-
-        // Augment products with wishlist status
-        const productsWithWishlistStatus = await Promise.all(
-          rawProducts.map(async (product: any) => {
-            try {
-              const { inWishlist } = await isInWishlist(product.id);
-              return { ...product, initialInWishlist: inWishlist };
-            } catch (err) {
-              // If wishlist check fails, just return product without wishlist status
-              return { ...product, initialInWishlist: false };
-            }
-          })
-        );
-
-console.log("Products with Wishlist:", productsWithWishlistStatus);
-        setProducts(productsWithWishlistStatus);
-        setCount(productCount);
-        setTotalPages(pages);
-
-      } catch (err) {
-        console.error("Failed to fetch products data:", err);
-console.error("Error fetching products:", err);
-        setError("Could not load products. Please try again later.");
-        setProducts([]);
-        setCount(0);
-        setTotalPages(0);
-      } finally {
-console.log("Loading Finished");
-      setIsLoading(false);
-      }
+    return {
+      category,
+      query,
+      brands,
+      priceMin: priceMin ? parseInt(priceMin, 10) : undefined,
+      priceMax: priceMax ? parseInt(priceMax, 10) : undefined,
+      sort,
+      page
     };
+  }, [searchParams]);
 
-    fetchData();
-  }, [categorySlug, currentQuery, currentSort, currentPage, brandParams, priceMinValue, priceMaxValue]);
+  // Filter and sort products locally
+  const filteredProducts = useMemo(() => {
+    let filtered = [...allProducts];
+
+    // Apply query filter
+    if (filters.query) {
+      const queryLower = filters.query.toLowerCase();
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(queryLower)
+      );
+    }
+
+    // Apply brand filter with proper URL decoding and case-insensitive matching
+    if (filters.brands && filters.brands.length > 0) {
+      filtered = filtered.filter(product => {
+        const productVendor = product.vendor;
+        return filters.brands.some(filterBrand => 
+          productVendor.toLowerCase().trim() === filterBrand.toLowerCase().trim()
+        );
+      });
+    }
+
+    // Apply price filters
+    if (filters.priceMin !== undefined) {
+      filtered = filtered.filter(product => product.price >= filters.priceMin!);
+    }
+    if (filters.priceMax !== undefined) {
+      filtered = filtered.filter(product => product.price <= filters.priceMax!);
+    }
+
+    // Apply sorting
+    switch (filters.sort) {
+      case 'price-asc':
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-desc':
+        filtered.sort((a, b) => b.price - a.price);
+        break;
+      case 'newest':
+      default:
+        // Assuming we have some way to determine newest, for now keep original order
+        break;
+    }
+
+    return filtered;
+  }, [allProducts, filters]);
+
+  // Pagination
+  const itemsPerPage = 12;
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const startIndex = (filters.page - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Fetch initial data once (without filters except category/query)
+  const fetchInitialData = useCallback(async () => {
+    try {
+      setIsInitialLoading(true);
+      setError(null);
+
+      const category = searchParams.get('category');
+      const query = searchParams.get('q') || '';
+
+      // Fetch category details, root categories, and brands
+      const [categoryRes, rootCategoriesRes, brandsRes] = await Promise.all([
+        category ? getCategoryBySlug(category) : Promise.resolve(null),
+        getRootCategories(),
+        getAllBrands()
+      ]);
+
+      setCategoryDetails(categoryRes);
+      setRootCategories(rootCategoriesRes);
+      setAllBrandsData(brandsRes);
+
+      // Fetch ALL products for the current category/query (no brand/price filters)
+      const { products: rawProducts } = await getProducts({
+        categorySlug: category || undefined,
+        query: query,
+        sortBy: 'newest',
+        page: 1,
+        limit: 1000, // Fetch a large number to get all products
+        filters: {} // No filters initially
+      });
+
+      // Map database products to ProductGrid format
+      const productsWithWishlistStatus: Product[] = rawProducts.map((product: any) => ({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        price: product.price,
+        image: product.image || '/placeholder-product.jpg',
+        rating: 4.5,
+        reviews: product.reviews || 0,
+        vendor: product.vendor || 'Unknown', // Use the already processed vendor field
+        isNew: false,
+        initialInWishlist: false,
+        inventory: product.inventory || 0
+      }));
+
+      setAllProducts(productsWithWishlistStatus);
+
+    } catch (err) {
+      console.error("Failed to fetch products data:", err);
+      setError("Failed to load products. Please try again.");
+    } finally {
+      setIsInitialLoading(false);
+    }
+  }, [searchParams.get('category'), searchParams.get('q')]);
+
+  // Fetch data when category or search query changes
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   // Set up filter data
-  const filterData = {
+  const filterData = useMemo(() => ({
     categories: {
       id: 'category',
       name: 'Categories',
@@ -179,20 +195,25 @@ console.log("Loading Finished");
       name: 'Brands',
       options: allBrandsData.map((b: string) => ({ id: b, label: b }))
     }
-  };
+  }), [rootCategories, allBrandsData]);
 
   // Build breadcrumbs
-  const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'Products', href: '/products' }
-  ];
-  if (categoryDetails) {
-    breadcrumbItems.push({ label: categoryDetails.name, href: `/products?category=${categoryDetails.slug}` });
-  } else if (currentQuery) {
-    breadcrumbItems.push({ label: `Search results for "${currentQuery}"`, href: `/products?q=${currentQuery}` });
-  }
+  const breadcrumbItems = useMemo(() => {
+    const items = [
+      { label: 'Home', href: '/' },
+      { label: 'Products', href: '/products' }
+    ];
+    
+    if (categoryDetails) {
+      items.push({ label: categoryDetails.name, href: `/products?category=${categoryDetails.slug}` });
+    } else if (filters.query) {
+      items.push({ label: `Search results for "${filters.query}"`, href: `/products?q=${filters.query}` });
+    }
+    
+    return items;
+  }, [categoryDetails, filters.query]);
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="bg-zervia-50 min-h-screen">
         <div className="container mx-auto px-4 py-8">
@@ -237,10 +258,10 @@ console.log("Loading Finished");
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-zervia-900 mb-1">
-              {categoryDetails ? categoryDetails.name : (currentQuery ? 'Search Results' : 'All Products')}
+              {categoryDetails ? categoryDetails.name : (filters.query ? 'Search Results' : 'All Products')}
             </h1>
             <p className="text-zervia-600">
-              Showing {products.length} of {count} {count === 1 ? 'product' : 'products'} {currentQuery ? `for "${currentQuery}"` : ''}
+              Showing {paginatedProducts.length} of {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} {filters.query ? `for "${filters.query}"` : ''}
             </p>
           </div>
           <MobileFilters filterData={filterData} />
@@ -257,13 +278,13 @@ console.log("Loading Finished");
               <span> {/* Placeholder */} </span>
             </div>
 
-            {products.length > 0 ? (
+            {paginatedProducts.length > 0 ? (
               <>
-                <ProductGrid products={products} />
+                <ProductGrid products={paginatedProducts} />
                 
                 {totalPages > 1 && (
                   <PaginationControls 
-                    currentPage={currentPage} 
+                    currentPage={filters.page} 
                     totalPages={totalPages}
                   />
                 )}
@@ -271,8 +292,8 @@ console.log("Loading Finished");
             ) : (
               <EmptyState 
                 title="No Products Found"
-                description={currentQuery 
-                  ? `We couldn't find any products matching "${currentQuery}". Try adjusting your search or filters.`
+                description={filters.query 
+                  ? `We couldn't find any products matching "${filters.query}". Try adjusting your search or filters.`
                   : "Try adjusting your filters or check back later."
                 }
               />
