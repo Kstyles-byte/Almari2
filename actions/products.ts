@@ -472,7 +472,7 @@ export async function getProducts({
         id, name, slug, description, price, compare_at_price, inventory, is_published, created_at, updated_at,
         ProductImage(*),
         Category!inner(*),
-        Vendor(id, store_name),
+        ${filters.brands && filters.brands.length > 0 ? 'Vendor!inner(id, store_name)' : 'Vendor(id, store_name)'},
         Review(*)
       `)
       .eq('is_published', true)

@@ -69,62 +69,16 @@ const ProductsListingClient: React.FC<ProductsListingClientProps> = () => {
     };
   }, [searchParams]);
 
-  // Filter and sort products locally
-  const filteredProducts = useMemo(() => {
-    let filtered = [...allProducts];
-
-    // Apply query filter
-    if (filters.query) {
-      const queryLower = filters.query.toLowerCase();
-      filtered = filtered.filter(product => 
-        product.name.toLowerCase().includes(queryLower)
-      );
-    }
-
-    // Apply brand filter with proper URL decoding and case-insensitive matching
-    if (filters.brands && filters.brands.length > 0) {
-      filtered = filtered.filter(product => {
-        const productVendor = product.vendor;
-        return filters.brands.some(filterBrand => 
-          productVendor.toLowerCase().trim() === filterBrand.toLowerCase().trim()
-        );
-      });
-    }
-
-    // Apply price filters
-    if (filters.priceMin !== undefined) {
-      filtered = filtered.filter(product => product.price >= filters.priceMin!);
-    }
-    if (filters.priceMax !== undefined) {
-      filtered = filtered.filter(product => product.price <= filters.priceMax!);
-    }
-
-    // Apply sorting
-    switch (filters.sort) {
-      case 'price-asc':
-        filtered.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-desc':
-        filtered.sort((a, b) => b.price - a.price);
-        break;
-      case 'newest':
-      default:
-        // Assuming we have some way to determine newest, for now keep original order
-        break;
-    }
-
-    return filtered;
-  }, [allProducts, filters]);
-
-  // Pagination
+  // Products are already filtered and sorted from server
+  // Just apply pagination for display
   const itemsPerPage = 12;
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const totalPages = Math.ceil(allProducts.length / itemsPerPage);
   const startIndex = (filters.page - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+  const paginatedProducts = allProducts.slice(startIndex, endIndex);
 
-  // Fetch initial data once (without filters except category/query)
-  const fetchInitialData = useCallback(async () => {
+  // Fetch filtered data from server
+  const fetchFilteredData = useCallback(async () => {
     try {
       setIsInitialLoading(true);
       setError(null);
@@ -132,7 +86,7 @@ const ProductsListingClient: React.FC<ProductsListingClientProps> = () => {
       const category = searchParams.get('category');
       const query = searchParams.get('q') || '';
 
-      // Fetch category details, root categories, and brands
+      // Fetch category details, root categories, and brands once
       const [categoryRes, rootCategoriesRes, brandsRes] = await Promise.all([
         category ? getCategoryBySlug(category) : Promise.resolve(null),
         getRootCategories(),
@@ -143,14 +97,18 @@ const ProductsListingClient: React.FC<ProductsListingClientProps> = () => {
       setRootCategories(rootCategoriesRes);
       setAllBrandsData(brandsRes);
 
-      // Fetch ALL products for the current category/query (no brand/price filters)
+      // Fetch products with current filters applied on server
       const { products: rawProducts } = await getProducts({
         categorySlug: category || undefined,
         query: query,
-        sortBy: 'newest',
+        sortBy: filters.sort,
         page: 1,
-        limit: 1000, // Fetch a large number to get all products
-        filters: {} // No filters initially
+        limit: 1000,
+        filters: {
+          brands: filters.brands.length > 0 ? filters.brands : undefined,
+          priceMin: filters.priceMin,
+          priceMax: filters.priceMax
+        }
       });
 
       // Map database products to ProductGrid format
@@ -162,7 +120,7 @@ const ProductsListingClient: React.FC<ProductsListingClientProps> = () => {
         image: product.image || '/placeholder-product.jpg',
         rating: 4.5,
         reviews: product.reviews || 0,
-        vendor: product.vendor || 'Unknown', // Use the already processed vendor field
+        vendor: product.vendor || 'No Vendor', // Improved fallback text for products without vendors
         isNew: false,
         initialInWishlist: false,
         inventory: product.inventory || 0
@@ -176,12 +134,12 @@ const ProductsListingClient: React.FC<ProductsListingClientProps> = () => {
     } finally {
       setIsInitialLoading(false);
     }
-  }, [searchParams.get('category'), searchParams.get('q')]);
+  }, [filters]);
 
-  // Fetch data when category or search query changes
+  // Fetch data when filters change
   useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+    fetchFilteredData();
+  }, [fetchFilteredData]);
 
   // Set up filter data
   const filterData = useMemo(() => ({
@@ -261,7 +219,7 @@ const ProductsListingClient: React.FC<ProductsListingClientProps> = () => {
               {categoryDetails ? categoryDetails.name : (filters.query ? 'Search Results' : 'All Products')}
             </h1>
             <p className="text-zervia-600">
-              Showing {paginatedProducts.length} of {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} {filters.query ? `for "${filters.query}"` : ''}
+              Showing {paginatedProducts.length} of {allProducts.length} {allProducts.length === 1 ? 'product' : 'products'} {filters.query ? `for "${filters.query}"` : ''}
             </p>
           </div>
           <MobileFilters filterData={filterData} />

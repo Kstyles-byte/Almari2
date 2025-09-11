@@ -51,7 +51,7 @@ function ProductFiltersContent({
     const filters: Record<string, string[]> = {
       [filterData.categories.id]: [],
       [filterData.brands.id]: [],
-      price: ['0', '1000']
+      price: ['0', '500000']
     };
     
     filterData.categories.options.forEach(opt => {
@@ -69,14 +69,14 @@ function ProductFiltersContent({
     // Price range - get min/max from URL
     filters.price = [
         searchParams.get('priceMin') || '0',
-        searchParams.get('priceMax') || '1000' // Default max, fetch dynamically later
+        searchParams.get('priceMax') || '500000' // Default max, fetch dynamically later
     ];
     
     return filters;
   }, [searchParams, filterData]);
 
   const [localPriceRange, setLocalPriceRange] = React.useState<[number, number]>(
-     [parseInt(currentFilters.price?.[0] || '0'), parseInt(currentFilters.price?.[1] || '1000')] 
+     [parseInt(currentFilters.price?.[0] || '0'), parseInt(currentFilters.price?.[1] || '500000')] 
   );
 
   // Local state for pending filters (not yet applied)
@@ -87,7 +87,7 @@ function ProductFiltersContent({
      // Update local price range if URL changes externally
      setLocalPriceRange([
        parseInt(searchParams.get('priceMin') || '0'),
-       parseInt(searchParams.get('priceMax') || '1000')
+       parseInt(searchParams.get('priceMax') || '500000')
      ]);
      // Reset pending filters when URL changes externally
      setPendingFilters({});
@@ -97,13 +97,15 @@ function ProductFiltersContent({
   const handleFilterChange = (filterType: string, optionId: string, checked: boolean) => {
     // Store changes in local state instead of immediately applying
     setPendingFilters(prev => {
-      const current = prev[filterType] || [...(currentFilters[filterType] || [])];
+      // Get the effective current state (either pending or current filters)
+      const effectiveFilters = prev[filterType] !== undefined ? prev[filterType] : [...(currentFilters[filterType] || [])];
+      
       let updated;
       
       if (checked) {
-        updated = current.includes(optionId) ? current : [...current, optionId];
+        updated = effectiveFilters.includes(optionId) ? effectiveFilters : [...effectiveFilters, optionId];
       } else {
-        updated = current.filter(val => val !== optionId);
+        updated = effectiveFilters.filter(val => val !== optionId);
       }
       
       const newPending = { ...prev, [filterType]: updated };
@@ -169,7 +171,7 @@ function ProductFiltersContent({
     setHasPendingChanges(false);
     setLocalPriceRange([
       parseInt(searchParams.get('priceMin') || '0'),
-      parseInt(searchParams.get('priceMax') || '1000')
+      parseInt(searchParams.get('priceMax') || '500000')
     ]);
   }
 
@@ -211,7 +213,7 @@ function ProductFiltersContent({
   
   // TODO: Fetch actual min/max price from data later
   const overallMinPrice = 0;
-  const overallMaxPrice = 1000; // Placeholder max price
+  const overallMaxPrice = 500000; // Placeholder max price
 
   return (
     <div className={className}>
