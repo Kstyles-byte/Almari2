@@ -5,10 +5,12 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start",
+    "start": "node server.js",
+    "start:next": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "vercel-build": "prisma generate && next build",
+    "cpanel-build": "next build",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:seed-sql": "npx tsx prisma/seed-export.ts",
     "db:schema-sql": "npx tsx prisma/export-schema.ts",

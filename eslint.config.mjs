@@ -12,6 +12,17 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
+    // Allow CommonJS require() in JavaScript files (like server.js, next.config.js)
+    files: ["**/*.js"],
+    rules: {
+      "@typescript-eslint/no-var-requires": "off",
+      "import/no-commonjs": "off",
+      "@typescript-eslint/no-require-imports": "off",
+      "import/order": "off",
+      "no-undef": "off",
+    },
+  },
+  {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       // Avoid type-aware lint noise by not requiring project program

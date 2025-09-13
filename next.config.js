@@ -11,6 +11,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  
+  // Configuration optimized for Node.js deployment on cPanel
+  // All server features (API routes, server actions, etc.) are preserved
+  
   // Don't attempt to statically optimize the checkout page and related routes
   // This ensures these pages are rendered dynamically at request time
   // Remove deprecated options; Next.js 15 no longer supports these keys
