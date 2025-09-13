@@ -360,22 +360,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </div>
           </div>
           
-          {/* Order timeline/history */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-900">Order Notes</h3>
-            </div>
-            <div className="p-6">
-              <textarea 
-                className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-zervia-500 focus:border-zervia-500 text-sm"
-                rows={4}
-                placeholder="Add a note about this order (only visible to you)"
-              ></textarea>
-              <button className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-zervia-600 hover:bg-zervia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zervia-500">
-                Save Note
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

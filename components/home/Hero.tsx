@@ -78,7 +78,7 @@ const Hero = async () => {
                 <span className="text-zervia-200 text-sm">Products</span>
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-2xl text-white">10+</span>
+                <span className="font-bold text-2xl text-white">2</span>
                 <span className="text-zervia-200 text-sm">Pickup Locations</span>
               </div>
             </div>

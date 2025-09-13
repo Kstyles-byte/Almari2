@@ -54,7 +54,7 @@ type CheckoutFormData = {
 };
 
 // Checkout steps
-const CHECKOUT_STEPS = ['Information', 'Pickup Location', 'Payment'];
+const CHECKOUT_STEPS = ['Information', 'Pickup/Delivery Location', 'Payment'];
 
 // Props for the client component
 type CheckoutClientProps = {

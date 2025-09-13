@@ -113,7 +113,7 @@ const Header = () => {
               Accessories
             </Link>
             <Link 
-              href="/category/home" 
+              href="/" 
               className={`relative text-sm font-medium ${
                 (isHomePage && !isScrolled) ? "text-white" : "text-zervia-900"
               } hover:text-zervia-500 transition-colors`}
@@ -249,7 +249,7 @@ const Header = () => {
               Accessories
             </Link>
             <Link 
-              href="/category/home" 
+              href="/" 
               className="text-xl font-medium text-zervia-900 py-2 border-b border-zervia-100"
               onClick={() => setMobileMenuOpen(false)}
             >
