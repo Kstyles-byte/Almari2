@@ -1,29 +1,48 @@
 ---
 deployment:
   tasks:
-    # Log deployment start
-    - echo "Starting cPanel deployment for Next.js Node.js app..."
+    # Set the deployment path to your Node.js application directory
+    # Update this path to match where you set up your Node.js app in cPanel
+    - export DEPLOYPATH=/home/imsfrkmv/Almari2
     
-    # Set environment to production
-    - export NODE_ENV=production
+    # Create the deployment directory if it doesn't exist
+    - mkdir -p $DEPLOYPATH
     
-    # Install dependencies (including devDependencies for build)
-    - npm ci
+    # Copy application files (excluding build artifacts and dependencies)
+    - echo "Copying application files to Node.js app directory..."
+    - /bin/cp -R app $DEPLOYPATH/ 2>/dev/null || echo "app directory not found"
+    - /bin/cp -R components $DEPLOYPATH/ 2>/dev/null || echo "components directory not found"
+    - /bin/cp -R lib $DEPLOYPATH/ 2>/dev/null || echo "lib directory not found"
+    - /bin/cp -R public $DEPLOYPATH/ 2>/dev/null || echo "public directory not found"
+    - /bin/cp -R types $DEPLOYPATH/ 2>/dev/null || echo "types directory not found"
+    - /bin/cp -R actions $DEPLOYPATH/ 2>/dev/null || echo "actions directory not found"
+    - /bin/cp -R contexts $DEPLOYPATH/ 2>/dev/null || echo "contexts directory not found"
+    - /bin/cp -R hooks $DEPLOYPATH/ 2>/dev/null || echo "hooks directory not found"
+    - /bin/cp -R providers $DEPLOYPATH/ 2>/dev/null || echo "providers directory not found"
+    - /bin/cp -R scripts $DEPLOYPATH/ 2>/dev/null || echo "scripts directory not found"
+    - /bin/cp -R supabase $DEPLOYPATH/ 2>/dev/null || echo "supabase directory not found"
+    - /bin/cp -R prisma $DEPLOYPATH/ 2>/dev/null || echo "prisma directory not found"
     
-    # Build the Next.js application
-    - echo "Building Next.js application..."
-    - npm run build
-    
-    # Clean up devDependencies to save space (optional)
-    - npm prune --production
+    # Copy configuration files
+    - /bin/cp package.json $DEPLOYPATH/ 2>/dev/null || echo "package.json not found"
+    - /bin/cp package-lock.json $DEPLOYPATH/ 2>/dev/null || echo "package-lock.json not found"  
+    - /bin/cp server.js $DEPLOYPATH/ 2>/dev/null || echo "server.js not found"
+    - /bin/cp next.config.js $DEPLOYPATH/ 2>/dev/null || echo "next.config.js not found"
+    - /bin/cp next.config.ts $DEPLOYPATH/ 2>/dev/null || echo "next.config.ts not found"
+    - /bin/cp tailwind.config.js $DEPLOYPATH/ 2>/dev/null || echo "tailwind.config.js not found"
+    - /bin/cp tsconfig.json $DEPLOYPATH/ 2>/dev/null || echo "tsconfig.json not found"
+    - /bin/cp postcss.config.js $DEPLOYPATH/ 2>/dev/null || echo "postcss.config.js not found"
+    - /bin/cp postcss.config.mjs $DEPLOYPATH/ 2>/dev/null || echo "postcss.config.mjs not found"
+    - /bin/cp auth.ts $DEPLOYPATH/ 2>/dev/null || echo "auth.ts not found"
+    - /bin/cp middleware.ts $DEPLOYPATH/ 2>/dev/null || echo "middleware.ts not found"
+    - /bin/cp .eslintrc.json $DEPLOYPATH/ 2>/dev/null || echo ".eslintrc.json not found"
+    - /bin/cp eslint.config.mjs $DEPLOYPATH/ 2>/dev/null || echo "eslint.config.mjs not found"
     
     # Set proper file permissions
-    - find . -type f -name "*.js" -exec chmod 644 {} \;
-    - find . -type f -name "*.json" -exec chmod 644 {} \;
-    - find . -type d -exec chmod 755 {} \;
+    - find $DEPLOYPATH -type f -exec chmod 644 {} \;
+    - find $DEPLOYPATH -type d -exec chmod 755 {} \;
     
-    # Log completion
-    - echo "Deployment completed. Application ready to start."
+    - echo "Files deployed successfully. Run 'npm install' and 'npm run build' in Node.js App interface."
 
 # Exclude files/folders from deployment
 exclude:
