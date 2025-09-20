@@ -44,16 +44,25 @@ class PushNotificationService {
   private vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   private isSupported = false;
   private registration: ServiceWorkerRegistration | null = null;
-  private browserInfo = this.detectBrowser();
+  private browserInfo: any = { name: 'unknown', needsUserInteraction: true, supportsVapid: true };
 
   constructor() {
-    this.checkSupport();
+    // Only initialize browser-specific features on the client side
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
+      this.browserInfo = this.detectBrowser();
+      this.checkSupport();
+    }
   }
 
   /**
    * Detect browser type for specific handling
    */
   private detectBrowser() {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return { name: 'unknown', needsUserInteraction: true, supportsVapid: true };
+    }
+
     const userAgent = navigator.userAgent.toLowerCase();
     
     // Check for Brave browser using multiple methods
@@ -116,6 +125,12 @@ class PushNotificationService {
    * Check if push notifications are supported
    */
   private checkSupport(): boolean {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      this.isSupported = false;
+      return false;
+    }
+
     const basicSupport = 
       'serviceWorker' in navigator &&
       'PushManager' in window &&
@@ -178,7 +193,7 @@ class PushNotificationService {
    * Get current permission status
    */
   getPermissionStatus(): NotificationPermission {
-    if (!this.isSupported) return 'denied';
+    if (!this.isSupported || typeof window === 'undefined') return 'denied';
     return Notification.permission;
   }
 
@@ -193,8 +208,8 @@ class PushNotificationService {
    * Request notification permission with browser-specific handling
    */
   async requestPermission(): Promise<NotificationPermission> {
-    if (!this.isSupported) {
-      console.warn('[PushNotificationService] Push notifications not supported');
+    if (!this.isSupported || typeof window === 'undefined' || typeof navigator === 'undefined') {
+      console.warn('[PushNotificationService] Push notifications not supported or not in browser environment');
       return 'denied';
     }
 
@@ -228,8 +243,8 @@ class PushNotificationService {
    * Register service worker
    */
   async registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-    if (!this.isSupported) {
-      console.warn('[PushNotificationService] Service workers not supported');
+    if (!this.isSupported || typeof window === 'undefined' || typeof navigator === 'undefined') {
+      console.warn('[PushNotificationService] Service workers not supported or not in browser environment');
       return null;
     }
 
@@ -365,6 +380,10 @@ class PushNotificationService {
    * Get current subscription
    */
   async getSubscription(): Promise<PushSubscription | null> {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return null;
+    }
+
     try {
       if (!this.registration) {
         this.registration = (await navigator.serviceWorker.getRegistration('/')) || null;
@@ -431,7 +450,7 @@ class PushNotificationService {
    * Setup message listener for service worker communication
    */
   setupMessageListener(): void {
-    if (!('serviceWorker' in navigator)) return;
+    if (typeof window === 'undefined' || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
 
     navigator.serviceWorker.addEventListener('message', (event) => {
       console.log('[PushNotificationService] Message from service worker:', event.data);
