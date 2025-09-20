@@ -329,10 +329,14 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
   }
 }
 
-// Define Zod schema for input validation
+// Define Zod schema for input validation - compatible with cPanel Node.js environment
 const HeroImageUpdateSchema = z.object({
   bannerId: z.string().uuid('Invalid Banner ID format.'),
-  imageFile: z.instanceof(File).refine((file) => file.size > 0, 'Image file is required.').refine((file) => file.size <= 5 * 1024 * 1024, 'Image must be 5MB or less.').refine((file) => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type), 'Invalid image format (JPEG, PNG, WEBP, GIF allowed).'),
+  imageFile: z.any()
+    .refine((file) => file && typeof file === 'object' && 'size' in file && 'type' in file, 'Invalid file object.')
+    .refine((file) => file.size > 0, 'Image file is required.')
+    .refine((file) => file.size <= 5 * 1024 * 1024, 'Image must be 5MB or less.')
+    .refine((file) => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type), 'Invalid image format (JPEG, PNG, WEBP, GIF allowed).'),
   currentPublicId: z.string().optional().nullable(), // Public ID of the image being replaced
 });
 
