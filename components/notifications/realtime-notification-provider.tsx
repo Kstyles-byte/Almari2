@@ -21,6 +21,9 @@ export function RealtimeNotificationProvider({
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
+    // Only run on client-side
+    if (typeof window === 'undefined') return;
+    
     initializeUser();
     if (enablePush) {
       initializePushNotifications();
@@ -29,6 +32,9 @@ export function RealtimeNotificationProvider({
 
   // Auto-request push permissions for new users
   useEffect(() => {
+    // Only run on client-side
+    if (typeof window === 'undefined') return;
+    
     if (userId && enablePush) {
       console.log('[RealtimeNotificationProvider] 🚀 Triggering auto-subscription check for user:', userId);
       // Add a small delay to ensure service worker is ready
@@ -103,6 +109,12 @@ export function RealtimeNotificationProvider({
   };
 
   const initializePushNotifications = () => {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      console.warn('[RealtimeNotificationProvider] Not in browser environment, skipping push initialization');
+      return;
+    }
+
     // Setup service worker and message listeners
     pushNotificationService.setupMessageListener();
     
