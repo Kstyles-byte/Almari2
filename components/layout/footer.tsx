@@ -64,28 +64,28 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">Help & Support</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/faq" className="text-zervia-200 hover:text-white transition-colors">
-                  FAQs
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="text-zervia-200 hover:text-white transition-colors">
-                  Terms & Conditions
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy" className="text-zervia-200 hover:text-white transition-colors">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/returns" className="text-zervia-200 hover:text-white transition-colors">
-                  Return Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/help" className="text-zervia-200 hover:text-white transition-colors">
+                <Link href="/help-center" className="text-zervia-200 hover:text-white transition-colors">
                   Help Center
+                </Link>
+              </li>
+              <li>
+                <Link href="/faq/customers" className="text-zervia-200 hover:text-white transition-colors">
+                  Customer FAQ
+                </Link>
+              </li>
+              <li>
+                <Link href="/faq/vendors" className="text-zervia-200 hover:text-white transition-colors">
+                  Vendor FAQ
+                </Link>
+              </li>
+              <li>
+                <Link href="/refund-policy" className="text-zervia-200 hover:text-white transition-colors">
+                  Refund & Dispute Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/delivery-policy" className="text-zervia-200 hover:text-white transition-colors">
+                  Delivery & Return Policy
                 </Link>
               </li>
             </ul>
@@ -118,15 +118,15 @@ const Footer = () => {
               &copy; {new Date().getFullYear()} Zervia. All rights reserved.
             </p>
             <div className="flex space-x-4 mt-4 md:mt-0">
-              <a href="#" className="text-zervia-300 hover:text-white text-sm">
+              <Link href="/privacy" className="text-zervia-300 hover:text-white text-sm">
                 Privacy Policy
-              </a>
-              <a href="#" className="text-zervia-300 hover:text-white text-sm">
-                Terms of Service
-              </a>
-              <a href="#" className="text-zervia-300 hover:text-white text-sm">
-                Cookies
-              </a>
+              </Link>
+              <Link href="/terms" className="text-zervia-300 hover:text-white text-sm">
+                Terms & Conditions
+              </Link>
+              <Link href="/help-center" className="text-zervia-300 hover:text-white text-sm">
+                Support
+              </Link>
             </div>
           </div>
         </div>
