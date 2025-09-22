@@ -225,7 +225,7 @@ export default function TermsPage() {
                   </p>
                   <div className="space-y-2 text-gray-700">
                     <p>Email: <a href="mailto:support@zervia.ng" className="text-blue-600 hover:text-blue-800">support@zervia.ng</a></p>
-                    <p>Business Registration: BN: 8723748 (Corporate Affairs Commission)</p>
+                    {/* <p>Business Registration: BN: 8723748 (Corporate Affairs Commission)</p> */}
                   </div>
                 </div>
               </section>

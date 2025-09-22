@@ -80,7 +80,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link href="/refund-policy" className="text-zervia-200 hover:text-white transition-colors">
-                  Refund & Dispute Policy
+                  Refund & Dispute Resolution Policy
                 </Link>
               </li>
               <li>
