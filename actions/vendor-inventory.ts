@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "../auth";
-import prisma from "../lib/server/prisma";
+import { createServerActionClient } from '../lib/supabase/server';
 
 export async function UpdateInventory(formData: FormData) {
   const session = await auth();
@@ -19,47 +19,55 @@ export async function UpdateInventory(formData: FormData) {
   }
 
   try {
+    const supabase = await createServerActionClient();
+
     // Verify product belongs to this vendor
-    const product = await prisma.product.findUnique({
-      where: {
-        id: productId,
-      },
-      select: {
-        vendorId: true,
-      },
-    });
+    const { data: product, error: productError } = await supabase
+      .from('Product')
+      .select('vendor_id, inventory')
+      .eq('id', productId)
+      .single();
 
-    const vendor = await prisma.vendor.findUnique({
-      where: {
-        userId: session.user.id,
-      },
-    });
+    if (productError || !product) {
+      return { error: "Product not found" };
+    }
 
-    if (!product || !vendor || product.vendorId !== vendor.id) {
+    const { data: vendor, error: vendorError } = await supabase
+      .from('Vendor')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .single();
+
+    if (vendorError || !vendor || product.vendor_id !== vendor.id) {
       return { error: "Product not found or not authorized" };
     }
 
     // Update the product inventory
-    await prisma.product.update({
-      where: {
-        id: productId,
-      },
-      data: {
-        inventory,
-      },
-    });
+    const { error: updateError } = await supabase
+      .from('Product')
+      .update({ inventory })
+      .eq('id', productId);
 
-    // Create an inventory transaction record
-    await prisma.inventoryTransaction.create({
-      data: {
-        productId,
-        previousQuantity: product.inventory || 0,
-        newQuantity: inventory,
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Create an inventory transaction record (if you have this table in Supabase)
+    const { error: transactionError } = await supabase
+      .from('InventoryTransaction')
+      .insert({
+        product_id: productId,
+        previous_quantity: product.inventory || 0,
+        new_quantity: inventory,
         type: "MANUAL_ADJUSTMENT",
-        userId: session.user.id,
+        user_id: session.user.id,
         note: "Manual inventory update",
-      },
-    });
+      });
+
+    if (transactionError) {
+      console.error("Failed to create inventory transaction:", transactionError);
+      // Don't fail the whole operation if transaction logging fails
+    }
 
     revalidatePath("/vendor/inventory");
     return { success: true };

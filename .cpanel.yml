@@ -21,7 +21,6 @@ deployment:
     - /bin/cp -R providers $DEPLOYPATH/ 2>/dev/null || echo "providers directory not found"
     - /bin/cp -R scripts $DEPLOYPATH/ 2>/dev/null || echo "scripts directory not found"
     - /bin/cp -R supabase $DEPLOYPATH/ 2>/dev/null || echo "supabase directory not found"
-    - /bin/cp -R prisma $DEPLOYPATH/ 2>/dev/null || echo "prisma directory not found"
     
     # Copy configuration files
     - /bin/cp package.json $DEPLOYPATH/ 2>/dev/null || echo "package.json not found"
@@ -38,6 +37,7 @@ deployment:
     - /bin/cp .eslintrc.json $DEPLOYPATH/ 2>/dev/null || echo ".eslintrc.json not found"
     - /bin/cp eslint.config.mjs $DEPLOYPATH/ 2>/dev/null || echo "eslint.config.mjs not found"
     
+    
     # Set proper file permissions
     - find $DEPLOYPATH -type f -exec chmod 644 {} \;
     - find $DEPLOYPATH -type d -exec chmod 755 {} \;
@@ -49,6 +49,7 @@ exclude:
   - node_modules
   - .git
   - .next
+  - prisma
   - .env.local
   - .env.development
   - .env.test

@@ -2,7 +2,6 @@
 
 import { signIn, signOut } from "../auth";
 import { AuthError } from "next-auth";
-import prisma from "../lib/server/prisma";
 import { hashPassword } from "../lib/server/password";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -87,59 +86,11 @@ export async function login(formData: FormData) {
   }
 }
 
-/**
- * Sign up a new user
- */
+// NOTE: This function has been replaced by signUpWithSupabase()
+// Keeping for reference but it's no longer used
 export async function register(formData: FormData) {
-  const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  
-  // Validate form data
-  const validatedFields = SignUpSchema.safeParse({ name, email, password });
-  
-  if (!validatedFields.success) {
-    return {
-      error: "Invalid fields",
-      issues: validatedFields.error.issues,
-    };
-  }
-  
-  try {
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-    
-    if (existingUser) {
-      return { error: "Email already in use" };
-    }
-    
-    // Hash password using our server-only utility
-    const hashedPassword = await hashPassword(password);
-    
-    // Create user
-    await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: "CUSTOMER",
-      },
-    });
-    
-    // Auto sign in after successful registration
-    await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-    
-    return { success: true };
-  } catch (error) {
-    console.error("Error registering user:", error);
-    return { error: "Failed to register user" };
-  }
+  console.warn("register() function is deprecated. Use signUpWithSupabase() instead.");
+  return { error: "This registration method is no longer supported. Please use the new signup form." };
 }
 
 /**
