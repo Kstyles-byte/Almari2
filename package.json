@@ -8,6 +8,7 @@
     "start": "node server.js",
     "start:next": "next start",
     "lint": "next lint",
+    "vercel-build": "next build",
     "cpanel-build": "next build",
     "printer:start": "tsx scripts/printer-service.ts"
   },
