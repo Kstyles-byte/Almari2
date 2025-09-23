@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { db } from "../../../../../lib/db";
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/types/supabase';
 import { createReturnStatusNotification } from "../../../../../lib/services/notification";
+
+// Initialize Supabase client with service role key for server operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 
 /**
  * Handle Paystack refund webhook
@@ -21,44 +27,60 @@ export async function POST(request: NextRequest) {
     const transactionReference = data.transaction.reference;
     
     // Get order by payment reference
-    const order = await db.order.findFirst({
-      where: { paymentReference: transactionReference },
-      include: {
-        returns: true,
-      },
-    });
+    const { data: order, error: orderError } = await supabase
+      .from('Order')
+      .select('id, payment_reference')
+      .eq('payment_reference', transactionReference)
+      .single();
     
-    if (!order || order.returns.length === 0) {
-      console.error("No return found for transaction:", transactionReference);
+    if (orderError || !order) {
+      console.error("No order found for transaction:", transactionReference, orderError);
       return NextResponse.json({ success: true });
     }
     
     // Get the most recent return for this order
-    const latestReturn = order.returns.sort(
-      (a: { createdAt: Date }, b: { createdAt: Date }) => b.createdAt.getTime() - a.createdAt.getTime()
-    )[0];
+    const { data: returns, error: returnsError } = await supabase
+      .from('Return')
+      .select('id, created_at')
+      .eq('order_id', order.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
     
-    const returnId = latestReturn.id;
+    if (returnsError || !returns || returns.length === 0) {
+      console.error("No return found for order:", order.id, returnsError);
+      return NextResponse.json({ success: true });
+    }
+    
+    const returnId = returns[0].id;
     
     // Update return status based on webhook event
     if (payload.event === "refund.processed") {
-      await db.return.update({
-        where: { id: returnId },
-        data: {
-          refundStatus: "PROCESSED",
-        },
-      });
+      // Update return status
+      const { error: returnUpdateError } = await supabase
+        .from('Return')
+        .update({ refund_status: "PROCESSED" })
+        .eq('id', returnId);
+      
+      if (returnUpdateError) {
+        console.error("Error updating return status:", returnUpdateError);
+      }
       
       // Update order payment status
-      await db.order.update({
-        where: { id: order.id },
-        data: {
-          paymentStatus: "REFUNDED",
-        },
-      });
+      const { error: orderUpdateError } = await supabase
+        .from('Order')
+        .update({ payment_status: "REFUNDED" })
+        .eq('id', order.id);
+      
+      if (orderUpdateError) {
+        console.error("Error updating order payment status:", orderUpdateError);
+      }
       
       // Create notification
-      await createReturnStatusNotification(returnId, "REFUND_PROCESSED");
+      try {
+        await createReturnStatusNotification(returnId, "REFUND_PROCESSED");
+      } catch (notificationError) {
+        console.error("Error creating refund notification:", notificationError);
+      }
       
       console.log(`Refund processed for return: ${returnId}`);
     } else if (payload.event === "refund.failed") {

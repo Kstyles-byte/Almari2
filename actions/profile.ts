@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../auth";
-import { db } from "../lib/db";
+import { createServerActionClient } from '../lib/supabase/server';
 import { revalidatePath } from "next/cache";
 import { createCustomerProfile, updateCustomerProfile } from "../lib/services/customer";
 import { createVendorProfile, updateVendorProfile } from "../lib/services/vendor";
@@ -43,14 +43,17 @@ export async function saveCustomerProfile(formData: FormData) {
     const college = formData.get("college") as string;
     
     // Check if customer profile already exists
-    const customer = await db.customer.findUnique({
-      where: { userId: session.user.id },
-    });
+    const supabase = await createServerActionClient();
+    const { data: customer } = await supabase
+      .from('Customer')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .single();
     
     if (customer) {
       // Update existing profile
       await updateCustomerProfile(customer.id, {
-        phone: phone || undefined,
+        phone_number: phone || undefined,
         address: address || undefined,
         hostel: hostel || undefined,
         room: room || undefined,
@@ -59,7 +62,7 @@ export async function saveCustomerProfile(formData: FormData) {
     } else {
       // Create new profile
       await createCustomerProfile(session.user.id, {
-        phone: phone || undefined,
+        phone_number: phone || undefined,
         address: address || undefined,
         hostel: hostel || undefined,
         room: room || undefined,
@@ -68,10 +71,10 @@ export async function saveCustomerProfile(formData: FormData) {
       
       // Update user role if not already a customer
       if (session.user.role !== "CUSTOMER") {
-        await db.user.update({
-          where: { id: session.user.id },
-          data: { role: "CUSTOMER" },
-        });
+        await supabase
+          .from('User')
+          .update({ role: "CUSTOMER" })
+          .eq('id', session.user.id);
       }
     }
     
@@ -106,9 +109,12 @@ export async function saveVendorProfile(formData: FormData) {
     }
     
     // Check if vendor profile already exists
-    const vendor = await db.vendor.findUnique({
-      where: { userId: session.user.id },
-    });
+    const supabase = await createServerActionClient();
+    const { data: vendor } = await supabase
+      .from('Vendor')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .single();
     
     if (vendor) {
       // Update existing profile
@@ -133,10 +139,10 @@ export async function saveVendorProfile(formData: FormData) {
       
       // Update user role if not already a vendor
       if (session.user.role !== "VENDOR") {
-        await db.user.update({
-          where: { id: session.user.id },
-          data: { role: "VENDOR" },
-        });
+        await supabase
+          .from('User')
+          .update({ role: "VENDOR" })
+          .eq('id', session.user.id);
       }
     }
     
@@ -166,11 +172,15 @@ export async function updateUserInfo(formData: FormData) {
       return { error: "Name and email are required" };
     }
     
+    const supabase = await createServerActionClient();
+    
     // Check if email is already in use by another user
     if (email !== session.user.email) {
-      const existingUser = await db.user.findUnique({
-        where: { email },
-      });
+      const { data: existingUser } = await supabase
+        .from('User')
+        .select('id')
+        .eq('email', email)
+        .single();
       
       if (existingUser && existingUser.id !== session.user.id) {
         return { error: "Email already in use" };
@@ -178,10 +188,10 @@ export async function updateUserInfo(formData: FormData) {
     }
     
     // Update user
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { name, email },
-    });
+    await supabase
+      .from('User')
+      .update({ name, email })
+      .eq('id', session.user.id);
     
     revalidatePath("/profile");
     return { success: true };
@@ -587,7 +597,7 @@ export async function getUserProfile() {
     // Get customer profile data if available
     const { data: customerProfile, error: customerError } = await supabase
       .from('Customer')
-      .select('id, phone, address, hostel, room, college, created_at')
+      .select('id, phone_number, address, hostel, room, college, created_at')
       .eq('user_id', user.id)
       .single();
     

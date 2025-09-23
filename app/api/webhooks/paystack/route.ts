@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { db } from "../../../../lib/db";
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/types/supabase';
+
+// Initialize Supabase client with service role key for server operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 
 const PAYSTACK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET;
 
@@ -89,36 +95,42 @@ async function handleSuccessfulCharge(data: {
       const orderId = metadata.orderId;
       
       // Update the order with payment information
-      await db.order.update({
-        where: { id: orderId },
-        data: {
-          paymentStatus: status === "success" ? "COMPLETED" : "FAILED",
-          paymentReference: reference,
-        },
-      });
-      
-      // If payment was successful, update the inventory and create order items
-      if (status === "success") {
-        const order = await db.order.findUnique({
-          where: { id: orderId },
-          include: { 
-            items: {
-              include: {
-                product: true,
-              },
-            },
-          },
-        });
+      const { error: orderUpdateError } = await supabase
+        .from('Order')
+        .update({
+          payment_status: status === "success" ? "COMPLETED" : "FAILED",
+          payment_reference: reference,
+        })
+        .eq('id', orderId);
         
-        if (order) {
+      if (orderUpdateError) {
+        console.error("Error updating order:", orderUpdateError);
+        throw orderUpdateError;
+      }
+      
+      // If payment was successful, update the inventory
+      if (status === "success") {
+        // Get order items
+        const { data: orderItems, error: orderItemsError } = await supabase
+          .from('OrderItem')
+          .select('product_id, quantity')
+          .eq('order_id', orderId);
+        
+        if (orderItemsError) {
+          console.error("Error fetching order items:", orderItemsError);
+        } else if (orderItems) {
           // Update product inventory for each order item
-          for (const item of order.items) {
-            await db.product.update({
-              where: { id: item.productId },
-              data: {
-                inventory: { decrement: item.quantity },
-              },
-            });
+          for (const item of orderItems) {
+            const { error: inventoryError } = await supabase
+              .rpc('decrement_inventory', {
+                product_id: item.product_id,
+                quantity: item.quantity
+              });
+              
+            if (inventoryError) {
+              console.error("Error updating inventory for product:", item.product_id, inventoryError);
+              // Note: You might want to implement a fallback or manual inventory adjustment
+            }
           }
         }
       }
@@ -149,13 +161,18 @@ async function handleSuccessfulTransfer(data: {
       const payoutId = metadata.payoutId;
       
       // Update the payout with transfer information
-      await db.payout.update({
-        where: { id: payoutId },
-        data: {
+      const { error: payoutUpdateError } = await supabase
+        .from('Payout')
+        .update({
           status: status === "success" ? "COMPLETED" : "FAILED",
-          reference: reference,
-        },
-      });
+          reference_id: reference,
+        })
+        .eq('id', payoutId);
+        
+      if (payoutUpdateError) {
+        console.error("Error updating payout:", payoutUpdateError);
+        throw payoutUpdateError;
+      }
     }
   } catch (error) {
     console.error("Error handling successful transfer:", error);
