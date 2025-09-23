@@ -53,7 +53,7 @@ export async function saveCustomerProfile(formData: FormData) {
     if (customer) {
       // Update existing profile
       await updateCustomerProfile(customer.id, {
-        phone_number: phone || undefined,
+        phone: phone || undefined,
         address: address || undefined,
         hostel: hostel || undefined,
         room: room || undefined,
@@ -62,7 +62,7 @@ export async function saveCustomerProfile(formData: FormData) {
     } else {
       // Create new profile
       await createCustomerProfile(session.user.id, {
-        phone_number: phone || undefined,
+        phone: phone || undefined,
         address: address || undefined,
         hostel: hostel || undefined,
         room: room || undefined,

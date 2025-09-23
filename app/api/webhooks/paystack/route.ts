@@ -121,11 +121,11 @@ async function handleSuccessfulCharge(data: {
         } else if (orderItems) {
           // Update product inventory for each order item
           for (const item of orderItems) {
-            const { error: inventoryError } = await supabase
-              .rpc('decrement_inventory', {
-                product_id: item.product_id,
-                quantity: item.quantity
-              });
+            // Use our custom RPC function with type assertion
+            const { error: inventoryError } = await (supabase.rpc as any)('decrement_inventory', {
+              product_id: item.product_id,
+              quantity: item.quantity
+            });
               
             if (inventoryError) {
               console.error("Error updating inventory for product:", item.product_id, inventoryError);
