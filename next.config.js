@@ -3,6 +3,10 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
+  
+  // Disable SWC compiler to avoid Rust compilation issues on shared hosting
+  swcMinify: false,
+  
   // Disable TypeScript checking during build
   typescript: {
     ignoreBuildErrors: true,
@@ -21,6 +25,12 @@ const nextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '6mb', // Allow up to 6MB for image uploads
+    },
+    // Disable features that might cause issues on shared hosting
+    esmExternals: false,
+    // Reduce memory usage
+    turbo: {
+      memoryLimit: 512, // Limit memory usage to 512MB
     },
   },
   images: {
@@ -46,6 +56,22 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
+    // Optimize for limited memory and CPU on shared hosting
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        ...config.optimization.splitChunks,
+        maxSize: 244000, // Smaller chunks for limited memory
+        minSize: 20000,
+      },
+    };
+    
+    // Reduce parallelism to avoid resource exhaustion
+    config.parallelism = 1;
+    
+    // Disable some optimizations that can be resource intensive
+    config.optimization.minimize = process.env.NODE_ENV === 'production';
+    
     if (!isServer) {
       // Don't bundle server-only modules on the client side
       config.resolve.fallback = {
