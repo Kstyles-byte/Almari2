@@ -13,12 +13,18 @@ const path = require('path');
 
 // Set proper environment variables
 process.env.NODE_ENV = 'production';
-process.env.NODE_OPTIONS = '--max-old-space-size=1024'; // Limit to 1GB RAM
+process.env.NODE_OPTIONS = '--max-old-space-size=1024 --no-turbo-inlining'; // Limit to 1GB RAM and disable turbo
 process.env.UV_USE_IO_URING = '0'; // Disable io_uring to avoid resource issues
 
 // Disable Rust-based tools that might cause issues
 process.env.NEXT_TELEMETRY_DISABLED = '1';
 process.env.SWCRC = 'false';
+process.env.RUST_BACKTRACE = '0';
+process.env.RAYON_NUM_THREADS = '1';
+process.env.CPANEL_BUILD = 'true';
+process.env.DISABLE_MINIFICATION = 'true';
+
+const fs = require('fs');
 
 console.log('🚀 Starting optimized build for cPanel/shared hosting...');
 console.log('Environment:', {
@@ -26,7 +32,19 @@ console.log('Environment:', {
   NODE_OPTIONS: process.env.NODE_OPTIONS,
   UV_USE_IO_URING: process.env.UV_USE_IO_URING,
   NEXT_TELEMETRY_DISABLED: process.env.NEXT_TELEMETRY_DISABLED,
+  RAYON_NUM_THREADS: process.env.RAYON_NUM_THREADS,
 });
+
+// Clean existing build
+console.log('🧹 Cleaning existing build...');
+const { execSync } = require('child_process');
+try {
+  if (fs.existsSync('.next')) {
+    execSync('rm -rf .next', { stdio: 'inherit' });
+  }
+} catch (cleanError) {
+  console.warn('Could not clean .next folder:', cleanError.message);
+}
 
 // Function to run build with retry logic
 function runBuild(attempt = 1) {

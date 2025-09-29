@@ -4,9 +4,6 @@ const path = require('path');
 const nextConfig = {
   reactStrictMode: true,
   
-  // Disable SWC compiler to avoid Rust compilation issues on shared hosting
-  swcMinify: false,
-  
   // Disable TypeScript checking during build
   typescript: {
     ignoreBuildErrors: true,
@@ -19,18 +16,11 @@ const nextConfig = {
   // Configuration optimized for Node.js deployment on cPanel
   // All server features (API routes, server actions, etc.) are preserved
   
-  // Don't attempt to statically optimize the checkout page and related routes
-  // This ensures these pages are rendered dynamically at request time
-  // Remove deprecated options; Next.js 15 no longer supports these keys
+  // Turbopack configuration removed - not needed for standard builds
+  
   experimental: {
     serverActions: {
       bodySizeLimit: '6mb', // Allow up to 6MB for image uploads
-    },
-    // Disable features that might cause issues on shared hosting
-    esmExternals: false,
-    // Reduce memory usage
-    turbo: {
-      memoryLimit: 512, // Limit memory usage to 512MB
     },
   },
   images: {
@@ -56,21 +46,34 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
-    // Optimize for limited memory and CPU on shared hosting
+    // Only disable minification in production if we're on a server environment
+    // This allows local builds to work normally while still being compatible with shared hosting
+    const isServerEnvironment = process.env.CPANEL_BUILD === 'true' || process.env.DISABLE_MINIFICATION === 'true';
+    
+    if (isServerEnvironment) {
+      // Disable minification only for server builds
+      if (config.optimization) {
+        config.optimization.minimize = false;
+        config.optimization.minimizer = [];
+      }
+      
+      // Reduce parallelism to avoid resource exhaustion on shared hosting
+      config.parallelism = 1;
+    }
+    
+    // Optimize for limited memory environments when needed
     config.optimization = {
       ...config.optimization,
+      ...(isServerEnvironment && {
+        minimize: false,
+        minimizer: [],
+      }),
       splitChunks: {
         ...config.optimization.splitChunks,
-        maxSize: 244000, // Smaller chunks for limited memory
-        minSize: 20000,
+        maxSize: isServerEnvironment ? 244000 : undefined,
+        minSize: isServerEnvironment ? 20000 : undefined,
       },
     };
-    
-    // Reduce parallelism to avoid resource exhaustion
-    config.parallelism = 1;
-    
-    // Disable some optimizations that can be resource intensive
-    config.optimization.minimize = process.env.NODE_ENV === 'production';
     
     if (!isServer) {
       // Don't bundle server-only modules on the client side
