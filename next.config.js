@@ -51,9 +51,15 @@ const nextConfig = {
     const isServerEnvironment = process.env.CPANEL_BUILD === 'true' || process.env.DISABLE_MINIFICATION === 'true';
     
     if (isServerEnvironment) {
-      // Aggressive memory optimization for shared hosting
+      // EXTREME memory optimization for shared hosting
       config.parallelism = 1;
       config.cache = false;
+      config.watchOptions = { ignored: /node_modules/ };
+      
+      // Disable as much as possible
+      config.resolve = config.resolve || {};
+      config.resolve.symlinks = false;
+      config.resolve.cacheWithContext = false;
       
       // Disable minification and compression
       if (config.optimization) {

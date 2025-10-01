@@ -1,0 +1,94 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🚀 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 📥 Install dependencies
+      run: npm ci
+      
+    - name: 🔨 Build Next.js application
+      run: npm run build:production
+      env:
+        NODE_ENV: production
+        CPANEL_BUILD: true
+        DISABLE_MINIFICATION: true
+        NEXT_TELEMETRY_DISABLED: 1
+        
+    - name: 📁 Create deployment package
+      run: |
+        mkdir -p deploy-package
+        
+        # Copy built .next folder
+        cp -r .next deploy-package/
+        
+        # Copy essential files
+        cp package.json deploy-package/
+        cp package-lock.json deploy-package/ || echo "No package-lock.json"
+        cp server.js deploy-package/
+        cp next.config.js deploy-package/
+        cp next.config.ts deploy-package/ || echo "No next.config.ts"
+        cp tailwind.config.js deploy-package/ || echo "No tailwind.config.js" 
+        cp tsconfig.json deploy-package/ || echo "No tsconfig.json"
+        cp postcss.config.mjs deploy-package/ || echo "No postcss.config.mjs"
+        cp auth.ts deploy-package/ || echo "No auth.ts"
+        cp middleware.ts deploy-package/ || echo "No middleware.ts"
+        
+        # Copy source directories
+        cp -r app deploy-package/ || echo "No app directory"
+        cp -r components deploy-package/ || echo "No components directory"
+        cp -r lib deploy-package/ || echo "No lib directory"
+        cp -r public deploy-package/ || echo "No public directory"
+        cp -r types deploy-package/ || echo "No types directory"
+        cp -r actions deploy-package/ || echo "No actions directory"
+        cp -r contexts deploy-package/ || echo "No contexts directory"
+        cp -r hooks deploy-package/ || echo "No hooks directory"
+        cp -r providers deploy-package/ || echo "No providers directory"
+        
+        # Create a simple deployment script for the server
+        cat > deploy-package/deploy-on-server.sh << 'EOF'
+        #!/bin/bash
+        echo "🚀 Installing production dependencies..."
+        npm install --production --prefer-offline
+        echo "✅ Deployment complete! Restart your Node.js app in cPanel."
+        EOF
+        chmod +x deploy-package/deploy-on-server.sh
+        
+    - name: 📦 Create deployment archive
+      run: |
+        cd deploy-package
+        tar -czf ../deployment.tar.gz .
+        cd ..
+        ls -la deployment.tar.gz
+        
+    - name: 🌐 Deploy via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./deploy-package/
+        server-dir: /home/imsfrkmv/Almari2/
+        
+    - name: ✅ Deployment Success
+      run: |
+        echo "🎉 Deployment completed successfully!"
+        echo "📋 Next steps:"
+        echo "1. Go to cPanel → Terminal"
+        echo "2. Run: cd /home/imsfrkmv/Almari2 && bash deploy-on-server.sh"
+        echo "3. Restart your Node.js application"

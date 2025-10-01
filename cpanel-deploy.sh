@@ -96,8 +96,11 @@ echo "🔨 Building application for production..."
 # Try multiple build commands in order of preference (most memory-friendly first)
 BUILD_SUCCESS=false
 
-echo "🔧 Trying ultra-lightweight build for shared hosting..."
-if $NPM_BIN run build:shared-hosting 2>&1; then
+echo "🔧 Trying EXTREME memory-saving build..."
+if $NPM_BIN run build:extreme 2>&1; then
+    echo "✅ Build successful using build:extreme"
+    BUILD_SUCCESS=true
+elif $NPM_BIN run build:shared-hosting 2>&1; then
     echo "✅ Build successful using build:shared-hosting"
     BUILD_SUCCESS=true
 elif $NPM_BIN run build:minimal 2>&1; then
