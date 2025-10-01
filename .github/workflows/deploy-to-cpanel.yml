@@ -29,6 +29,8 @@ jobs:
         CPANEL_BUILD: true
         DISABLE_MINIFICATION: true
         NEXT_TELEMETRY_DISABLED: 1
+        NODE_OPTIONS: "--max-old-space-size=4096"
+        UV_USE_IO_URING: 0
         
     - name: 📁 Create deployment package
       run: |

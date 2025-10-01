@@ -51,59 +51,54 @@ const nextConfig = {
     const isServerEnvironment = process.env.CPANEL_BUILD === 'true' || process.env.DISABLE_MINIFICATION === 'true';
     
     if (isServerEnvironment) {
-      // EXTREME memory optimization for shared hosting
+      // Memory-friendly optimization for shared hosting/GitHub Actions
       config.parallelism = 1;
       config.cache = false;
-      config.watchOptions = { ignored: /node_modules/ };
       
-      // Disable as much as possible
-      config.resolve = config.resolve || {};
-      config.resolve.symlinks = false;
-      config.resolve.cacheWithContext = false;
+      // Additional memory optimizations
+      config.stats = 'errors-warnings';
+      config.performance = {
+        hints: false,
+      };
       
-      // Disable minification and compression
+      // Only disable minification, preserve Next.js defaults for CSS and other optimizations
       if (config.optimization) {
         config.optimization.minimize = false;
         config.optimization.minimizer = [];
-        config.optimization.concatenateModules = false;
-        config.optimization.flagIncludedChunks = false;
-        config.optimization.innerGraph = false;
-        config.optimization.mangleWasmImports = false;
-        config.optimization.providedExports = false;
-        config.optimization.usedExports = false;
-        config.optimization.sideEffects = false;
-      }
-      
-      // Reduce memory usage by limiting chunk sizes
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        minSize: 10000,
-        maxSize: 200000,
-        minChunks: 1,
-        maxAsyncRequests: 3,
-        maxInitialRequests: 3,
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
+        
+        // Preserve existing splitChunks but modify settings
+        if (config.optimization.splitChunks) {
+          config.optimization.splitChunks = {
+            ...config.optimization.splitChunks,
             chunks: 'all',
-            maxSize: 150000,
-          },
-        },
-      };
-      
-      // Disable webpack's compilation cache to save memory
-      config.cache = false;
+            minSize: 20000,
+            maxSize: 244000,
+            cacheGroups: {
+              ...config.optimization.splitChunks.cacheGroups,
+              default: {
+                minChunks: 2,
+                priority: -20,
+                reuseExistingChunk: true,
+              },
+              vendor: {
+                test: /[\\/]node_modules[\\/]/,
+                name: 'vendors',
+                priority: -10,
+                chunks: 'all',
+              },
+            },
+          };
+        }
+      }
     } else {
       // Normal optimization for local development
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: {
+      if (config.optimization && config.optimization.splitChunks) {
+        config.optimization.splitChunks = {
           ...config.optimization.splitChunks,
           maxSize: 244000,
           minSize: 20000,
-        },
-      };
+        };
+      }
     }
     
     if (!isServer) {
