@@ -36,6 +36,15 @@ jobs:
       run: |
         mkdir -p deploy-package
         
+        # Verify .next folder exists and has content
+        if [ ! -d ".next" ] || [ -z "$(ls -A .next)" ]; then
+          echo "❌ Error: .next directory is missing or empty!"
+          exit 1
+        fi
+        
+        echo "✅ .next directory found with content"
+        ls -la .next/
+        
         # Copy built .next folder
         cp -r .next deploy-package/
         
@@ -51,7 +60,7 @@ jobs:
         cp auth.ts deploy-package/ || echo "No auth.ts"
         cp middleware.ts deploy-package/ || echo "No middleware.ts"
         
-        # Copy source directories
+        # Copy source directories (needed for some Next.js features)
         cp -r app deploy-package/ || echo "No app directory"
         cp -r components deploy-package/ || echo "No components directory"
         cp -r lib deploy-package/ || echo "No lib directory"
@@ -62,14 +71,51 @@ jobs:
         cp -r hooks deploy-package/ || echo "No hooks directory"
         cp -r providers deploy-package/ || echo "No providers directory"
         
-        # Create a simple deployment script for the server
+        # Install production dependencies locally first to ensure compatibility
+        echo "🔧 Installing production dependencies..."
+        cd deploy-package
+        npm install --production --no-dev --prefer-offline
+        cd ..
+        
+        # Create a comprehensive deployment script
         cat > deploy-package/deploy-on-server.sh << 'EOF'
         #!/bin/bash
-        echo "🚀 Installing production dependencies..."
-        npm install --production --prefer-offline
-        echo "✅ Deployment complete! Restart your Node.js app in cPanel."
+        echo "🚀 Starting server deployment..."
+        
+        # Set production environment
+        export NODE_ENV=production
+        
+        # Check Node.js version
+        echo "📋 Node.js version: $(node --version)"
+        echo "📋 NPM version: $(npm --version)"
+        
+        # Verify .next directory exists
+        if [ ! -d ".next" ]; then
+          echo "❌ Error: .next directory not found!"
+          exit 1
+        fi
+        
+        # Check if dependencies are already installed
+        if [ ! -d "node_modules" ]; then
+          echo "📦 Installing production dependencies..."
+          npm install --production --prefer-offline --no-optional
+        else
+          echo "✅ Dependencies already installed"
+        fi
+        
+        # Set proper permissions
+        chmod -R 755 .next/
+        chmod +x server.js
+        
+        echo "✅ Deployment complete!"
+        echo "🔄 Please restart your Node.js application in cPanel"
+        echo "🌐 Your app should be available once restarted"
         EOF
         chmod +x deploy-package/deploy-on-server.sh
+        
+        # Verify deployment package
+        echo "📋 Deployment package contents:"
+        ls -la deploy-package/
         
     - name: 📦 Create deployment archive
       run: |
@@ -85,7 +131,7 @@ jobs:
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: ./deploy-package/
-        server-dir: /home/imsfrkmv/Almari2/
+        server-dir: /
         
     - name: ✅ Deployment Success
       run: |

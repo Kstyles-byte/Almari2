@@ -711,8 +711,30 @@ class PushNotificationService {
   }
 }
 
-// Export singleton instance
-export const pushNotificationService = new PushNotificationService();
+// Export singleton instance - only create on client side
+let _instance: PushNotificationService | null = null;
+
+export const pushNotificationService = (() => {
+  if (typeof window === 'undefined') {
+    // Return a mock instance for server-side rendering
+    return {
+      isEnabled: () => false,
+      getPermissionStatus: () => 'denied' as NotificationPermission,
+      requestPermission: async () => 'denied' as NotificationPermission,
+      subscribe: async () => null,
+      unsubscribe: async () => false,
+      showLocalNotification: async () => {},
+      getBrowserInfo: () => ({ name: 'unknown', isSupported: false, needsUserInteraction: true, supportsVapid: true, message: 'Server-side rendering' }),
+      testNotification: async () => {},
+      subscribeWithFallback: async () => null
+    } as any;
+  }
+  
+  if (!_instance) {
+    _instance = new PushNotificationService();
+  }
+  return _instance;
+})();
 
 // Export class for testing
 export { PushNotificationService };
