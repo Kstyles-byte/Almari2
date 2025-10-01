@@ -125,10 +125,10 @@ Write-Host "📖 See DEPLOYMENT_INSTRUCTIONS.txt in the deploy folder for upload
 # Calculate total size
 $totalSize = (Get-ChildItem -Recurse $deployDir | Measure-Object -Property Length -Sum).Sum
 $sizeInMB = [math]::Round($totalSize / 1MB, 2)
-Write-Host "📊 Total package size: $sizeInMB MB" -ForegroundColor Cyan
+Write-Host '📊 Total package size: $sizeInMB MB' -ForegroundColor Cyan
 
-Write-Host "`n🚀 Next steps:" -ForegroundColor Green
-Write-Host "1. Upload the contents of the 'deploy' folder to your cPanel" -ForegroundColor White
-Write-Host "2. Run 'npm install --production' on the server" -ForegroundColor White  
-Write-Host "3. Set your app to production mode in cPanel" -ForegroundColor White
-Write-Host "4. Start with 'npm start'" -ForegroundColor White
+Write-Host '`n🚀 Next steps:' -ForegroundColor Green
+Write-Host '1. Upload the contents of the 'deploy' folder to your cPanel' -ForegroundColor White
+Write-Host '2. Run 'npm install --production' on the server' -ForegroundColor White  
+Write-Host '3. Set your app to production mode in cPanel' -ForegroundColor White
+Write-Host '4. Start with: npm start' -ForegroundColor White
