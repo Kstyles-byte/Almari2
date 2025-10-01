@@ -1,32 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
+import { verifyWebhookSignature } from '@/lib/dynamic-paystack';
 
 // Initialize Supabase client with service role key for server operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET;
-
 /**
- * Verify that the request is coming from Paystack
+ * Verify that the request is coming from Paystack using dynamic config
  * @param request The incoming request
  * @param body The request body
  * @returns Boolean indicating if the request is valid
  */
-function verifyPaystackSignature(request: NextRequest, body: string): boolean {
+async function verifyPaystackSignature(request: NextRequest, body: string): Promise<boolean> {
   try {
     const signature = request.headers.get("x-paystack-signature");
     if (!signature) return false;
     
-    const hash = crypto
-      .createHmac("sha512", PAYSTACK_SECRET || "")
-      .update(body)
-      .digest("hex");
-    
-    return hash === signature;
+    return await verifyWebhookSignature(signature, body);
   } catch (error) {
     console.error("Error verifying Paystack signature:", error);
     return false;
@@ -39,7 +32,7 @@ export async function POST(req: NextRequest) {
     const body = await req.text();
     
     // Verify the request is from Paystack
-    if (!verifyPaystackSignature(req, body)) {
+    if (!(await verifyPaystackSignature(req, body))) {
       return NextResponse.json(
         { error: "Invalid signature" },
         { status: 401 }

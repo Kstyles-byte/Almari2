@@ -1,6 +1,7 @@
 import AdminLayout from '@/components/layout/AdminLayout';
 import { getEnvironmentVariables } from '@/actions/admin-settings';
 import { SettingsClient } from '@/components/admin/settings/settings-client';
+import { PaystackSettings } from '@/components/admin/settings/paystack-settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,8 @@ export default async function AdminSettingsPage() {
       <div className="space-y-6 max-w-3xl mx-auto py-8">
         <h1 className="text-3xl font-semibold">System Settings & Diagnostics</h1>
 
+        <PaystackSettings />
+        
         <SettingsClient initialEnvVars={runtimeEnv} />
 
         <section className="bg-white p-6 rounded-md shadow border">

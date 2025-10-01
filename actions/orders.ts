@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from "next/cache";
 import { getCustomerByUserId } from "../lib/services/customer";
-import { initializePayment, verifyPayment } from "../lib/paystack";
+import { initializePayment, verifyPayment } from "../lib/dynamic-paystack";
 import { findNearestAgent, generatePickupCode } from "../lib/services/agent";
 import { createOrderStatusNotification } from "../lib/services/notification";
 import type { Customer, Product, Cart, CartItem, Order, OrderItem, Agent } from '../types/index';
