@@ -117,7 +117,7 @@ Make sure to set your environment variables in cPanel:
 3. **Alternative - Build directly in cPanel**:
    - Go to your Node.js app interface
    - Click "Run NPM Install" 
-   - Then click "Run NPM Build" (or use custom command: `npm run build:safe`)
+   - Then click "Run NPM Build" (or use custom command: `npm run build:shared-hosting`)
 
 ### Application Won't Start
 - Check Node.js version compatibility (need 18+)
@@ -135,6 +135,36 @@ Make sure to set your environment variables in cPanel:
 - Ensure all dependencies are compatible with your Node.js version
 - Try `npm run build:optimized` for memory-constrained environments
 - Use Terminal to run `bash cpanel-deploy.sh` manually
+
+### 💫 "Out of memory" During Build
+**This happens on shared hosting with limited RAM:**
+
+**Option 1: Try Ultra-Lightweight Build**
+```bash
+# In cPanel Terminal:
+cd /home/imsfrkmv/Almari2
+npm run build:shared-hosting
+```
+
+**Option 2: Build Locally and Upload**
+```bash
+# On your local machine:
+npm run build:local-deploy
+```
+This creates a `cpanel-deploy-package` folder with everything pre-built.
+1. Compress it to ZIP
+2. Upload to cPanel File Manager 
+3. Extract to `/home/imsfrkmv/Almari2`
+4. Run `npm install --production` in cPanel
+5. Restart your Node.js app
+
+**Option 3: Manual Build Process**
+```bash
+# Try these commands one by one in cPanel Terminal:
+npm run build:minimal
+npm run build:optimized  
+npm run build:shared-hosting
+```
 
 ## 📞 Support
 

@@ -9,6 +9,8 @@
     "build:safe": "NODE_ENV=production NODE_OPTIONS=--max-old-space-size=1024 UV_USE_IO_URING=0 NEXT_TELEMETRY_DISABLED=1 CPANEL_BUILD=true DISABLE_MINIFICATION=true next build",
     "build:production": "NODE_ENV=production CPANEL_BUILD=true DISABLE_MINIFICATION=true next build",
     "build:optimized": "NODE_ENV=production NODE_OPTIONS=--max-old-space-size=512 CPANEL_BUILD=true DISABLE_MINIFICATION=true next build --no-lint",
+    "build:minimal": "NODE_ENV=production NODE_OPTIONS=--max-old-space-size=256 CPANEL_BUILD=true DISABLE_MINIFICATION=true UV_USE_IO_URING=0 NEXT_TELEMETRY_DISABLED=1 next build --no-lint --experimental-build-mode=compile",
+    "build:shared-hosting": "NODE_ENV=production NODE_OPTIONS=--max-old-space-size=384 --no-compilation-cache CPANEL_BUILD=true DISABLE_MINIFICATION=true UV_USE_IO_URING=0 NEXT_TELEMETRY_DISABLED=1 next build",
     "deploy:prepare": "powershell -ExecutionPolicy Bypass -File prepare-deployment.ps1",
     "postinstall": "echo 'Dependencies installed successfully'",
     "prebuild": "echo 'Starting build process...'",
@@ -22,7 +24,8 @@
     "cpanel-build": "next build",
     "printer:start": "tsx scripts/printer-service.ts",
     "clean": "rm -rf .next node_modules/.cache",
-    "clean:all": "rm -rf .next node_modules .turbo"
+    "clean:all": "rm -rf .next node_modules .turbo",
+    "build:local-deploy": "node build-for-cpanel.js"
   },
   "dependencies": {
     "@auth/supabase-adapter": "^1.9.0",

@@ -93,10 +93,20 @@ echo "✅ Dependencies installed successfully"
 # Build the application
 echo "🔨 Building application for production..."
 
-# Try multiple build commands in order of preference
+# Try multiple build commands in order of preference (most memory-friendly first)
 BUILD_SUCCESS=false
 
-if $NPM_BIN run build:safe 2>&1; then
+echo "🔧 Trying ultra-lightweight build for shared hosting..."
+if $NPM_BIN run build:shared-hosting 2>&1; then
+    echo "✅ Build successful using build:shared-hosting"
+    BUILD_SUCCESS=true
+elif $NPM_BIN run build:minimal 2>&1; then
+    echo "✅ Build successful using build:minimal"
+    BUILD_SUCCESS=true
+elif $NPM_BIN run build:optimized 2>&1; then
+    echo "✅ Build successful using build:optimized"
+    BUILD_SUCCESS=true
+elif $NPM_BIN run build:safe 2>&1; then
     echo "✅ Build successful using build:safe"
     BUILD_SUCCESS=true
 elif $NPM_BIN run build:production 2>&1; then
@@ -107,6 +117,8 @@ elif $NPM_BIN run build 2>&1; then
     BUILD_SUCCESS=true
 else
     echo "❌ All build attempts failed"
+    echo "💡 This may be due to memory limitations on shared hosting."
+    echo "💡 Try building locally and uploading the .next folder manually."
     BUILD_SUCCESS=false
 fi
 

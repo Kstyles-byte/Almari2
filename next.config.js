@@ -51,29 +51,54 @@ const nextConfig = {
     const isServerEnvironment = process.env.CPANEL_BUILD === 'true' || process.env.DISABLE_MINIFICATION === 'true';
     
     if (isServerEnvironment) {
-      // Disable minification only for server builds
+      // Aggressive memory optimization for shared hosting
+      config.parallelism = 1;
+      config.cache = false;
+      
+      // Disable minification and compression
       if (config.optimization) {
         config.optimization.minimize = false;
         config.optimization.minimizer = [];
+        config.optimization.concatenateModules = false;
+        config.optimization.flagIncludedChunks = false;
+        config.optimization.innerGraph = false;
+        config.optimization.mangleWasmImports = false;
+        config.optimization.providedExports = false;
+        config.optimization.usedExports = false;
+        config.optimization.sideEffects = false;
       }
       
-      // Reduce parallelism to avoid resource exhaustion on shared hosting
-      config.parallelism = 1;
+      // Reduce memory usage by limiting chunk sizes
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        minSize: 10000,
+        maxSize: 200000,
+        minChunks: 1,
+        maxAsyncRequests: 3,
+        maxInitialRequests: 3,
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+            maxSize: 150000,
+          },
+        },
+      };
+      
+      // Disable webpack's compilation cache to save memory
+      config.cache = false;
+    } else {
+      // Normal optimization for local development
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          ...config.optimization.splitChunks,
+          maxSize: 244000,
+          minSize: 20000,
+        },
+      };
     }
-    
-    // Optimize for limited memory environments when needed
-    config.optimization = {
-      ...config.optimization,
-      ...(isServerEnvironment && {
-        minimize: false,
-        minimizer: [],
-      }),
-      splitChunks: {
-        ...config.optimization.splitChunks,
-        maxSize: isServerEnvironment ? 244000 : undefined,
-        minSize: isServerEnvironment ? 20000 : undefined,
-      },
-    };
     
     if (!isServer) {
       // Don't bundle server-only modules on the client side
