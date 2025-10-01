@@ -52,7 +52,16 @@ function runBuild(attempt = 1) {
   
   console.log(`\n📦 Build attempt ${attempt}/${maxAttempts}...`);
   
-  const buildProcess = spawn('npx', ['next', 'build'], {
+  // Resolve Next.js CLI directly to avoid relying on `npx` in constrained environments (Windows/cPanel)
+  let nextBin;
+  try {
+    nextBin = require.resolve('next/dist/bin/next');
+  } catch (e) {
+    console.error('❌ Could not resolve Next.js binary. Ensure dependencies are installed (run `npm ci`).');
+    process.exit(1);
+  }
+
+  const buildProcess = spawn(process.execPath, [nextBin, 'build'], {
     stdio: 'inherit',
     env: { ...process.env },
     cwd: process.cwd()
