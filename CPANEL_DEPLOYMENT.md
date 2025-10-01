@@ -37,17 +37,22 @@ This project is now configured for deployment on cPanel hosting with Node.js sup
 4. **Start Application**:
    - In cPanel Node.js app interface, click "Start App"
 
-### 2. Automatic Updates
+### 2. Fully Automated Updates ✨
 
-Once setup is complete, your workflow is simple:
+Once setup is complete, your workflow is **completely automated**:
 
 1. **Make changes locally** (as usual)
 2. **Push to GitHub** (as usual)
-3. **cPanel automatically**:
-   - Pulls latest code from GitHub
-   - Runs `npm ci` (installs dependencies)
-   - Runs `npm run build` (builds production version)
-   - Restarts the application
+3. **cPanel automatically does EVERYTHING**:
+   - 🔄 Pulls latest code from GitHub
+   - 📁 Copies all files to the Node.js app directory
+   - 📦 Runs `npm ci` (installs/updates dependencies)
+   - 🔨 Runs `npm run build:safe` (builds production version with optimizations)
+   - 🧹 Cleans up development dependencies
+   - ✅ Verifies the build was successful
+   - 🔄 **You just need to restart the app in cPanel (one click!)**
+
+**No more manual uploads! No more .next folder management!**
 
 ## 🔧 How It Works
 
@@ -56,15 +61,22 @@ Once setup is complete, your workflow is simple:
 - Required by cPanel's Node.js application manager
 - Handles all incoming requests and serves your Next.js app
 
-### Automated Deployment (`cpanel.yml`)
-- Automatically executed when Git pulls new code
-- Installs dependencies and builds the application
-- Sets proper file permissions
+### Automated Deployment (`.cpanel.yml`) 🤖
+- **Automatically executed** when Git pulls new code
+- **Copies all source files** to the Node.js app directory
+- **Installs dependencies** using `npm ci` for faster, reliable installs
+- **Builds the application** with optimizations for shared hosting
+- **Cleans up** development dependencies to save space
+- **Verifies build success** and creates the `.next` folder
+- **Sets proper file permissions** for security
 
-### Scripts (`package.json`)
-- **`npm start`** - Now runs `node server.js` (for cPanel)
-- **`npm run start:next`** - Original Next.js start command (backup)
-- **`npm run build`** - Builds production version
+### Scripts (`package.json`) 📜
+- **`npm start`** - Runs `node server.js` (production server for cPanel)
+- **`npm run build:safe`** - Optimized build for shared hosting (used by deployment)
+- **`npm run build:production`** - Standard production build
+- **`npm run build:optimized`** - Memory-optimized build for resource-constrained environments
+- **`npm run start:production`** - Production server with NODE_ENV set
+- **`npm run clean`** - Cleans build cache and .next folder
 
 ## 🌐 Environment Variables
 

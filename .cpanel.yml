@@ -9,7 +9,8 @@ deployment:
     - mkdir -p $DEPLOYPATH
     
     # Copy application files (excluding build artifacts and dependencies)
-    - echo "Copying application files to Node.js app directory..."
+    - echo "🚀 Starting deployment process..."
+    - echo "📁 Copying application files to Node.js app directory..."
     - /bin/cp -R app $DEPLOYPATH/ 2>/dev/null || echo "app directory not found"
     - /bin/cp -R components $DEPLOYPATH/ 2>/dev/null || echo "components directory not found"
     - /bin/cp -R lib $DEPLOYPATH/ 2>/dev/null || echo "lib directory not found"
@@ -37,23 +38,56 @@ deployment:
     - /bin/cp .eslintrc.json $DEPLOYPATH/ 2>/dev/null || echo ".eslintrc.json not found"
     - /bin/cp eslint.config.mjs $DEPLOYPATH/ 2>/dev/null || echo "eslint.config.mjs not found"
     
-    
     # Set proper file permissions
     - find $DEPLOYPATH -type f -exec chmod 644 {} \;
     - find $DEPLOYPATH -type d -exec chmod 755 {} \;
     
-    - echo "Files deployed successfully. Run 'npm install' and 'npm run build' in Node.js App interface."
+    # Change to the deployment directory
+    - cd $DEPLOYPATH
+    
+    # Install dependencies (use npm ci for faster, reliable installs)
+    - echo "📦 Installing dependencies..."
+    - npm ci --prefer-offline --no-audit --production=false || npm install
+    
+    # Set environment variables for build
+    - export NODE_ENV=production
+    - export CPANEL_BUILD=true
+    - export DISABLE_MINIFICATION=true
+    - export NODE_OPTIONS="--max-old-space-size=1024"
+    - export UV_USE_IO_URING=0
+    - export NEXT_TELEMETRY_DISABLED=1
+    
+    # Build the application
+    - echo "🔨 Building application for production..."
+    - npm run build:safe 2>&1 || npm run build
+    
+    # Clean up development dependencies to save space
+    - echo "🧹 Cleaning up..."
+    - npm prune --production
+    
+    # Verify build was successful
+    - if [ -d "$DEPLOYPATH/.next" ]; then echo "✅ Build successful - .next directory created"; else echo "❌ Build failed - .next directory not found"; exit 1; fi
+    
+    - echo "✅ Deployment completed successfully!"
+    - echo "🔄 Please restart your Node.js application in cPanel to apply changes."
 
 # Exclude files/folders from deployment
 exclude:
   - node_modules
   - .git
   - .next
+  - .vercel
   - prisma
   - .env.local
   - .env.development
   - .env.test
   - .DS_Store
+  - "*.log"
   - npm-debug.log*
   - yarn-debug.log*
   - yarn-error.log*
+  - .turbo
+  - coverage/
+  - .nyc_output/
+  - "*.tsbuildinfo"
+  - .cache/
