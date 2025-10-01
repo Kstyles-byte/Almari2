@@ -98,20 +98,43 @@ Make sure to set your environment variables in cPanel:
 - ✅ **File Uploads** - Image uploads and processing work
 - ✅ **Real-time Features** - All dynamic features preserved
 
-## 🚫 Troubleshooting
+## 😫 Troubleshooting
+
+### 🚨 "npm: command not found" During Deployment
+**This is the most common issue!** If you see this error in your Git deployment logs:
+
+1. **Check your Node.js app setup**:
+   - Go to cPanel → "Setup Node.js App"
+   - Ensure your app is created and running
+   - Note the Node.js version (18, 20, or 22)
+
+2. **Use the manual deployment script**:
+   - Go to cPanel → "Terminal"
+   - Navigate to your app: `cd /home/imsfrkmv/Almari2`
+   - Run: `bash manual-deploy.sh`
+   - This will show you exactly where Node.js is installed
+
+3. **Alternative - Build directly in cPanel**:
+   - Go to your Node.js app interface
+   - Click "Run NPM Install" 
+   - Then click "Run NPM Build" (or use custom command: `npm run build:safe`)
 
 ### Application Won't Start
 - Check Node.js version compatibility (need 18+)
 - Verify `server.js` is in the root directory
 - Check application startup file is set to `server.js`
+- Restart the app after any changes
 
 ### Environment Variables
 - Ensure all required environment variables are set in cPanel
 - Double-check Supabase URLs and keys are correct
+- Use the `CPANEL_ENV_SETUP.md` checklist
 
 ### Build Errors
 - Check the application logs in cPanel
 - Ensure all dependencies are compatible with your Node.js version
+- Try `npm run build:optimized` for memory-constrained environments
+- Use Terminal to run `bash cpanel-deploy.sh` manually
 
 ## 📞 Support
 
