@@ -1,17 +1,28 @@
 const { createServer } = require('http');
 const { parse } = require('url');
+const path = require('path');
 const next = require('next');
+
+// On cPanel, NODE_ENV is often unset. Default to production.
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'production';
+}
 
 // Determine if we're in development mode
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = process.env.PORT || 3000;
 
-// Create the Next.js app
-const app = next({ dev, hostname, port });
-const handle = app.getRequestHandler();
-
+// Resolve and log the intended application directory (where this file lives)
+const appDir = path.resolve(__dirname);
 console.log(`Starting Next.js server in ${dev ? 'development' : 'production'} mode...`);
+console.log(`> __dirname: ${__dirname}`);
+console.log(`> process.cwd(): ${process.cwd()}`);
+console.log(`> Using app dir: ${appDir}`);
+
+// Create the Next.js app, forcing the correct directory so it finds .next
+const app = next({ dev, hostname, port, dir: appDir });
+const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
   createServer(async (req, res) => {
