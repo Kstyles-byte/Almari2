@@ -1,20 +1,30 @@
 const { createServer } = require('http');
 const { parse } = require('url');
 const path = require('path');
-const next = require('next');
+const { createRequire } = require('module');
 
 // On cPanel, NODE_ENV is often unset. Default to production.
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = 'production';
 }
 
+// Resolve and enforce the application directory (where this file lives)
+const appDir = path.resolve(__dirname);
+try {
+  process.chdir(appDir);
+} catch (e) {
+  console.error('Failed to chdir to appDir:', e);
+}
+
+// Load the local Next.js from this project explicitly (avoid global nodevenv copy)
+const projectRequire = createRequire(path.join(appDir, 'package.json'));
+const next = projectRequire('next');
+
 // Determine if we're in development mode
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = process.env.PORT || 3000;
 
-// Resolve and log the intended application directory (where this file lives)
-const appDir = path.resolve(__dirname);
 console.log(`Starting Next.js server in ${dev ? 'development' : 'production'} mode...`);
 console.log(`> __dirname: ${__dirname}`);
 console.log(`> process.cwd(): ${process.cwd()}`);
