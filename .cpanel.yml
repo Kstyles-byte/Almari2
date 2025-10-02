@@ -1,9 +1,25 @@
-# DISABLED: Using GitHub Actions for deployment instead
-# This prevents cPanel from trying to build (which fails due to memory constraints)
-# The GitHub Actions workflow will handle building and deploying
+deployment:
+  tasks:
+    # Configure your application directory on the server
+    - export DEPLOY_ROOT="$HOME/Almari2"
 
-# cPanel Git deployment is disabled - no automatic deployment will occur
-# GitHub Actions will build and deploy via FTP instead
+    # Ensure deploy root exists
+    - /bin/mkdir -p "$DEPLOY_ROOT"
 
-# Note: If you want to re-enable cPanel deployment later,
-# restore the original .cpanel.yml content from git history
+    # Sync repository files to the application directory (no build here)
+    - /usr/bin/rsync -a --delete \
+        --exclude ".git" \
+        --exclude "node_modules" \
+        --exclude ".github" \
+        --exclude "cpanel-deploy.sh" \
+        --exclude "build-no-swc.sh" \
+        ./ "$DEPLOY_ROOT"/
+
+    # If a prebuilt .next exists in the repo (or was uploaded), sync it
+    - if [ -d .next ]; then /usr/bin/rsync -a --delete .next/ "$DEPLOY_ROOT"/.next/; fi || true
+
+    # Set safe permissions
+    - /bin/chmod -R g+w "$DEPLOY_ROOT" || true
+
+    # Touch Passenger restart file to restart the Node app managed by cPanel
+    - /bin/mkdir -p "$DEPLOY_ROOT"/tmp && /usr/bin/touch "$DEPLOY_ROOT"/tmp/restart.txt

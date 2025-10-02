@@ -40,51 +40,9 @@ Since the build works perfectly on your local machine, this is the most reliable
    npm start
    ```
 
-## Option 2: GitHub Actions CI/CD
+## Option 2: cPanel Git Deployment (Current)
 
-Set up automated builds using GitHub Actions:
-
-### Create `.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy to cPanel
-
-on:
-  push:
-    branches: [ main ]
-
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Build application
-      run: npm run build
-    
-    - name: Deploy to cPanel via FTP
-      uses: SamKirkland/FTP-Deploy-Action@4.3.0
-      with:
-        server: your-cpanel-ftp-server
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./
-        exclude: |
-          node_modules/**
-          .git/**
-          .github/**
-          **/.DS_Store
-```
+Use cPanel's Git Version Control to pull from your repository and deploy. Build your Next.js app locally, upload the `.next` folder once per change, and let cPanel Git sync code updates. Ensure `.cpanel.yml` exists to sync files and restart the app; no build runs on the server.
 
 ## Option 3: Try Alternative Build Commands on Server
 
