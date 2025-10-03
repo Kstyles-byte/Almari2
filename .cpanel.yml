@@ -7,14 +7,23 @@ deployment:
     - /bin/mkdir -p "$DEPLOY_ROOT"
 
     # Sync repository files to the application directory (no build here)
-    - /usr/bin/rsync -a --delete \
-        --exclude ".git" \
-        --exclude "node_modules" \
-        --exclude ".next" \
-        --exclude ".github" \
-        --exclude "cpanel-deploy.sh" \
-        --exclude "build-no-swc.sh" \
-        ./ "$DEPLOY_ROOT"/
+    - RSYNC_BIN="$(command -v rsync || true)"
+    - |
+        if [ -n "$RSYNC_BIN" ]; then
+          "$RSYNC_BIN" -a --delete \
+            --exclude ".git" \
+            --exclude "node_modules" \
+            --exclude ".next" \
+            --exclude ".github" \
+            --exclude "cpanel-deploy.sh" \
+            --exclude "build-no-swc.sh" \
+            ./ "$DEPLOY_ROOT"/
+        else
+          # Fallback: emulate a sync while preserving .next
+          find "$DEPLOY_ROOT" -mindepth 1 -maxdepth 1 \
+            -not -name ".next" -exec rm -rf {} + || true
+          /bin/cp -a ./ "$DEPLOY_ROOT"/
+        fi
 
     # If a prebuilt .next exists in the repo (or was uploaded), sync it
     - if [ -d .next ]; then /usr/bin/rsync -a --delete .next/ "$DEPLOY_ROOT"/.next/; fi || true
