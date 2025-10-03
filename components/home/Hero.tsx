@@ -43,7 +43,7 @@ const Hero = async () => {
           {/* Hero Content */}
           <div className="space-y-6 max-w-lg">
             <div className="inline-block px-4 py-1.5 bg-zervia-700 text-zervia-100 rounded-full font-medium text-sm">
-              Campus E-commerce, Simplified2
+              Campus E-commerce, Simplified
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
               {/* Dynamically display title - Example of conditional styling removed for simplicity */}
