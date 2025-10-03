@@ -18,13 +18,26 @@ try {
 }
 
 // Prepare logging: write all console output to logs/app.log as well
-const logsDir = path.join(appDir, 'logs');
+// Prefer app-local logs dir; fallback to user-level logs
+let logsDir = path.join(appDir, 'logs');
 try {
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
   }
 } catch (e) {
-  // ignore log dir creation errors
+  // ignore
+}
+if (!fs.existsSync(logsDir)) {
+  // fallback to ~/logs
+  try {
+    const homeLogs = path.join(require('os').homedir(), 'logs');
+    if (!fs.existsSync(homeLogs)) {
+      fs.mkdirSync(homeLogs, { recursive: true });
+    }
+    logsDir = homeLogs;
+  } catch (e) {
+    // ignore
+  }
 }
 const logFilePath = path.join(logsDir, 'app.log');
 let logStream;
