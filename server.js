@@ -2,19 +2,23 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { createRequire } = require('module');
 
 // On cPanel, NODE_ENV is often unset. Default to production.
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = 'production';
 }
+// Constrain memory usage on shared hosting
+process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || '--max-old-space-size=512';
+process.env.NEXT_TELEMETRY_DISABLED = process.env.NEXT_TELEMETRY_DISABLED || '1';
 
 // Resolve and enforce the application directory (where this file lives)
 const appDir = path.resolve(__dirname);
 try {
   process.chdir(appDir);
 } catch (e) {
-  console.error('Failed to chdir to appDir:', e);
+  console.error('FATAL: Failed to chdir to appDir:', e);
 }
 
 // Prepare logging: write all console output to logs/app.log as well
@@ -30,7 +34,7 @@ try {
 if (!fs.existsSync(logsDir)) {
   // fallback to ~/logs
   try {
-    const homeLogs = path.join(require('os').homedir(), 'logs');
+    const homeLogs = path.join(os.homedir(), 'logs');
     if (!fs.existsSync(homeLogs)) {
       fs.mkdirSync(homeLogs, { recursive: true });
     }
@@ -59,9 +63,40 @@ function writeLog(prefix, args) {
 console.log = (...args) => writeLog('INFO', args);
 console.error = (...args) => writeLog('ERROR', args);
 
+// Utility: ensure production build exists
+function ensureProductionBuildExists() {
+  if (process.env.NODE_ENV === 'production') {
+    const buildIdPath = path.join(appDir, '.next', 'BUILD_ID');
+    const serverDir = path.join(appDir, '.next', 'server');
+    if (!fs.existsSync(buildIdPath) || !fs.existsSync(serverDir)) {
+      const msg = 'FATAL: No production build found in .next. Upload your local .next or run next build.';
+      console.error(msg);
+      throw new Error(msg);
+    }
+  }
+}
+
+// Early check for build to fail fast with clear error
+try {
+  ensureProductionBuildExists();
+} catch (e) {
+  // Leave a breadcrumb in both locations
+  try { fs.appendFileSync(logFilePath, `${new Date().toISOString()} ${String(e)}\n`); } catch (_) {}
+  // Re-throw so cPanel logs it too
+  throw e;
+}
+
 // Load the local Next.js from this project explicitly (avoid global nodevenv copy)
-const projectRequire = createRequire(path.join(appDir, 'package.json'));
-const next = projectRequire('next');
+// Load Next.js from the app's own node_modules
+let next;
+try {
+  const projectRequire = createRequire(path.join(appDir, 'package.json'));
+  next = projectRequire('next');
+} catch (err) {
+  console.error('FATAL: Failed to load Next.js. Ensure dependencies are installed for this Node version.', err && err.stack ? err.stack : err);
+  try { fs.appendFileSync(logFilePath, `${new Date().toISOString()} FATAL next require error: ${String(err)}\n`); } catch (_) {}
+  throw err;
+}
 
 // Determine if we're in development mode
 const dev = process.env.NODE_ENV !== 'production';
@@ -73,9 +108,17 @@ console.log(`> __dirname: ${__dirname}`);
 console.log(`> process.cwd(): ${process.cwd()}`);
 console.log(`> Using app dir: ${appDir}`);
 console.log(`> Log file: ${logFilePath}`);
+console.log(`> Node version: ${process.version}`);
+console.log(`> NODE_OPTIONS: ${process.env.NODE_OPTIONS || ''}`);
 
 // Create the Next.js app, forcing the correct directory so it finds .next
-const app = next({ dev, hostname, port, dir: appDir });
+let app;
+try {
+  app = next({ dev, hostname, port, dir: appDir });
+} catch (e) {
+  console.error('FATAL: Failed to initialize Next app.', e && e.stack ? e.stack : e);
+  throw e;
+}
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
@@ -83,6 +126,13 @@ app.prepare().then(() => {
     try {
       const start = Date.now();
       const parsedUrl = parse(req.url, true);
+      // Lightweight health endpoint that bypasses Next
+      if (parsedUrl.pathname === '/_health') {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true, ts: Date.now() }));
+        return;
+      }
       console.log(`HTTP ${req.method} ${parsedUrl.pathname}`);
       await handle(req, res, parsedUrl);
       const ms = Date.now() - start;
@@ -101,6 +151,8 @@ app.prepare().then(() => {
     console.log(`> Ready on http://${hostname}:${port}`);
     console.log(`> Environment: ${process.env.NODE_ENV || 'development'}`);
   });
+}).catch((e) => {
+  console.error('FATAL: app.prepare() failed.', e && e.stack ? e.stack : e);
 });
 
 // Graceful shutdown
