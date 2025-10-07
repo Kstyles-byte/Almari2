@@ -1,10 +1,13 @@
 deployment:
   tasks:
     # Configure your application directory on the server (must match the Application root in cPanel)
-    - export DEPLOY_ROOT="$HOME/Almari2"
+    - export DEPLOY_ROOT="/home/imsfrkmv/Almari2"
+    - export DEPLOY_LOG="$HOME/deploy.log"
+    - echo "[$(date -u +%FT%TZ)] starting deploy to $DEPLOY_ROOT" >> "$DEPLOY_LOG"
 
     # Ensure deploy root exists
     - /bin/mkdir -p "$DEPLOY_ROOT"
+    - echo "[$(date -u +%FT%TZ)] ensured deploy root" >> "$DEPLOY_LOG"
 
     # Sync repository files to the application directory (no build artifacts yet)
     - RSYNC_BIN="$(command -v rsync || true)"
@@ -24,6 +27,7 @@ deployment:
             -not -name ".next" -exec rm -rf {} + || true
           /bin/cp -a ./ "$DEPLOY_ROOT"/
         fi
+    - echo "[$(date -u +%FT%TZ)] synced repo files" >> "$DEPLOY_LOG"
 
     # If a prebuilt .next exists in the repo (or was uploaded), sync it
     - if [ -d .next ]; then /usr/bin/rsync -a --delete .next/ "$DEPLOY_ROOT"/.next/; fi || true
@@ -33,24 +37,33 @@ deployment:
 
     # Build on the server using the Node.js version configured for this app in cPanel
     - export APP_NAME="$(basename "$DEPLOY_ROOT")"
-    - export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 UV_USE_IO_URING=0
+    - export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 UV_USE_IO_URING=0 CPANEL_BUILD=true DISABLE_MINIFICATION=true
     - export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}"
     - export NPM_BIN="$HOME/nodevenv/$APP_NAME/bin/npm"
     - export NODE_BIN="$HOME/nodevenv/$APP_NAME/bin/node"
+    - echo "[$(date -u +%FT%TZ)] using npm at $NPM_BIN" >> "$DEPLOY_LOG"
     - |
         if [ -x "$NPM_BIN" ]; then
           cd "$DEPLOY_ROOT" || exit 1
+          echo "[$(date -u +%FT%TZ)] installing deps" >> "$DEPLOY_LOG"
           # Install deps (use ci when lockfile exists)
           if [ -f package-lock.json ]; then
             "$NPM_BIN" ci --no-audit --no-fund --loglevel=error || exit 1
           else
             "$NPM_BIN" install --no-audit --no-fund --loglevel=error || exit 1
           fi
+          echo "[$(date -u +%FT%TZ)] building next" >> "$DEPLOY_LOG"
           # Build Next.js (memory-friendly)
           "$NPM_BIN" run build || exit 1
+          echo "[$(date -u +%FT%TZ)] build done" >> "$DEPLOY_LOG"
+          /bin/mkdir -p "$DEPLOY_ROOT"/logs
+          echo "[$(date -u +%FT%TZ)] ensured logs dir" >> "$DEPLOY_LOG"
+          /usr/bin/touch "$DEPLOY_ROOT"/.deploy_stamp
+          echo "[$(date -u +%FT%TZ)] wrote deploy stamp" >> "$DEPLOY_LOG"
         else
-          echo "WARN: npm not found at $NPM_BIN. Verify your cPanel Application root and Node.js version." 1>&2
+          echo "[$(date -u +%FT%TZ)] WARN: npm not found at $NPM_BIN. Verify your cPanel Application root and Node.js version." >> "$DEPLOY_LOG"
         fi
 
     # Touch Passenger restart file to restart the Node app managed by cPanel
     - /bin/mkdir -p "$DEPLOY_ROOT"/tmp && /usr/bin/touch "$DEPLOY_ROOT"/tmp/restart.txt
+    - echo "[$(date -u +%FT%TZ)] restart signaled" >> "$DEPLOY_LOG"
