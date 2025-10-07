@@ -36,14 +36,35 @@ deployment:
     - /bin/chmod -R g+w "$DEPLOY_ROOT" || true
 
     # Build on the server using the Node.js version configured for this app in cPanel
-    - export APP_NAME="$(basename "$DEPLOY_ROOT")"
+    - export APP_NAME="$(basename \"$DEPLOY_ROOT\")"
     - export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 UV_USE_IO_URING=0 CPANEL_BUILD=true DISABLE_MINIFICATION=true
     - export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}"
-    - export NPM_BIN="$HOME/nodevenv/$APP_NAME/bin/npm"
-    - export NODE_BIN="$HOME/nodevenv/$APP_NAME/bin/node"
-    - echo "[$(date -u +%FT%TZ)] using npm at $NPM_BIN" >> "$DEPLOY_LOG"
+    - export NODEVENV_BASE="$HOME/nodevenv/$APP_NAME"
     - |
-        if [ -x "$NPM_BIN" ]; then
+        # Discover npm inside cPanel's nodevenv (prefer Node 20, then 18, then highest available)
+        if [ -x "$NODEVENV_BASE/20/bin/npm" ]; then
+          NPM_BIN="$NODEVENV_BASE/20/bin/npm"
+        elif [ -x "$NODEVENV_BASE/18/bin/npm" ]; then
+          NPM_BIN="$NODEVENV_BASE/18/bin/npm"
+        elif [ -x "$NODEVENV_BASE/bin/npm" ]; then
+          NPM_BIN="$NODEVENV_BASE/bin/npm"
+        else
+          CANDIDATE_NPM=$(ls -d "$NODEVENV_BASE"/*/bin/npm 2>/dev/null | sort -V | tail -n1 || true)
+          if [ -n "$CANDIDATE_NPM" ] && [ -x "$CANDIDATE_NPM" ]; then
+            NPM_BIN="$CANDIDATE_NPM"
+          else
+            NPM_BIN=""
+          fi
+        fi
+        if [ -n "$NPM_BIN" ]; then
+          NODE_BIN="$(dirname \"$NPM_BIN\")/node"
+        else
+          NODE_BIN=""
+        fi
+    - echo "[$(date -u +%FT%TZ)] nodevenv base: $NODEVENV_BASE" >> "$DEPLOY_LOG"
+    - echo "[$(date -u +%FT%TZ)] resolved npm: ${NPM_BIN:-not-found} node: ${NODE_BIN:-not-found}" >> "$DEPLOY_LOG"
+    - |
+        if [ -n "$NPM_BIN" ] && [ -x "$NPM_BIN" ]; then
           cd "$DEPLOY_ROOT" || exit 1
           echo "[$(date -u +%FT%TZ)] installing deps" >> "$DEPLOY_LOG"
           # Install deps (use ci when lockfile exists)
@@ -61,7 +82,7 @@ deployment:
           /usr/bin/touch "$DEPLOY_ROOT"/.deploy_stamp
           echo "[$(date -u +%FT%TZ)] wrote deploy stamp" >> "$DEPLOY_LOG"
         else
-          echo "[$(date -u +%FT%TZ)] WARN: npm not found at $NPM_BIN. Verify your cPanel Application root and Node.js version." >> "$DEPLOY_LOG"
+          echo "[$(date -u +%FT%TZ)] WARN: could not resolve npm under $NODEVENV_BASE. Check cPanel Node App settings (App root, Startup file, Node version)." >> "$DEPLOY_LOG"
         fi
 
     # Touch Passenger restart file to restart the Node app managed by cPanel
