@@ -1,12 +1,12 @@
 deployment:
   tasks:
-    # Configure your application directory on the server
+    # Configure your application directory on the server (must match the Application root in cPanel)
     - export DEPLOY_ROOT="$HOME/Almari2"
 
     # Ensure deploy root exists
     - /bin/mkdir -p "$DEPLOY_ROOT"
 
-    # Sync repository files to the application directory (no build here)
+    # Sync repository files to the application directory (no build artifacts yet)
     - RSYNC_BIN="$(command -v rsync || true)"
     - |
         if [ -n "$RSYNC_BIN" ]; then
@@ -30,6 +30,27 @@ deployment:
 
     # Set safe permissions
     - /bin/chmod -R g+w "$DEPLOY_ROOT" || true
+
+    # Build on the server using the Node.js version configured for this app in cPanel
+    - export APP_NAME="$(basename "$DEPLOY_ROOT")"
+    - export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 UV_USE_IO_URING=0
+    - export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}"
+    - export NPM_BIN="$HOME/nodevenv/$APP_NAME/bin/npm"
+    - export NODE_BIN="$HOME/nodevenv/$APP_NAME/bin/node"
+    - |
+        if [ -x "$NPM_BIN" ]; then
+          cd "$DEPLOY_ROOT" || exit 1
+          # Install deps (use ci when lockfile exists)
+          if [ -f package-lock.json ]; then
+            "$NPM_BIN" ci --no-audit --no-fund --loglevel=error || exit 1
+          else
+            "$NPM_BIN" install --no-audit --no-fund --loglevel=error || exit 1
+          fi
+          # Build Next.js (memory-friendly)
+          "$NPM_BIN" run build || exit 1
+        else
+          echo "WARN: npm not found at $NPM_BIN. Verify your cPanel Application root and Node.js version." 1>&2
+        fi
 
     # Touch Passenger restart file to restart the Node app managed by cPanel
     - /bin/mkdir -p "$DEPLOY_ROOT"/tmp && /usr/bin/touch "$DEPLOY_ROOT"/tmp/restart.txt
