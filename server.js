@@ -81,8 +81,50 @@ try {
   ensureProductionBuildExists();
 } catch (e) {
   // Leave a breadcrumb in both locations
-  try { fs.appendFileSync(logFilePath, `${new Date().toISOString()} ${String(e)}\n`); } catch (_) {}
+  try { fs.appendFileSync(logFilePath, `${new Date().toISOString()} BUILD CHECK FAILED: ${String(e)}\n`); } catch (_) {}
+  console.error('BUILD CHECK FAILED:', e);
   // Re-throw so cPanel logs it too
+  throw e;
+}
+
+// Check for critical environment variables
+function checkEnvironmentVariables() {
+  const required = {
+    'NEXTAUTH_URL': process.env.NEXTAUTH_URL,
+    'NEXTAUTH_SECRET': process.env.NEXTAUTH_SECRET,
+    'DATABASE_URL': process.env.DATABASE_URL
+  };
+  
+  const missing = [];
+  const incorrect = [];
+  
+  for (const [key, value] of Object.entries(required)) {
+    if (!value) {
+      missing.push(key);
+    } else if (key === 'NEXTAUTH_URL' && !value.includes('zervia.ng') && process.env.NODE_ENV === 'production') {
+      incorrect.push(`${key} should point to zervia.ng, got: ${value}`);
+    }
+  }
+  
+  if (missing.length > 0 || incorrect.length > 0) {
+    const errorMsg = [
+      missing.length > 0 ? `Missing environment variables: ${missing.join(', ')}` : '',
+      incorrect.length > 0 ? `Incorrect environment variables: ${incorrect.join(', ')}` : ''
+    ].filter(Boolean).join('; ');
+    
+    console.error('ENVIRONMENT VARIABLES ERROR:', errorMsg);
+    try { fs.appendFileSync(logFilePath, `${new Date().toISOString()} ENV ERROR: ${errorMsg}\n`); } catch (_) {}
+    throw new Error(`Environment configuration error: ${errorMsg}`);
+  }
+}
+
+// Check environment variables
+try {
+  checkEnvironmentVariables();
+  console.log('Environment variables validated successfully');
+} catch (e) {
+  console.error('FATAL: Environment validation failed:', e.message);
+  try { fs.appendFileSync(logFilePath, `${new Date().toISOString()} FATAL ENV ERROR: ${String(e)}\n`); } catch (_) {}
   throw e;
 }
 
