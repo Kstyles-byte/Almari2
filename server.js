@@ -5,13 +5,26 @@ const fs = require('fs');
 const os = require('os');
 const { createRequire } = require('module');
 
-// On cPanel, NODE_ENV is often unset. Default to production.
-if (!process.env.NODE_ENV) {
-  process.env.NODE_ENV = 'production';
+// Load environment variables from .env file
+function loadEnvFile(filePath) {
+  if (fs.existsSync(filePath)) {
+    const envContent = fs.readFileSync(filePath, 'utf-8');
+    const lines = envContent.split('\n');
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        const [key, ...valueParts] = trimmedLine.split('=');
+        if (key && valueParts.length > 0) {
+          const value = valueParts.join('=').replace(/^["']|["']$/g, '');
+          if (!process.env[key.trim()]) {
+            process.env[key.trim()] = value;
+          }
+        }
+      }
+    }
+  }
 }
-// Constrain memory usage on shared hosting
-process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || '--max-old-space-size=512';
-process.env.NEXT_TELEMETRY_DISABLED = process.env.NEXT_TELEMETRY_DISABLED || '1';
 
 // Resolve and enforce the application directory (where this file lives)
 const appDir = path.resolve(__dirname);
@@ -20,6 +33,18 @@ try {
 } catch (e) {
   console.error('FATAL: Failed to chdir to appDir:', e);
 }
+
+// Load environment variables from .env file EARLY
+const envPath = path.join(appDir, '.env');
+loadEnvFile(envPath);
+
+// On cPanel, NODE_ENV is often unset. Default to production.
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'production';
+}
+// Constrain memory usage on shared hosting
+process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || '--max-old-space-size=512';
+process.env.NEXT_TELEMETRY_DISABLED = process.env.NEXT_TELEMETRY_DISABLED || '1';
 
 // Prepare logging: write all console output to logs/app.log as well
 // Prefer app-local logs dir; fallback to user-level logs
