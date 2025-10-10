@@ -1,6 +1,9 @@
 ---
 deployment:
   tasks:
-    - export PATH="/opt/alt/alt-nodejs20/root/usr/bin:$PATH"
-    - /bin/cp -R * /home/imsfrkmv/Almari2
-    - cd /home/imsfrkmv/Almari2 && /opt/alt/alt-nodejs20/root/usr/bin/npm install --production
+    - echo "$(date -u +%FT%TZ) start deploy to /home/imsfrkmv/Almari2" >> $HOME/deploy.log
+    - /bin/mkdir -p /home/imsfrkmv/Almari2 /home/imsfrkmv/Almari2/tmp /home/imsfrkmv/Almari2/logs
+    - if command -v rsync >/dev/null 2>&1; then rsync -a --delete --exclude ".git" --exclude "node_modules" --exclude ".github" --exclude "cpanel-deploy.sh" --exclude "build-no-swc.sh" ./ /home/imsfrkmv/Almari2/; else find /home/imsfrkmv/Almari2 -mindepth 1 -maxdepth 1 -not -name ".next" -exec rm -rf {} + || true; /bin/cp -a ./ /home/imsfrkmv/Almari2/; fi
+    - NODE_BIN="/opt/alt/alt-nodejs20/root/usr/bin/node"; NPM_BIN="/opt/alt/alt-nodejs20/root/usr/bin/npm"; echo "$(date -u +%FT%TZ) Using Node.js at $NODE_BIN (version: $($NODE_BIN --version))" >> $HOME/deploy.log
+    - if [ -x "$NPM_BIN" ]; then cd /home/imsfrkmv/Almari2 && echo "$(date -u +%FT%TZ) installing deps with $NPM_BIN" >> $HOME/deploy.log && if [ -f package-lock.json ]; then "$NPM_BIN" ci --production --no-audit --no-fund --loglevel=error; else "$NPM_BIN" install --production --no-audit --no-fund --loglevel=error; fi && echo "$(date -u +%FT%TZ) deps installed - build skipped (using pre-built .next)" >> $HOME/deploy.log; else echo "$(date -u +%FT%TZ) npm not found at $NPM_BIN" >> $HOME/deploy.log; fi
+    - /bin/mkdir -p /home/imsfrkmv/Almari2/tmp && /usr/bin/touch /home/imsfrkmv/Almari2/.deploy_stamp && /usr/bin/touch /home/imsfrkmv/Almari2/tmp/restart.txt && echo "$(date -u +%FT%TZ) restart signaled" >> $HOME/deploy.log
