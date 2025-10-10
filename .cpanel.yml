@@ -1,6 +1,4 @@
 ---
 deployment:
   tasks:
-    - export PATH="/opt/alt/alt-nodejs20/root/usr/bin:$PATH"
-    - /bin/cp -R * /home/imsfrkmv/Almari2
-    - cd /home/imsfrkmv/Almari2 && /opt/alt/alt-nodejs20/root/usr/bin/npm install --production
+    - /bin/cp -R . $DEPLOYPATH
