@@ -1,5 +1,6 @@
 ---
 deployment:
   tasks:
-    - /bin/cp -R . $DEPLOYPATH
-# im thinking
+    - /bin/cp -R * /home/imsfrkmv/Almari2
+    - source /home/imsfrkmv/nodevenv/Almari2/20/bin/activate && cd /home/imsfrkmv/Almari2 && npm install --production
+    - /usr/bin/touch /home/imsfrkmv/Almari2/tmp/restart.txt
