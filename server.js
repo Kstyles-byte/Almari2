@@ -1,55 +1,34 @@
 #!/usr/bin/env node
 
-// Simple Next.js starter for cPanel - just runs 'next start'
 const { spawn } = require('child_process');
 const path = require('path');
-const fs = require('fs');
 
-// Load environment variables from .env file
-function loadEnvFile(filePath) {
-  if (fs.existsSync(filePath)) {
-    const envContent = fs.readFileSync(filePath, 'utf-8');
-    const lines = envContent.split('\n');
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (trimmedLine && !trimmedLine.startsWith('#')) {
-        const [key, ...valueParts] = trimmedLine.split('=');
-        if (key && valueParts.length > 0) {
-          const value = valueParts.join('=').replace(/^["']|["']$/g, '');
-          if (!process.env[key.trim()]) {
-            process.env[key.trim()] = value;
-          }
-        }
-      }
-    }
-  }
-}
+// Ensure we are in the app directory
+process.chdir(__dirname);
 
-// Change to app directory
-const appDir = path.resolve(__dirname);
-process.chdir(appDir);
-
-// Load environment variables
-const envPath = path.join(appDir, '.env');
-loadEnvFile(envPath);
-
-// Set defaults
-if (!process.env.NODE_ENV) {
-  process.env.NODE_ENV = 'production';
-}
-process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || '--max-old-space-size=512';
-process.env.NEXT_TELEMETRY_DISABLED = process.env.NEXT_TELEMETRY_DISABLED || '1';
+// Determine port/host (cPanel/Passenger will proxy to this)
+const port = process.env.PORT || '3000';
+const host = process.env.HOST || '0.0.0.0';
 
 console.log('=================================================');
-console.log('Auto-start disabled for manual debugging');
-console.log('=================================================');
-console.log(`Node version: ${process.version}`);
-console.log(`Working directory: ${appDir}`);
-console.log(`Environment: ${process.env.NODE_ENV}`);
-console.log('');
-console.log('To start the app manually, run: npm start');
+console.log('Starting Next.js via npm start');
+console.log(`CWD: ${__dirname}`);
+console.log(`PORT: ${port}`);
+console.log(`HOST: ${host}`);
 console.log('=================================================');
 
-// Exit immediately without starting the server
-process.exit(0);
+// Use npm.cmd on Windows when running locally
+const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const child = spawn(npmCmd, ['start', '--', '-p', port, '-H', host], {
+  cwd: __dirname,
+  env: { ...process.env, PORT: port, HOST: host },
+  stdio: 'inherit'
+});
+
+child.on('exit', (code, signal) => {
+  console.log(`npm start exited with code ${code}${signal ? `, signal ${signal}` : ''}`);
+  process.exit(code ?? 0);
+});
+
+process.on('SIGTERM', () => child.kill('SIGTERM'));
+process.on('SIGINT', () => child.kill('SIGINT'));
