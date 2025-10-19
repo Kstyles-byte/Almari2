@@ -41,38 +41,15 @@ if (!process.env.NODE_ENV) {
 process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || '--max-old-space-size=512';
 process.env.NEXT_TELEMETRY_DISABLED = process.env.NEXT_TELEMETRY_DISABLED || '1';
 
-console.log('Starting Next.js via next start...');
+console.log('=================================================');
+console.log('Auto-start disabled for manual debugging');
+console.log('=================================================');
 console.log(`Node version: ${process.version}`);
 console.log(`Working directory: ${appDir}`);
 console.log(`Environment: ${process.env.NODE_ENV}`);
+console.log('');
+console.log('To start the app manually, run: npm start');
+console.log('=================================================');
 
-// Find the next binary
-const nextBin = path.join(appDir, 'node_modules', '.bin', 'next');
-
-// Start Next.js using spawn
-const child = spawn(nextBin, ['start'], {
-  cwd: appDir,
-  env: process.env,
-  stdio: 'inherit' // Pass through stdout/stderr
-});
-
-child.on('error', (error) => {
-  console.error('Failed to start Next.js:', error);
-  process.exit(1);
-});
-
-child.on('exit', (code) => {
-  console.log(`Next.js exited with code ${code}`);
-  process.exit(code);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down...');
-  child.kill('SIGTERM');
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received. Shutting down...');
-  child.kill('SIGINT');
-});
+// Exit immediately without starting the server
+process.exit(0);
