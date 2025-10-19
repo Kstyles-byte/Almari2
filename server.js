@@ -1,34 +1,39 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
+// Next.js production server for cPanel/Passenger (no child processes)
+const next = require('next');
+const express = require('express');
 const path = require('path');
 
-// Ensure we are in the app directory
 process.chdir(__dirname);
 
-// Determine port/host (cPanel/Passenger will proxy to this)
-const port = process.env.PORT || '3000';
+const dev = false; // Always production here
+const dir = __dirname;
+const app = next({ dev, dir });
+const handle = app.getRequestHandler();
+
+const port = process.env.PORT || 3000;
 const host = process.env.HOST || '0.0.0.0';
 
-console.log('=================================================');
-console.log('Starting Next.js via npm start');
-console.log(`CWD: ${__dirname}`);
-console.log(`PORT: ${port}`);
-console.log(`HOST: ${host}`);
-console.log('=================================================');
+app
+  .prepare()
+  .then(() => {
+    const server = express();
 
-// Use npm.cmd on Windows when running locally
-const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const child = spawn(npmCmd, ['start', '--', '-p', port, '-H', host], {
-  cwd: __dirname,
-  env: { ...process.env, PORT: port, HOST: host },
-  stdio: 'inherit'
-});
+    // Optional health check
+    server.get('/health', (_req, res) => res.status(200).json({ ok: true }));
 
-child.on('exit', (code, signal) => {
-  console.log(`npm start exited with code ${code}${signal ? `, signal ${signal}` : ''}`);
-  process.exit(code ?? 0);
-});
+    // Let Next handle everything else
+    server.all('*', (req, res) => handle(req, res));
 
-process.on('SIGTERM', () => child.kill('SIGTERM'));
-process.on('SIGINT', () => child.kill('SIGINT'));
+    server.listen(port, host, () => {
+      console.log(`Next.js listening on http://${host}:${port} (dir=${dir})`);
+    });
+
+    // Export for Passenger
+    module.exports = server;
+  })
+  .catch((err) => {
+    console.error('Failed to start Next.js server:', err);
+    process.exit(1);
+  });
