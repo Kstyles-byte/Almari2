@@ -31,7 +31,7 @@ jobs:
           username: ${{ secrets.CPANEL_FTP_USERNAME }}
           password: ${{ secrets.CPANEL_FTP_PASSWORD }}
           local-dir: ./
-          server-dir: /home/imsfrkmv/zervia
+          server-dir: /home/imsfrkmv/zervia/
           exclude: |
             **/.git*
             **/node_modules/**
@@ -44,7 +44,7 @@ jobs:
     #       username: ${{ secrets.CPANEL_SSH_USER }}
     #       password: ${{ secrets.CPANEL_SSH_PASSWORD }}
     #       source: "./"
-    #       target: "/home/imsfrkmv/zervia"
+    #       target: "/home/imsfrkmv/zervia/"
 
     #   - name: Restart Node App
     #     uses: appleboy/ssh-action@v1.1.0
