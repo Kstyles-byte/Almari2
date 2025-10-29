@@ -87,7 +87,7 @@ jobs:
       - name: Zip build for deployment
         run: |
           mkdir deploy
-          rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache . deploy/
+          rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=deploy . deploy/
           cd deploy && zip -r ../deploy.zip . && cd ..
 
       - name: Upload ZIP to cPanel via SSH
