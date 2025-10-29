@@ -87,7 +87,7 @@ jobs:
       - name: Zip build for deployment
         run: |
           mkdir deploy
-          cp -r .next package.json package-lock.json public server.js next.config.js deploy/
+          cp -r .next package.json package-lock.json public server.js next.config.ts deploy/
           cd deploy && zip -r ../deploy.zip . && cd ..
 
       - name: Upload ZIP to cPanel via SSH
