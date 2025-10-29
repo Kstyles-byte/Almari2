@@ -87,7 +87,7 @@ jobs:
       - name: Zip build for deployment
         run: |
           mkdir deploy
-          cp -r .next package.json package-lock.json public server.js next.config.ts deploy/
+          rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache . deploy/
           cd deploy && zip -r ../deploy.zip . && cd ..
 
       - name: Upload ZIP to cPanel via SSH
@@ -96,6 +96,7 @@ jobs:
           host: ${{ secrets.CPANEL_SSH_HOST }}
           username: ${{ secrets.CPANEL_SSH_USER }}
           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+          port: 1624
           source: "deploy.zip"
           target: "/home/imsfrkmv/zervia/"
 
