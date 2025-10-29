@@ -106,6 +106,7 @@ jobs:
           host: ${{ secrets.CPANEL_SSH_HOST }}
           username: ${{ secrets.CPANEL_SSH_USER }}
           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+          port: 1624
           script: |
             cd ~/zervia
             unzip -o deploy.zip
