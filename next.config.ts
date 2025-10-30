@@ -2,7 +2,7 @@
 const path = require('path');
 
 const nextConfig = {
-  // output: 'standalone',
+  output: 'standalone',
   reactStrictMode: true,
   
   // Disable TypeScript checking during build
