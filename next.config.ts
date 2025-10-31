@@ -3,6 +3,16 @@ const path = require('path');
 
 const nextConfig = {
   output: 'standalone',
+  images: {
+    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      // Add other external image domains here
+    ],
+  },
   reactStrictMode: true,
   
   // Disable TypeScript checking during build
@@ -24,28 +34,28 @@ const nextConfig = {
       bodySizeLimit: '6mb', // Allow up to 6MB for image uploads
     },
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'res.cloudinary.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-    ],
-  },
+  // images: {
+  //   remotePatterns: [
+  //     {
+  //       protocol: 'https',
+  //       hostname: 'images.unsplash.com',
+  //       port: '',
+  //       pathname: '/**',
+  //     },
+  //     {
+  //       protocol: 'https',
+  //       hostname: 'res.cloudinary.com',
+  //       port: '',
+  //       pathname: '/**',
+  //     },
+  //     {
+  //       protocol: 'https',
+  //       hostname: 'placehold.co',
+  //       port: '',
+  //       pathname: '/**',
+  //     },
+  //   ],
+  // },
   webpack: (config: any, { isServer }: any) => {
     // Only disable minification in production if we're on a server environment
     // This allows local builds to work normally while still being compatible with shared hosting
