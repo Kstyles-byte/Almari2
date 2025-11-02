@@ -1,82 +1,82 @@
-name: Deploy Next.js to cPanel
+# name: Deploy Next.js to cPanel
 
-on:
-  push:
-    branches:
-      - main
+# on:
+#   push:
+#     branches:
+#       - main
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '18'
 
-      - name: Install dependencies
-        run: npm ci
+#       - name: Install dependencies
+#         run: npm ci
 
-      - name: Build Next.js app
-        run: npm run build
+#       - name: Build Next.js app
+#         run: npm run build
 
-      # - name: Deploy to cPanel via FTP
-      #   uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-      #   with:
-      #     server: ${{ secrets.CPANEL_FTP_SERVER }}
-      #     username: ${{ secrets.CPANEL_FTP_USERNAME }}
-      #     password: ${{ secrets.CPANEL_FTP_PASSWORD }}
-      #     local-dir: ./
-      #     server-dir: /home/imsfrkmv/zervia/
-      #     exclude: |
-      #       **/.git*
-      #       **/node_modules/**
-      #       **/.next/cache/**
+#       # - name: Deploy to cPanel via FTP
+#       #   uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+#       #   with:
+#       #     server: ${{ secrets.CPANEL_FTP_SERVER }}
+#       #     username: ${{ secrets.CPANEL_FTP_USERNAME }}
+#       #     password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+#       #     local-dir: ./
+#       #     server-dir: /home/imsfrkmv/zervia/
+#       #     exclude: |
+#       #       **/.git*
+#       #       **/node_modules/**
+#       #       **/.next/cache/**
 
-      - name: Zip project for deployment
-        run: |
-          mkdir deploy
-          rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=deploy . deploy/
-          cd deploy && zip -r ../deploy.zip . && cd ..
+#       - name: Zip project for deployment
+#         run: |
+#           mkdir deploy
+#           rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=deploy . deploy/
+#           cd deploy && zip -r ../deploy.zip . && cd ..
 
-      - name: Upload ZIP to cPanel via SSH
-        uses: appleboy/scp-action@v0.1.5
-        with:
-          host: ${{ secrets.CPANEL_SSH_HOST }}
-          username: ${{ secrets.CPANEL_SSH_USER }}
-          password: ${{ secrets.CPANEL_SSH_PASSWORD }}
-          port: 1624
-          source: "deploy.zip"
-          target: "/home/imsfrkmv/zervia/"
+#       - name: Upload ZIP to cPanel via SSH
+#         uses: appleboy/scp-action@v0.1.5
+#         with:
+#           host: ${{ secrets.CPANEL_SSH_HOST }}
+#           username: ${{ secrets.CPANEL_SSH_USER }}
+#           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+#           port: 1624
+#           source: "deploy.zip"
+#           target: "/home/imsfrkmv/zervia/"
 
-      # - name: Restart Node App
-      #   uses: appleboy/ssh-action@v1.1.0
-      #   with:
-      #     host: ${{ secrets.CPANEL_SSH_HOST }}
-      #     username: ${{ secrets.CPANEL_SSH_USER }}
-      #     password: ${{ secrets.CPANEL_SSH_PASSWORD }}
-      #     script: |
-      #       cd ~/zervia
-      #       npm install --production
-      #       touch tmp/restart.txt
+#       # - name: Restart Node App
+#       #   uses: appleboy/ssh-action@v1.1.0
+#       #   with:
+#       #     host: ${{ secrets.CPANEL_SSH_HOST }}
+#       #     username: ${{ secrets.CPANEL_SSH_USER }}
+#       #     password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+#       #     script: |
+#       #       cd ~/zervia
+#       #       npm install --production
+#       #       touch tmp/restart.txt
 
-      - name: Unzip and Restart App on Server
-        uses: appleboy/ssh-action@v1.1.0
-        with:
-          host: ${{ secrets.CPANEL_SSH_HOST }}
-          username: ${{ secrets.CPANEL_SSH_USER }}
-          password: ${{ secrets.CPANEL_SSH_PASSWORD }}
-          port: 1624
-          script: |
-            cd ~/zervia
-            unzip -o deploy.zip
-            rm deploy.zip
-            npm install --production --ignore-scripts
-            touch tmp/restart.txt || echo "App restarted"
+#       - name: Unzip and Restart App on Server
+#         uses: appleboy/ssh-action@v1.1.0
+#         with:
+#           host: ${{ secrets.CPANEL_SSH_HOST }}
+#           username: ${{ secrets.CPANEL_SSH_USER }}
+#           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+#           port: 1624
+#           script: |
+#             cd ~/zervia
+#             unzip -o deploy.zip
+#             rm deploy.zip
+#             npm install --production --ignore-scripts
+#             touch tmp/restart.txt || echo "App restarted"
 
 
 
@@ -137,122 +137,122 @@ jobs:
 
 
 
-# name: Deploy Next.js to cPanel via SSH
+name: Deploy Next.js to cPanel via SSH
 
-# on:
-#   push:
-#     branches: [ main ]
+on:
+  push:
+    branches: [ main ]
 
-# jobs:
-#   deploy:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v4
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-#       - name: Setup Node.js
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: '18'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-#       - name: Install dependencies
-#         run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-#       - name: Build Next.js app
-#         run: npm run build
+      - name: Build Next.js app
+        run: npm run build
 
-#       - name: Prepare deployment package
-#         run: |
-#           # Create deployment structure
-#           mkdir -p deploy-package
+      - name: Prepare deployment package
+        run: |
+          # Create deployment structure
+          mkdir -p deploy-package
           
-#           # Copy standalone server files (root level)
-#           cp -r .next/standalone/* deploy-package/
+          # Copy standalone server files (root level)
+          cp -r .next/standalone/* deploy-package/
           
-#           # Copy static assets to .next/static
-#           mkdir -p deploy-package/.next/static
-#           cp -r .next/static/* deploy-package/.next/static/
+          # Copy static assets to .next/static
+          mkdir -p deploy-package/.next/static
+          cp -r .next/static/* deploy-package/.next/static/
           
-#           # Copy public folder
-#           if [ -d "public" ]; then
-#             cp -r public deploy-package/
-#           fi
+          # Copy public folder
+          if [ -d "public" ]; then
+            cp -r public deploy-package/
+          fi
           
-#           # Copy package.json for dependencies
-#           cp package.json deploy-package/
+          # Copy package.json for dependencies
+          cp package.json deploy-package/
           
-#           # Create zip
-#           cd deploy-package && zip -r ../deploy.zip . && cd ..
+          # Create zip
+          cd deploy-package && zip -r ../deploy.zip . && cd ..
 
-#       - name: Upload deployment package to cPanel
-#         uses: appleboy/scp-action@v0.1.5
-#         with:
-#           host: ${{ secrets.CPANEL_SSH_HOST }}
-#           username: ${{ secrets.CPANEL_SSH_USER }}
-#           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
-#           port: 1624
-#           source: "deploy.zip"
-#           target: "/home/imsfrkmv/"
+      - name: Upload deployment package to cPanel
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.CPANEL_SSH_HOST }}
+          username: ${{ secrets.CPANEL_SSH_USER }}
+          password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+          port: 1624
+          source: "deploy.zip"
+          target: "/home/imsfrkmv/"
 
-#       - name: Extract and setup app on server
-#         uses: appleboy/ssh-action@v1.1.0
-#         with:
-#           host: ${{ secrets.CPANEL_SSH_HOST }}
-#           username: ${{ secrets.CPANEL_SSH_USER }}
-#           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
-#           port: 1624
-#           script: |
-#             # Navigate to app directory
-#             cd ~/zervia-1
+      - name: Extract and setup app on server
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.CPANEL_SSH_HOST }}
+          username: ${{ secrets.CPANEL_SSH_USER }}
+          password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+          port: 1624
+          script: |
+            # Navigate to app directory
+            cd ~/zervia
             
-#             # Backup existing app (optional but recommended)
-#             if [ -f "server.js" ]; then
-#               echo "Creating backup..."
-#               mkdir -p ../backups
-#               tar -czf ../backups/zervia-backup-$(date +%Y%m%d-%H%M%S).tar.gz .
-#             fi
+            # Backup existing app (optional but recommended)
+            if [ -f "server.js" ]; then
+              echo "Creating backup..."
+              mkdir -p ../backups
+              tar -czf ../backups/zervia-backup-$(date +%Y%m%d-%H%M%S).tar.gz .
+            fi
             
-#             # Clean old files (except node_modules to speed up)
-#             echo "Cleaning old files..."
-#             find . -mindepth 1 -maxdepth 1 ! -name 'node_modules' ! -name '.*' -exec rm -rf {} +
+            # Clean old files (except node_modules to speed up)
+            echo "Cleaning old files..."
+            find . -mindepth 1 -maxdepth 1 ! -name 'node_modules' ! -name '.*' -exec rm -rf {} +
             
-#             # Extract new deployment
-#             echo "Extracting new deployment..."
-#             unzip -o ~/deploy.zip -d .
-#             rm ~/deploy.zip
+            # Extract new deployment
+            echo "Extracting new deployment..."
+            unzip -o ~/deploy.zip -d .
+            rm ~/deploy.zip
             
-#             # Verify critical files
-#             if [ ! -f "server.js" ]; then
-#               echo "ERROR: server.js not found!"
-#               exit 1
-#             fi
+            # Verify critical files
+            if [ ! -f "server.js" ]; then
+              echo "ERROR: server.js not found!"
+              exit 1
+            fi
             
-#             if [ ! -d ".next/static" ]; then
-#               echo "ERROR: .next/static directory not found!"
-#               exit 1
-#             fi
+            if [ ! -d ".next/static" ]; then
+              echo "ERROR: .next/static directory not found!"
+              exit 1
+            fi
             
-#             # Install production dependencies
-#             echo "Installing dependencies..."
-#             npm install --production --ignore-scripts
+            # Install production dependencies
+            echo "Installing dependencies..."
+            npm install --production --ignore-scripts
             
-#             # Restart the app (try multiple methods)
-#             echo "Restarting application..."
+            # Restart the app (try multiple methods)
+            echo "Restarting application..."
             
-#             # Method 1: Touch restart file (Passenger)
-#             mkdir -p tmp
-#             touch tmp/restart.txt
+            # Method 1: Touch restart file (Passenger)
+            mkdir -p tmp
+            touch tmp/restart.txt
             
-#             # Method 2: If using PM2
-#             if command -v pm2 &> /dev/null; then
-#               pm2 restart zervia || pm2 start server.js --name zervia
-#             fi
+            # Method 2: If using PM2
+            if command -v pm2 &> /dev/null; then
+              pm2 restart zervia || pm2 start server.js --name zervia
+            fi
             
-#             # Method 3: cPanel Node.js restart (if available)
-#             if command -v cloudlinux-selector &> /dev/null; then
-#               cloudlinux-selector restart --interpreter nodejs --app-root ~/zervia-1
-#             fi
+            # Method 3: cPanel Node.js restart (if available)
+            if command -v cloudlinux-selector &> /dev/null; then
+              cloudlinux-selector restart --interpreter nodejs --app-root ~/zervia
+            fi
             
-#             echo "Deployment completed successfully!"
-#             echo "Server.js location: $(pwd)/server.js"
-#             echo "Static files location: $(pwd)/.next/static"
+            echo "Deployment completed successfully!"
+            echo "Server.js location: $(pwd)/server.js"
+            echo "Static files location: $(pwd)/.next/static"
