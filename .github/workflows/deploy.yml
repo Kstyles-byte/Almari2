@@ -205,23 +205,19 @@ jobs:
             # Navigate to app directory
             cd ~/zervia
             
-            # Backup existing app (optional but recommended)
             if [ -f "server.js" ]; then
               echo "Creating backup..."
               mkdir -p ../backups
               tar -czf ../backups/zervia-backup-$(date +%Y%m%d-%H%M%S).tar.gz .
             fi
             
-            # Clean old files (except node_modules to speed up)
             echo "Cleaning old files..."
             find . -mindepth 1 -maxdepth 1 ! -name 'node_modules' ! -name '.*' -exec rm -rf {} +
             
-            # Extract new deployment
             echo "Extracting new deployment..."
             unzip -o ~/deploy.zip -d .
             rm ~/deploy.zip
             
-            # Verify critical files
             if [ ! -f "server.js" ]; then
               echo "ERROR: server.js not found!"
               exit 1
@@ -232,23 +228,18 @@ jobs:
               exit 1
             fi
             
-            # Install production dependencies
             echo "Installing dependencies..."
             npm install --production --ignore-scripts
             
-            # Restart the app (try multiple methods)
             echo "Restarting application..."
             
-            # Method 1: Touch restart file (Passenger)
             mkdir -p tmp
             touch tmp/restart.txt
             
-            # Method 2: If using PM2
             if command -v pm2 &> /dev/null; then
               pm2 restart zervia || pm2 start server.js --name zervia
             fi
             
-            # Method 3: cPanel Node.js restart (if available)
             if command -v cloudlinux-selector &> /dev/null; then
               cloudlinux-selector restart --interpreter nodejs --app-root ~/zervia
             fi
