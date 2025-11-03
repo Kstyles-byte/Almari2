@@ -397,7 +397,10 @@ jobs:
       - name: Package app
         run: |
           mkdir -p deploy
-          rsync -av --exclude=node_modules --exclude=.git --exclude=.next/standalone/node_modules --exclude=.next/cache --exclude=deploy .next/standalone deploy/
+          # rsync -av --exclude=node_modules --exclude=.git --exclude=.next/standalone/node_modules --exclude=.next/cache --exclude=deploy .next/standalone deploy/
+          rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=.next/standalone/node_modules --exclude=deploy .next/standalone/* deploy/
+          cp -r .next/static deploy/.next/
+
           # cp -r .next/standalone/* deploy/
           # cp -r .next/static deploy/.next/
           # cp -r public deploy/ || true
