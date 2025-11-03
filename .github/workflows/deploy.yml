@@ -396,16 +396,35 @@ jobs:
 
       - name: Package app
         run: |
+          # Prepare deploy directory
+          rm -rf deploy
           mkdir -p deploy
+
+          # Copy all standalone build output (includes server.js, .next, node_modules, etc.)
+          rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=deploy .next/standalone/ deploy/
+
+          # Copy static assets into the .next folder inside deploy
+          mkdir -p deploy/.next/static
+          cp -r .next/static/* deploy/.next/static/
+
+          # Copy public folder into root (if it exists)
+          if [ -d "public" ]; then
+            cp -r public deploy/
+          fi
+
+          # Create deployment zip
+          cd deploy && zip -r ../deploy.zip . && cd ..
+
+          # mkdir -p deploy
           # rsync -av --exclude=node_modules --exclude=.git --exclude=.next/standalone/node_modules --exclude=.next/cache --exclude=deploy .next/standalone deploy/
-          rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=.next/standalone/node_modules --exclude=deploy .next/standalone/* deploy/
-          cp -r .next/static deploy/.next/
+          # rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=.next/standalone/node_modules --exclude=deploy .next/standalone/* deploy/
+          # cp -r .next/static deploy/.next/
+          # cd deploy && zip -r ../deploy.zip . && cd ..
 
           # cp -r .next/standalone/* deploy/
           # cp -r .next/static deploy/.next/
           # cp -r public deploy/ || true
           # cp package.json deploy/
-          cd deploy && zip -r ../deploy.zip . && cd ..
 
       - name: Upload ZIP to cPanel
         uses: appleboy/scp-action@v0.1.5
