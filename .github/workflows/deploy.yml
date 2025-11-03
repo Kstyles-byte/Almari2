@@ -415,17 +415,6 @@ jobs:
           # Create deployment zip
           cd deploy && zip -r ../deploy.zip . && cd ..
 
-          # mkdir -p deploy
-          # rsync -av --exclude=node_modules --exclude=.git --exclude=.next/standalone/node_modules --exclude=.next/cache --exclude=deploy .next/standalone deploy/
-          # rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=.next/standalone/node_modules --exclude=deploy .next/standalone/* deploy/
-          # cp -r .next/static deploy/.next/
-          # cd deploy && zip -r ../deploy.zip . && cd ..
-
-          # cp -r .next/standalone/* deploy/
-          # cp -r .next/static deploy/.next/
-          # cp -r public deploy/ || true
-          # cp package.json deploy/
-
       - name: Upload ZIP to cPanel
         uses: appleboy/scp-action@v0.1.5
         with:
@@ -434,7 +423,7 @@ jobs:
           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
           port: 1624
           source: "deploy.zip"
-          target: "~/zervia-1"
+          target: "~/zervia"
 
       - name: Deploy on Server
         uses: appleboy/ssh-action@v1.1.0
@@ -444,7 +433,7 @@ jobs:
           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
           port: 1624
           script: |
-            cd ~/zervia-1
+            cd ~/zervia
             unzip -o deploy.zip || (echo "Unzip failed" && exit 1)
             rm deploy.zip
             npm install --production --ignore-scripts || echo "npm install skipped"
