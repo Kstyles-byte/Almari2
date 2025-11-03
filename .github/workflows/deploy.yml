@@ -192,7 +192,7 @@ jobs:
           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
           port: 1624
           source: "deploy.zip"
-          target: "/home/imsfrkmv/"
+          target: "/home/imsfrkmv/zervia"
 
       - name: Extract and setup app on server
         uses: appleboy/ssh-action@v1.1.0
