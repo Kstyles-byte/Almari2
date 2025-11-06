@@ -370,11 +370,183 @@
 
 
 
+# name: Deploy Next.js to cPanel via SSH
+
+# on:
+#   push:
+#     branches: [ main ]
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '18'
+
+#       - name: Install dependencies
+#         run: npm ci
+
+#       - name: Build Next.js app
+#         run: npm run build
+
+#       - name: Package app
+#         run: |
+#           # Prepare deploy directory
+#           rm -rf deploy
+#           mkdir -p deploy
+
+#           # Copy all standalone build output (includes server.js, .next, node_modules, etc.)
+#           rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=deploy .next/standalone/ deploy/
+
+#           # Copy static assets into the .next folder inside deploy
+#           mkdir -p deploy/.next/static
+#           cp -r .next/static/* deploy/.next/static/
+
+#           # Copy public folder into root (if it exists)
+#           if [ -d "public" ]; then
+#             cp -r public deploy/
+#           fi
+
+#           # Create deployment zip
+#           cd deploy && zip -r ../deploy.zip . && cd ..
+
+#       - name: Upload ZIP to cPanel
+#         uses: appleboy/scp-action@v0.1.5
+#         with:
+#           host: ${{ secrets.CPANEL_SSH_HOST }}
+#           username: ${{ secrets.CPANEL_SSH_USER }}
+#           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+#           port: 1624
+#           source: "deploy.zip"
+#           target: "~/zervia"
+
+#       - name: Deploy on Server
+#         uses: appleboy/ssh-action@v1.1.0
+#         with:
+#           host: ${{ secrets.CPANEL_SSH_HOST }}
+#           username: ${{ secrets.CPANEL_SSH_USER }}
+#           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+#           port: 1624
+#           script: |
+#             cd ~/zervia
+#             unzip -o deploy.zip || (echo "Unzip failed" && exit 1)
+#             rm deploy.zip
+#             npm install --production --ignore-scripts || echo "npm install skipped"
+#             touch tmp/restart.txt || echo "App restarted"
+
+
+
+#             name: Deploy Next.js to cPanel via SSH
+
+# on:
+#   push:
+#     branches: [ main ]
+#   workflow_dispatch: # Allow manual triggers
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '18'
+#           cache: 'npm'
+
+#       - name: Install dependencies
+#         run: npm ci
+
+#       - name: Build Next.js app
+#         run: npm run build
+#         env:
+#           NODE_ENV: production
+
+#       - name: Package app
+#         run: |
+#           # Prepare deploy directory
+#           rm -rf deploy
+#           mkdir -p deploy
+
+#           # Copy standalone build output
+#           rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=deploy .next/standalone/ deploy/
+
+#           # Copy static assets
+#           mkdir -p deploy/.next/static
+#           cp -r .next/static/* deploy/.next/static/
+
+#           # Copy public folder
+#           if [ -d "public" ]; then
+#             cp -r public deploy/
+#           fi
+
+#           # Copy ecosystem config for PM2
+#           cp ecosystem.config.js deploy/
+
+#           # Create deployment zip
+#           cd deploy && zip -r ../deploy.zip . && cd ..
+
+#       - name: Upload ZIP to cPanel
+#         uses: appleboy/scp-action@v0.1.5
+#         with:
+#           host: ${{ secrets.CPANEL_SSH_HOST }}
+#           username: ${{ secrets.CPANEL_SSH_USER }}
+#           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+#           port: 1624
+#           source: "deploy.zip"
+#           target: "~/zervia"
+
+#       - name: Deploy and Restart on Server
+#         uses: appleboy/ssh-action@v1.1.0
+#         with:
+#           host: ${{ secrets.CPANEL_SSH_HOST }}
+#           username: ${{ secrets.CPANEL_SSH_USER }}
+#           password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+#           port: 1624
+#           script: |
+#             cd ~/zervia
+            
+#             # Stop existing process
+#             if command -v npx pm2 &> /dev/null; then
+#               npx pm2 stop zervia || echo "No existing process to stop"
+#               npx pm2 delete zervia || echo "No existing process to delete"
+#             fi
+            
+#             # Extract new version
+#             unzip -o deploy.zip || (echo "Unzip failed" && exit 1)
+#             rm deploy.zip
+            
+#             # Install production dependencies (if needed)
+#             npm install --production --ignore-scripts || echo "npm install skipped"
+            
+#             # Start with PM2
+#             if command -v npx pm2 &> /dev/null; then
+#               npx pm2 start ecosystem.config.js
+#               npx pm2 save
+#             else
+#               echo "PM2 not found. Installing PM2..."
+#               npm install -g pm2
+#               npx pm2 start ecosystem.config.js
+#               npx pm2 save
+#               npx pm2 startup
+#             fi
+            
+#             # Show status
+#             npx pm2 status
+
 name: Deploy Next.js to cPanel via SSH
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch: # Allow manual triggers
 
 jobs:
   deploy:
@@ -387,12 +559,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build Next.js app
         run: npm run build
+        env:
+          NODE_ENV: production
 
       - name: Package app
         run: |
@@ -400,17 +575,20 @@ jobs:
           rm -rf deploy
           mkdir -p deploy
 
-          # Copy all standalone build output (includes server.js, .next, node_modules, etc.)
+          # Copy standalone build output
           rsync -av --exclude=node_modules --exclude=.git --exclude=.next/cache --exclude=deploy .next/standalone/ deploy/
 
-          # Copy static assets into the .next folder inside deploy
+          # Copy static assets
           mkdir -p deploy/.next/static
           cp -r .next/static/* deploy/.next/static/
 
-          # Copy public folder into root (if it exists)
+          # Copy public folder
           if [ -d "public" ]; then
             cp -r public deploy/
           fi
+
+          # Copy ecosystem config for PM2
+          cp ecosystem.config.js deploy/
 
           # Create deployment zip
           cd deploy && zip -r ../deploy.zip . && cd ..
@@ -425,7 +603,7 @@ jobs:
           source: "deploy.zip"
           target: "~/zervia"
 
-      - name: Deploy on Server
+      - name: Deploy and Restart on Server
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.CPANEL_SSH_HOST }}
@@ -434,7 +612,31 @@ jobs:
           port: 1624
           script: |
             cd ~/zervia
+            
+            # Extract new version
+            echo "Extracting deployment package..."
             unzip -o deploy.zip || (echo "Unzip failed" && exit 1)
             rm deploy.zip
+            
+            # Install PM2 locally if not present
+            if ! npm list pm2 > /dev/null 2>&1; then
+              echo "Installing PM2 locally..."
+              npm install pm2 --save
+            fi
+            
+            # Stop existing process
+            npx pm2 stop zervia 2>/dev/null || echo "No existing process to stop"
+            npx pm2 delete zervia 2>/dev/null || echo "No existing process to delete"
+            
+            # Install/update production dependencies
             npm install --production --ignore-scripts || echo "npm install skipped"
-            touch tmp/restart.txt || echo "App restarted"
+            
+            # Start with PM2
+            echo "Starting application with PM2..."
+            npx pm2 start ecosystem.config.js
+            npx pm2 save
+            
+            # Show status
+            echo "Deployment complete!"
+            npx pm2 status
+            npx pm2 logs zervia --lines 10 --nostream
