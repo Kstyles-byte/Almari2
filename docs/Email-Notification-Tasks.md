@@ -7,7 +7,7 @@
   - Host: `zervia.ng`
   - Port: `465` (SSL)
   - Username: `info@zervia.ng`
-  - Password: `Marigold2020$`
+- Password: `Marigold2020$` 
 - [ ] Confirm sender email address preference
 - [ ] Set up "noreply" email address if needed
 - [ ] Verify domain email forwarding/aliases
@@ -236,7 +236,7 @@ SMTP_HOST=zervia.ng
 SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=info@zervia.ng
-SMTP_PASSWORD=Marigold2020$
+SMTP_PASSWORD=your_email_account_password
 
 # Email Service Configuration
 EMAIL_FROM_NAME=Almari Store

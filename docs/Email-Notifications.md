@@ -75,10 +75,11 @@ Integration Points:
 Following your existing pattern:
 
 .env variables:
-- SMTP_HOST=mail.yourdomain.com
-- SMTP_PORT=587
-- SMTP_USER=noreply@yourdomain.com
-- SMTP_PASSWORD=your_password
+SMTP_HOST=zervia.ng
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=info@zervia.ng
+SMTP_PASSWORD=Marigold2020$
 
 8. Benefits of This Approach
 •  Seamless integration with your existing notification system
