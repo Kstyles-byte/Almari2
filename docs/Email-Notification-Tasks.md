@@ -2,28 +2,28 @@
 
 ## Prerequisites & Information Required
 
-### [ ] 1. Environment Information Collection
+### [x] 1. Environment Information Collection
 - [x] SMTP Server Details (from cPanel):
   - Host: `zervia.ng`
   - Port: `465` (SSL)
   - Username: `info@zervia.ng`
 - Password: `Marigold2020$` 
-- [ ] Confirm sender email address preference
-- [ ] Set up "noreply" email address if needed
-- [ ] Verify domain email forwarding/aliases
+- [x] Confirm sender email address preference
+- [x] Set up "noreply" email address if needed
+- [x] Verify domain email forwarding/aliases
 
-### [ ] 2. Package Installation
-- [ ] Install nodemailer: `npm install nodemailer`
-- [ ] Install nodemailer types: `npm install --save-dev @types/nodemailer`
-- [ ] Install email template library: `npm install react-email @react-email/components` (optional)
-- [ ] Install HTML to text converter: `npm install html-to-text`
+### [x] 2. Package Installation
+- [x] Install nodemailer: `npm install nodemailer`
+- [x] Install nodemailer types: `npm install --save-dev @types/nodemailer`
+- [x] Install email template library: `npm install react-email @react-email/components` (optional)
+- [x] Install HTML to text converter: `npm install html-to-text`
 - [ ] Install additional dependencies: `npm install mjml` (optional for advanced templates)
 
-### [ ] 3. Environment Setup
-- [ ] Add SMTP configuration to `.env` file
-- [ ] Add email-related environment variables
-- [ ] Update `.env.production` for deployment
-- [ ] Verify environment variable security
+### [x] 3. Environment Setup
+- [x] Add SMTP configuration to `.env` file
+- [x] Add email-related environment variables
+- [x] Update `.env.production` for deployment
+- [x] Verify environment variable security
 
 ## Core Implementation Tasks
 

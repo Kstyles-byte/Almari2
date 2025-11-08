@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>New Order Notification</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 20px auto; background: #ffffff; padding: 20px; border-radius: 8px; }
+        .header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee; }
+        .header h1 { color: #d9534f; }
+        .content { padding: 20px 0; }
+        .content p { line-height: 1.6; color: #555; }
+        .order-details { margin-top: 20px; }
+        .order-table { width: 100%; border-collapse: collapse; }
+        .order-table th, .order-table td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+        .button { display: block; width: 220px; margin: 20px auto; padding: 15px; background-color: #5cb85c; color: #ffffff; text-align: center; text-decoration: none; border-radius: 5px; }
+        .footer { text-align: center; padding-top: 20px; font-size: 12px; color: #999; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>You Have a New Order!</h1>
+        </div>
+        <div class="content">
+            <p>Hi [Vendor Name],</p>
+            <p>An order has been placed for one of your products. Please review the details below and prepare the item for shipment.</p>
+
+            <div class="order-details">
+                <h3>Order #12345</h3>
+                <table class="order-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>SKU</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Handcrafted Wooden Bowl</td>
+                            <td>1</td>
+                            <td>HWB-001</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p><strong>Shipping Address:</strong><br>
+                    [Customer Name]<br>
+                    [Street Address]<br>
+                    [City, State, Zip Code]
+                </p>
+            </div>
+
+            <a href="https://zervia.ng/vendor/orders/12345" class="button">View Order in Your Dashboard</a>
+        </div>
+        <div class="footer">
+            <p>&copy; 2025 Zervia. All rights reserved.</p>
+            <p>This is an automated notification.</p>
+        </div>
+    </div>
+</body>
+</html>
